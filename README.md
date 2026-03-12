@@ -54,6 +54,18 @@ Flow is a minimal teleprompter app for Windows that stays out of the way while y
 - Groq API
 - Model currently used: `llama-3.3-70b-versatile`
 
+## Get a Free Groq API Key
+
+1. Go to [console.groq.com](https://console.groq.com/)
+2. Sign up or log in
+3. Open the API keys page at [console.groq.com/keys](https://console.groq.com/keys)
+4. Create a new API key
+5. Copy the key
+6. Open the Flow text editor window
+7. Paste the key into the `API key` field under the Groq section
+
+Your key is stored locally on your device for use inside the app.
+
 ## Features
 
 - Minimal always-on-top teleprompter UI

@@ -1,4 +1,8 @@
-# Flow
+<p align="center">
+	<img src="src-tauri/icons/128x128.png" width="128" height="128" alt="Flow logo" />
+</p>
+
+<h1 align="center">Flow</h1>
 
 Flow is a lightweight desktop teleprompter built with Tauri, vanilla JavaScript, HTML, and CSS. It is designed for fast script reading, quick text editing, simple window controls, tray behavior, and AI-assisted script generation.
 
@@ -78,7 +82,7 @@ Build output is typically created under:
 
 ## Notes
 
-- The app is currently Windows-focused.
+- The app is Windows-focused.
 - Tray and capture-protection behavior are especially tailored for Windows.
 - In debug mode, icon/resource embedding may be skipped if `RC.EXE` is unavailable.
 

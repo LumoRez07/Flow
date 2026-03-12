@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flow Teleprompter</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body data-page="teleprompter">
+    <main class="teleprompter-app">
+      <div class="teleprompter-toolbar">
+        <button class="icon-button" id="speedDownButton" title="Slower" aria-label="Slower">−</button>
+        <div class="speed-pill" id="speedLabel">120 wpm</div>
+        <button class="icon-button" id="speedUpButton" title="Faster" aria-label="Faster">+</button>
+        <button class="icon-button wide-button" id="generateButton" title="Generate prompt" aria-label="Generate prompt">AI</button>
+        <button class="icon-button" id="playButton" title="Play" aria-label="Play">▶</button>
+        <button class="icon-button" id="inputButton" title="Open text page" aria-label="Open text page">✎</button>
+        <button class="icon-button" id="settingsButton" title="Open settings" aria-label="Open settings">⚙</button>
+        <button class="icon-button" id="closeAppButton" title="Close app" aria-label="Close app">✕</button>
+      </div>
+
+      <button class="floating-stop hidden" id="floatingStopButton" title="Stop and show controls" aria-label="Stop and show controls">■</button>
+
+      <div class="teleprompter-viewport" id="promptViewport">
+        <div class="teleprompter-copy" id="promptText"></div>
+      </div>
+
+      <div class="teleprompter-footer">
+        <div class="footer-meta" id="footerMeta">
+          <span id="progressLabel">Word 0 / 0</span>
+          <span id="statusLabel">Ready</span>
+        </div>
+        <button class="collapse-toggle" id="collapseButton" title="Collapse teleprompter" aria-label="Collapse teleprompter">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M6 9.5 12 15.5 18 9.5" />
+          </svg>
+        </button>
+      </div>
+    </main>
+  </body>
+</html>

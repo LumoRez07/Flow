@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flow · Settings</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="/settings.js" defer></script>
+  </head>
+  <body data-page="settings">
+    <main class="page-shell settings-shell">
+      <section class="panel-card">
+        <div class="page-header">
+          <div>
+            <p class="page-kicker">Settings</p>
+            <h1>Window controls</h1>
+          </div>
+          <div class="page-actions">
+            <button class="mini-link" id="openTextButton" type="button">Text</button>
+            <button class="mini-link" id="closeWindowButton" type="button">Close</button>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+          <label>
+            <span>X</span>
+            <div class="number-stepper">
+              <button class="step-button" type="button" data-target="xInput" data-step="-1" aria-label="Decrease X">−</button>
+              <input id="xInput" class="page-input" type="number" step="1" />
+              <button class="step-button" type="button" data-target="xInput" data-step="1" aria-label="Increase X">+</button>
+            </div>
+          </label>
+          <label>
+            <span>Y</span>
+            <div class="number-stepper">
+              <button class="step-button" type="button" data-target="yInput" data-step="-1" aria-label="Decrease Y">−</button>
+              <input id="yInput" class="page-input" type="number" step="1" />
+              <button class="step-button" type="button" data-target="yInput" data-step="1" aria-label="Increase Y">+</button>
+            </div>
+          </label>
+          <label>
+            <span>Width</span>
+            <div class="number-stepper">
+              <button class="step-button" type="button" data-target="widthInput" data-step="-10" aria-label="Decrease width">−</button>
+              <input id="widthInput" class="page-input" type="number" min="450" step="10" />
+              <button class="step-button" type="button" data-target="widthInput" data-step="10" aria-label="Increase width">+</button>
+            </div>
+          </label>
+          <label>
+            <span>Height</span>
+            <div class="number-stepper">
+              <button class="step-button" type="button" data-target="heightInput" data-step="-10" aria-label="Decrease height">−</button>
+              <input id="heightInput" class="page-input" type="number" min="230" step="10" />
+              <button class="step-button" type="button" data-target="heightInput" data-step="10" aria-label="Increase height">+</button>
+            </div>
+          </label>
+        </div>
+
+        <label class="field-label" for="presetSelect">Window location</label>
+        <select id="presetSelect" class="page-input">
+          <option value="top-center">Top center</option>
+          <option value="center">Center</option>
+          <option value="custom">Custom x / y</option>
+        </select>
+
+        <div class="page-actions stack-actions">
+          <button class="primary-action" id="applyButton" type="button">Apply</button>
+          <button class="secondary-action" id="refreshButton" type="button">Read current window</button>
+        </div>
+
+        <div class="helper-text" id="windowStatus">Adjust the main teleprompter window here.</div>
+      </section>
+    </main>
+  </body>
+</html>

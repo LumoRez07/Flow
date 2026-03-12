@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flow · Text</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="/input.js" defer></script>
+  </head>
+  <body data-page="input">
+    <main class="page-shell settings-shell">
+      <section class="panel-card wide-card">
+        <div class="page-header">
+          <div>
+            <p class="page-kicker">New text</p>
+            <h1>Script editor</h1>
+          </div>
+          <div class="page-actions">
+            <button class="mini-link" id="openSettingsButton" type="button">Settings</button>
+            <button class="mini-link" id="closeWindowButton" type="button">Close</button>
+          </div>
+        </div>
+
+        <label class="field-label" for="scriptInput">Teleprompter text</label>
+        <textarea id="scriptInput" class="page-textarea" placeholder="Paste or write your script here..."></textarea>
+
+        <div class="input-meta" id="scriptMeta">0 words</div>
+      </section>
+
+      <section class="panel-card groq-card">
+        <div class="page-header compact-header">
+          <div>
+            <p class="page-kicker">Groq</p>
+            <h2>Draft helper</h2>
+          </div>
+        </div>
+
+        <label class="field-label" for="groqKeyInput">API key</label>
+        <input id="groqKeyInput" class="page-input" type="password" placeholder="Paste your Groq API key" />
+
+        <label class="field-label" for="groqPromptInput">Instruction</label>
+        <textarea id="groqPromptInput" class="page-textarea small-textarea" placeholder="Example: Rewrite this to sound more natural and easier to read on camera."></textarea>
+
+        <div class="page-actions stack-actions">
+          <button class="primary-action" id="saveScriptButton" type="button">Save text</button>
+          <button class="secondary-action" id="groqButton" type="button">Use Groq</button>
+        </div>
+
+        <div class="helper-text" id="groqStatus">Groq is optional. Your key stays in local storage on this device.</div>
+      </section>
+    </main>
+  </body>
+</html>

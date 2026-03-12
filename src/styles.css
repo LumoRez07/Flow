@@ -94,6 +94,10 @@ a:active {
   padding: 8px;
 }
 
+.teleprompter-toolbar {
+  justify-content: center;
+}
+
 .teleprompter-footer {
   position: relative;
   justify-content: space-between;

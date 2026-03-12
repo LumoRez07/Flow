@@ -10,6 +10,28 @@ Flow is a lightweight desktop teleprompter built with Tauri, vanilla JavaScript,
 
 Flow is a minimal teleprompter app for Windows that stays out of the way while you read. It includes a main teleprompter window, a text editor window, settings, an about page, system tray controls, and Groq-powered prompt generation for quickly drafting or rewriting scripts.
 
+## Screenshots
+
+<p align="center">
+	<img src="assets/screenshot%20main.png" alt="Flow main teleprompter" width="900" />
+</p>
+
+<p align="center"><strong>Main teleprompter</strong></p>
+
+<p align="center">
+	<img src="assets/screenshot%20editor.png" alt="Flow text editor" width="48%" />
+	<img src="assets/screenshot%20settings.png" alt="Flow settings" width="48%" />
+</p>
+
+<p align="center"><strong>Text editor</strong> &nbsp;•&nbsp; <strong>Settings</strong></p>
+
+<p align="center">
+	<img src="assets/screenshot%20minimized.png" alt="Flow minimized bar" width="48%" />
+	<img src="assets/screenshot%20aboutme.png" alt="Flow about page" width="48%" />
+</p>
+
+<p align="center"><strong>Collapsed view</strong> &nbsp;•&nbsp; <strong>About page</strong></p>
+
 ## Stack
 
 ### Frontend

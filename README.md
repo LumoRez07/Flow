@@ -20,10 +20,18 @@ Flow is a minimal teleprompter app for Windows that stays out of the way while y
 
 <p align="center">
 	<img src="assets/screenshot%20editor.png" alt="Flow text editor" width="48%" />
-	<img src="assets/screenshot%20settings.png" alt="Flow settings" width="48%" />
+	<img src="assets/settings.png" alt="Flow settings" width="48%" />
 </p>
 
 <p align="center"><strong>Text editor</strong> &nbsp;•&nbsp; <strong>Settings</strong></p>
+
+<p align="center">
+	<img src="assets/screenshot%20dark.png" alt="Flow dark theme" width="31%" />
+	<img src="assets/screenshot%20bright.png" alt="Flow bright theme" width="31%" />
+	<img src="assets/screenshot%20yellow%20green.png" alt="Flow yellow-green theme" width="31%" />
+</p>
+
+<p align="center"><strong>Dark theme</strong> &nbsp;•&nbsp; <strong>Bright theme</strong> &nbsp;•&nbsp; <strong>Yellow-green theme</strong></p>
 
 <p align="center">
 	<img src="assets/screenshot%20minimized.png" alt="Flow minimized bar" width="48%" />
@@ -69,14 +77,33 @@ Your key is stored locally on your device for use inside the app.
 ## Features
 
 - Minimal always-on-top teleprompter UI
-- Word-by-word highlight playback
-- Speed controls
+- Multiple teleprompter playback styles:
+	- Highlight mode
+	- Normal scroll mode
+	- Line-by-line highlight mode
+	- Arrow mode
+- Speed controls with compact responsive editing
+- Pause, continue, stop-in-place, and replay controls
+- Click-to-jump playback in highlight and line modes
 - Separate text editor window
 - Separate settings window
 - Separate about window
+- Groq-powered script generation and rewriting
+- Reddit-style text formatting support for:
+	- Bold
+	- Italic
+	- Underline
+	- Yellow, blue, and red highlights
+- Live settings updates
+- Persistent saved settings and text across relaunches
+- Themes and appearance customization
+- Font customization, including Arabic, Turkish, and German-friendly fonts
+- Text size, text transparency, and app transparency controls
+- Automatic RTL/LTR text direction handling
+- App localization for English, Turkish, Arabic, and German
+- Custom language picker with flag icons
 - Tray menu with show/hide/settings/text editor/about/close
 - Hide to tray behavior
-- Groq-powered script generation
 - Transparent borderless windows
 - Hidden from screen capture on Windows
 - Hidden from taskbar

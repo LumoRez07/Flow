@@ -4,7 +4,6 @@
 
 <h1 align="center">Flow</h1>
 
-Flow is a lightweight desktop teleprompter built with Tauri, vanilla JavaScript, HTML, and CSS. It is designed for fast script reading, quick text editing, simple window controls, tray behavior, and AI-assisted script generation.
 
 ## Description
 

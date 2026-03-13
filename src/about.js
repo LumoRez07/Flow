@@ -1,7 +1,17 @@
+import { applyAppearanceToDocument, applyTranslationsToDocument, loadState } from "./shared.js";
+
 const invoke = window.__TAURI__?.core?.invoke;
 const openUrl = window.__TAURI__?.opener?.openUrl;
 
+function syncTheme() {
+  const state = loadState();
+  applyAppearanceToDocument(state.appearance);
+  applyTranslationsToDocument(state.language);
+}
+
 window.addEventListener("DOMContentLoaded", () => {
+  syncTheme();
+
   document.querySelector("#closeWindowButton")?.addEventListener("click", () => {
     invoke?.("hide_aux_window", { kind: "about" }).catch(console.error);
   });
@@ -23,4 +33,8 @@ window.addEventListener("DOMContentLoaded", () => {
     event.preventDefault();
     openUrl?.(url.toString()).catch(console.error);
   });
+
+  window.addEventListener("focus", syncTheme);
+  window.addEventListener("storage", syncTheme);
+  window.addEventListener("flow-state-updated", syncTheme);
 });

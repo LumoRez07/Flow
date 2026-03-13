@@ -3,72 +3,183 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flow · Settings</title>
+    <title data-i18n="doc.settingsTitle">Flow · Settings</title>
     <link rel="stylesheet" href="styles.css" />
     <script type="module" src="/settings.js" defer></script>
   </head>
   <body data-page="settings">
     <main class="page-shell settings-shell">
-      <section class="panel-card">
+      <section class="panel-card settings-panel">
         <div class="page-header">
           <div>
-            <p class="page-kicker">Settings</p>
-            <h1>Window controls</h1>
+            <p class="page-kicker" data-i18n="settings.kicker">Settings</p>
+            <h1 data-i18n="settings.title">Live controls</h1>
           </div>
           <div class="page-actions">
-            <button class="mini-link" id="openTextButton" type="button">Text</button>
-            <button class="mini-link" id="closeWindowButton" type="button">Close</button>
+            <button class="mini-link" id="openTextButton" type="button" data-i18n="common.text">Text</button>
+            <button class="mini-link" id="closeWindowButton" type="button" data-i18n="common.close">Close</button>
           </div>
         </div>
 
-        <div class="settings-grid">
-          <label>
-            <span>X</span>
-            <div class="number-stepper">
-              <button class="step-button" type="button" data-target="xInput" data-step="-1" aria-label="Decrease X">−</button>
-              <input id="xInput" class="page-input" type="number" step="1" />
-              <button class="step-button" type="button" data-target="xInput" data-step="1" aria-label="Increase X">+</button>
+        <div class="settings-group">
+          <div>
+            <p class="page-kicker" data-i18n="settings.positioning">Positioning</p>
+            <h2 data-i18n="settings.windowPlacement">Window placement</h2>
+          </div>
+
+          <label class="field-label" for="presetSelect" data-i18n="settings.windowLocation">Window location</label>
+          <select id="presetSelect" class="page-input">
+            <option value="top-center" data-i18n="settings.topCenter">Top center</option>
+            <option value="center" data-i18n="settings.center">Center</option>
+            <option value="custom" data-i18n="settings.custom">Custom x / y</option>
+          </select>
+
+          <div class="group-grid">
+            <label class="slider-field">
+              <span class="slider-header">
+                <span data-i18n="settings.x">X</span>
+                <span class="slider-value" id="xValue">0 px</span>
+              </span>
+              <input id="xInput" class="slider-input" type="range" step="1" />
+            </label>
+
+            <label class="slider-field">
+              <span class="slider-header">
+                <span data-i18n="settings.y">Y</span>
+                <span class="slider-value" id="yValue">0 px</span>
+              </span>
+              <input id="yInput" class="slider-input" type="range" step="1" />
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div>
+            <p class="page-kicker" data-i18n="settings.appearance">Appearance</p>
+            <h2 data-i18n="settings.sizeAndPlayback">Size and playback style</h2>
+          </div>
+
+          <div class="group-grid">
+            <label class="slider-field">
+              <span class="slider-header">
+                <span data-i18n="settings.width">Width</span>
+                <span class="slider-value" id="widthValue">960 px</span>
+              </span>
+              <input id="widthInput" class="slider-input" type="range" min="400" step="10" />
+            </label>
+
+            <label class="slider-field">
+              <span class="slider-header">
+                <span data-i18n="settings.height">Height</span>
+                <span class="slider-value" id="heightValue">260 px</span>
+              </span>
+              <input id="heightInput" class="slider-input" type="range" min="200" step="10" />
+            </label>
+          </div>
+
+          <label class="field-label" for="modeSelect" data-i18n="settings.animationStyle">Animation style</label>
+          <select id="modeSelect" class="page-input">
+            <option value="highlight" data-i18n="settings.mode.highlight">Highlight mode</option>
+            <option value="scroll" data-i18n="settings.mode.scroll">Normal scroll mode</option>
+            <option value="line" data-i18n="settings.mode.line">Line by line highlight</option>
+            <option value="arrow" data-i18n="settings.mode.arrow">Arrow mode</option>
+          </select>
+
+          <label class="field-label" for="fontSelect" data-i18n="settings.font">Font</label>
+          <select id="fontSelect" class="page-input">
+            <option value="inter">Inter</option>
+            <option value="arabic-pro">Arabic Pro</option>
+            <option value="turkish-pro">Turkish Pro</option>
+            <option value="german-pro">German Pro</option>
+            <option value="system">System UI</option>
+            <option value="georgia">Georgia</option>
+            <option value="garamond">Garamond</option>
+            <option value="verdana">Verdana</option>
+            <option value="mono">Mono</option>
+          </select>
+
+          <label class="field-label" for="languageSelect" data-i18n="common.language">Language</label>
+          <div class="language-picker" id="languagePicker">
+            <select id="languageSelect" class="language-select-native" aria-hidden="true" tabindex="-1">
+              <option value="en" data-i18n="language.en">English</option>
+              <option value="tr" data-i18n="language.tr">Turkish</option>
+              <option value="ar" data-i18n="language.ar">Arabic</option>
+              <option value="de" data-i18n="language.de">German</option>
+            </select>
+            <button class="language-trigger" id="languageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+              <span class="language-flag" id="languageTriggerFlag" data-flag="en" aria-hidden="true"></span>
+              <span class="language-trigger-label" id="languageTriggerLabel">English</span>
+              <span class="language-trigger-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="language-menu hidden" id="languageMenu" role="listbox">
+              <button class="language-option" type="button" data-value="en" role="option">
+                <span class="language-flag" data-flag="en" aria-hidden="true"></span>
+                <span class="language-option-label" data-language-label="en">English</span>
+              </button>
+              <button class="language-option" type="button" data-value="tr" role="option">
+                <span class="language-flag" data-flag="tr" aria-hidden="true"></span>
+                <span class="language-option-label" data-language-label="tr">Turkish</span>
+              </button>
+              <button class="language-option" type="button" data-value="ar" role="option">
+                <span class="language-flag" data-flag="ar" aria-hidden="true"></span>
+                <span class="language-option-label" data-language-label="ar">Arabic</span>
+              </button>
+              <button class="language-option" type="button" data-value="de" role="option">
+                <span class="language-flag" data-flag="de" aria-hidden="true"></span>
+                <span class="language-option-label" data-language-label="de">German</span>
+              </button>
             </div>
+          </div>
+
+          <label class="slider-field">
+            <span class="slider-header">
+              <span data-i18n="settings.textSize">Text size</span>
+              <span class="slider-value" id="textSizeValue">100%</span>
+            </span>
+            <input id="textSizeInput" class="slider-input" type="range" min="60" max="180" step="5" />
           </label>
-          <label>
-            <span>Y</span>
-            <div class="number-stepper">
-              <button class="step-button" type="button" data-target="yInput" data-step="-1" aria-label="Decrease Y">−</button>
-              <input id="yInput" class="page-input" type="number" step="1" />
-              <button class="step-button" type="button" data-target="yInput" data-step="1" aria-label="Increase Y">+</button>
-            </div>
+
+          <label class="field-label" for="themeSelect" data-i18n="settings.theme">Theme</label>
+          <select id="themeSelect" class="page-input">
+            <option value="main" data-i18n="settings.theme.main">Main</option>
+            <option value="dark" data-i18n="settings.theme.dark">Dark</option>
+            <option value="bright" data-i18n="settings.theme.bright">Bright</option>
+            <option value="meadow" data-i18n="settings.theme.meadow">Yellow-green</option>
+          </select>
+
+          <label class="toggle-field" for="performanceModeInput">
+            <span>
+              <span class="field-label inline-label" data-i18n="settings.performance">Performance mode</span>
+              <span class="helper-text toggle-help" data-i18n="settings.performanceHelp">Disables UI animations and forces normal scrolling for smoother performance.</span>
+            </span>
+            <input id="performanceModeInput" class="toggle-input" type="checkbox" />
           </label>
-          <label>
-            <span>Width</span>
-            <div class="number-stepper">
-              <button class="step-button" type="button" data-target="widthInput" data-step="-10" aria-label="Decrease width">−</button>
-              <input id="widthInput" class="page-input" type="number" min="450" step="10" />
-              <button class="step-button" type="button" data-target="widthInput" data-step="10" aria-label="Increase width">+</button>
-            </div>
+
+          <div class="settings-grid appearance-grid">
+            <label>
+              <span data-i18n="settings.textColor">Text color</span>
+              <input id="textColorInput" class="page-input color-input" type="color" />
+            </label>
+          </div>
+
+          <label class="slider-field">
+            <span class="slider-header">
+              <span data-i18n="settings.textTransparency">Text transparency</span>
+              <span class="slider-value" id="textOpacityValue">88%</span>
+            </span>
+            <input id="textOpacityInput" class="slider-input" type="range" min="10" max="100" step="1" />
           </label>
-          <label>
-            <span>Height</span>
-            <div class="number-stepper">
-              <button class="step-button" type="button" data-target="heightInput" data-step="-10" aria-label="Decrease height">−</button>
-              <input id="heightInput" class="page-input" type="number" min="230" step="10" />
-              <button class="step-button" type="button" data-target="heightInput" data-step="10" aria-label="Increase height">+</button>
-            </div>
+
+          <label class="slider-field">
+            <span class="slider-header">
+              <span data-i18n="settings.appTransparency">App transparency</span>
+              <span class="slider-value" id="appOpacityValue">100%</span>
+            </span>
+            <input id="appOpacityInput" class="slider-input" type="range" min="15" max="100" step="1" />
           </label>
         </div>
 
-        <label class="field-label" for="presetSelect">Window location</label>
-        <select id="presetSelect" class="page-input">
-          <option value="top-center">Top center</option>
-          <option value="center">Center</option>
-          <option value="custom">Custom x / y</option>
-        </select>
-
-        <div class="page-actions stack-actions">
-          <button class="primary-action" id="applyButton" type="button">Apply</button>
-          <button class="secondary-action" id="refreshButton" type="button">Read current window</button>
-        </div>
-
-        <div class="helper-text" id="windowStatus">Adjust the main teleprompter window here.</div>
+        <div class="helper-text" id="windowStatus" data-i18n="settings.autoApply">Changes apply automatically as you move sliders or pick a setting.</div>
       </section>
     </main>
   </body>

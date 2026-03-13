@@ -4,24 +4,31 @@
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flow Teleprompter</title>
+    <title data-i18n="doc.teleprompterTitle">Flow Teleprompter</title>
     <script type="module" src="/main.js" defer></script>
   </head>
 
   <body data-page="teleprompter">
     <main class="teleprompter-app">
       <div class="teleprompter-toolbar">
-        <button class="icon-button" id="speedDownButton" title="Slower" aria-label="Slower">−</button>
-        <div class="speed-pill" id="speedLabel">120 wpm</div>
-        <button class="icon-button" id="speedUpButton" title="Faster" aria-label="Faster">+</button>
-        <button class="icon-button wide-button" id="generateButton" title="Generate prompt" aria-label="Generate prompt">AI</button>
-        <button class="icon-button" id="playButton" title="Play" aria-label="Play">▶</button>
-        <button class="icon-button" id="inputButton" title="Open text page" aria-label="Open text page">✎</button>
-        <button class="icon-button" id="settingsButton" title="Open settings" aria-label="Open settings">⚙</button>
-        <button class="icon-button" id="closeAppButton" title="Close app" aria-label="Close app">✕</button>
+        <button class="icon-button" id="speedDownButton" data-i18n-title="common.slower" data-i18n-aria-label="common.slower" title="Slower" aria-label="Slower">−</button>
+        <label class="speed-pill speed-pill-label" for="speedLabel">
+          <input class="speed-pill-input" id="speedLabel" type="number" min="60" max="260" step="10" value="120" readonly data-i18n-aria-label="common.speedAria" aria-label="Speed in words per minute" />
+          <span class="speed-pill-unit" data-i18n="common.wpm">wpm</span>
+        </label>
+        <button class="icon-button" id="speedUpButton" data-i18n-title="common.faster" data-i18n-aria-label="common.faster" title="Faster" aria-label="Faster">+</button>
+        <button class="icon-button wide-button" id="generateButton" data-i18n-title="common.generatePrompt" data-i18n-aria-label="common.generatePrompt" title="Generate prompt" aria-label="Generate prompt" data-i18n="common.ai">AI</button>
+        <button class="icon-button" id="playButton" data-i18n-title="common.play" data-i18n-aria-label="common.play" title="Play" aria-label="Play">▶</button>
+        <button class="icon-button" id="inputButton" data-i18n-title="common.openTextPage" data-i18n-aria-label="common.openTextPage" title="Open text page" aria-label="Open text page">✎</button>
+        <button class="icon-button" id="settingsButton" data-i18n-title="common.openSettings" data-i18n-aria-label="common.openSettings" title="Open settings" aria-label="Open settings">⚙</button>
+        <button class="icon-button" id="closeAppButton" data-i18n-title="common.closeApp" data-i18n-aria-label="common.closeApp" title="Close app" aria-label="Close app">✕</button>
       </div>
 
-      <button class="floating-stop hidden" id="floatingStopButton" title="Stop and show controls" aria-label="Stop and show controls">■</button>
+      <div class="floating-controls hidden" id="floatingControls">
+        <button class="floating-action hidden" id="floatingReplayButton" data-i18n-title="common.replayStart" data-i18n-aria-label="common.replayStart" title="Replay from start" aria-label="Replay from start">↺</button>
+        <button class="floating-action floating-pause" id="floatingPauseButton" data-i18n-title="common.pause" data-i18n-aria-label="common.pause" title="Pause" aria-label="Pause">⏸</button>
+        <button class="floating-action floating-stop" id="floatingStopButton" data-i18n-title="common.stopKeep" data-i18n-aria-label="common.stopKeep" title="Stop and keep position" aria-label="Stop and keep position">■</button>
+      </div>
 
       <div class="teleprompter-viewport" id="promptViewport">
         <div class="teleprompter-copy" id="promptText"></div>
@@ -30,9 +37,9 @@
       <div class="teleprompter-footer">
         <div class="footer-meta" id="footerMeta">
           <span id="progressLabel">Word 0 / 0</span>
-          <span id="statusLabel">Ready</span>
+          <span id="statusLabel" data-i18n="tele.status.ready">Ready</span>
         </div>
-        <button class="collapse-toggle" id="collapseButton" title="Collapse teleprompter" aria-label="Collapse teleprompter">
+        <button class="collapse-toggle" id="collapseButton" data-i18n-title="common.collapse" data-i18n-aria-label="common.collapse" title="Collapse teleprompter" aria-label="Collapse teleprompter">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
             <path d="M6 9.5 12 15.5 18 9.5" />
           </svg>

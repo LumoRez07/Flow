@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flow · Text</title>
+    <title data-i18n="doc.textTitle">Flow · Text</title>
     <link rel="stylesheet" href="styles.css" />
     <script type="module" src="/input.js" defer></script>
   </head>
@@ -12,41 +12,50 @@
       <section class="panel-card wide-card">
         <div class="page-header">
           <div>
-            <p class="page-kicker">New text</p>
-            <h1>Script editor</h1>
+            <p class="page-kicker" data-i18n="input.kicker">New text</p>
+            <h1 data-i18n="input.title">Script editor</h1>
           </div>
           <div class="page-actions">
-            <button class="mini-link" id="openSettingsButton" type="button">Settings</button>
-            <button class="mini-link" id="closeWindowButton" type="button">Close</button>
+            <button class="mini-link" id="openSettingsButton" type="button" data-i18n="common.settings">Settings</button>
+            <button class="mini-link" id="closeWindowButton" type="button" data-i18n="common.close">Close</button>
           </div>
         </div>
 
-        <label class="field-label" for="scriptInput">Teleprompter text</label>
-        <textarea id="scriptInput" class="page-textarea" placeholder="Paste or write your script here..."></textarea>
+        <label class="field-label" for="scriptInput" data-i18n="input.teleprompterText">Teleprompter text</label>
+        <div class="editor-toolbar" data-i18n-aria-label="input.toolbar" aria-label="Formatting toolbar">
+          <button class="toolbar-button" type="button" data-wrap-before="**" data-wrap-after="**" data-placeholder="bold text"><strong>B</strong></button>
+          <button class="toolbar-button" type="button" data-wrap-before="*" data-wrap-after="*" data-placeholder="italic text"><em>I</em></button>
+          <button class="toolbar-button" type="button" data-wrap-before="[u]" data-wrap-after="[/u]" data-placeholder="underlined text"><span class="toolbar-underline">U</span></button>
+          <button class="toolbar-button highlight-yellow" type="button" data-wrap-before="[yellow]" data-wrap-after="[/yellow]" data-placeholder="yellow highlight">Y</button>
+          <button class="toolbar-button highlight-blue" type="button" data-wrap-before="[blue]" data-wrap-after="[/blue]" data-placeholder="blue highlight">B</button>
+          <button class="toolbar-button highlight-red" type="button" data-wrap-before="[red]" data-wrap-after="[/red]" data-placeholder="red highlight">R</button>
+        </div>
+        <textarea id="scriptInput" class="page-textarea" data-i18n-placeholder="input.scriptPlaceholder" placeholder="Paste or write your script here..."></textarea>
 
         <div class="input-meta" id="scriptMeta">0 words</div>
+        <div class="helper-text editor-help" data-i18n-html="input.editorHelp">Formatting works like Reddit-style markdown for <strong>**bold**</strong> and <em>*italic*</em>, plus tags for <span class="toolbar-underline">[u]underline[/u]</span>, <mark class="mark-yellow">[yellow]highlight[/yellow]</mark>, <mark class="mark-blue">[blue]highlight[/blue]</mark>, and <mark class="mark-red">[red]highlight[/red]</mark>.</div>
       </section>
 
       <section class="panel-card groq-card">
         <div class="page-header compact-header">
           <div>
-            <p class="page-kicker">Groq</p>
-            <h2>Draft helper</h2>
+            <p class="page-kicker" data-i18n="input.groq">Groq</p>
+            <h2 data-i18n="input.draftHelper">Draft helper</h2>
           </div>
         </div>
 
-        <label class="field-label" for="groqKeyInput">API key</label>
-        <input id="groqKeyInput" class="page-input" type="password" placeholder="Paste your Groq API key" />
+        <label class="field-label" for="groqKeyInput" data-i18n="input.apiKey">API key</label>
+        <input id="groqKeyInput" class="page-input" type="password" data-i18n-placeholder="input.apiKeyPlaceholder" placeholder="Paste your Groq API key" />
 
-        <label class="field-label" for="groqPromptInput">Instruction</label>
-        <textarea id="groqPromptInput" class="page-textarea small-textarea" placeholder="Example: Rewrite this to sound more natural and easier to read on camera."></textarea>
+        <label class="field-label" for="groqPromptInput" data-i18n="input.instruction">Instruction</label>
+        <textarea id="groqPromptInput" class="page-textarea small-textarea" data-i18n-placeholder="input.instructionPlaceholder" placeholder="Example: Rewrite this to sound more natural and easier to read on camera."></textarea>
 
         <div class="page-actions stack-actions">
-          <button class="primary-action" id="saveScriptButton" type="button">Save text</button>
-          <button class="secondary-action" id="groqButton" type="button">Use Groq</button>
+          <button class="primary-action" id="saveScriptButton" type="button" data-i18n="input.saveText">Save text</button>
+          <button class="secondary-action" id="groqButton" type="button" data-i18n="input.useGroq">Use Groq</button>
         </div>
 
-        <div class="helper-text" id="groqStatus">Groq is optional. Your key stays in local storage on this device.</div>
+        <div class="helper-text" id="groqStatus" data-i18n="input.groqOptional">Groq is optional. Your key stays in local storage on this device.</div>
       </section>
     </main>
   </body>

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flow · About</title>
+    <title data-i18n="doc.aboutTitle">Flow · About</title>
     <link rel="stylesheet" href="styles.css" />
     <script type="module" src="/about.js" defer></script>
   </head>
@@ -12,23 +12,23 @@
       <section class="panel-card wide-card">
         <div class="page-header">
           <div>
-            <p class="page-kicker">About</p>
-            <h1>About this project</h1>
+            <p class="page-kicker" data-i18n="about.kicker">About</p>
+            <h1 data-i18n="about.title">About this project</h1>
           </div>
           <div class="page-actions">
-            <button class="mini-link" id="openSettingsButton" type="button">Settings</button>
-            <button class="mini-link" id="closeWindowButton" type="button">Close</button>
+            <button class="mini-link" id="openSettingsButton" type="button" data-i18n="common.settings">Settings</button>
+            <button class="mini-link" id="closeWindowButton" type="button" data-i18n="common.close">Close</button>
           </div>
         </div>
 
         <div class="about-copy">
-          <p>
+          <p data-i18n-html="about.p1">
             Flow is a teleprompter app built with web technologies and Tauri. It's designed to be simple, lightweight, and customizable.
           </p>
-          <p>
+          <p data-i18n-html="about.p2">
             This project is open source and available on my <a href="https://github.com/LumoRez07">GitHub account</a>. if you have any questions, suggestions, or want to contribute, feel free to reach out or open an issue.
           </p>
-          <p>
+          <p data-i18n-html="about.p3">
             This project was made by <a href="https://lumorez.vercel.app/">LumoRez</a> with ❤️ in 2026.
           </p>
         </div>

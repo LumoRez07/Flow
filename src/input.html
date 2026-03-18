@@ -9,7 +9,7 @@
   </head>
   <body data-page="input">
     <main class="page-shell settings-shell">
-      <section class="panel-card wide-card">
+      <section class="panel-card wide-card" id="scriptEditorCard">
         <div class="page-header">
           <div>
             <p class="page-kicker" data-i18n="input.kicker">New text</p>
@@ -29,6 +29,11 @@
           <button class="toolbar-button highlight-yellow" type="button" data-wrap-before="[yellow]" data-wrap-after="[/yellow]" data-placeholder="yellow highlight">Y</button>
           <button class="toolbar-button highlight-blue" type="button" data-wrap-before="[blue]" data-wrap-after="[/blue]" data-placeholder="blue highlight">B</button>
           <button class="toolbar-button highlight-red" type="button" data-wrap-before="[red]" data-wrap-after="[/red]" data-placeholder="red highlight">R</button>
+        </div>
+        <div class="editor-import-row">
+          <button class="secondary-action compact-action" id="uploadFileButton" type="button" data-i18n="input.importButton">Import file</button>
+          <input id="uploadFileInput" type="file" class="hidden-file-input" accept=".txt,.text,.md,.markdown,.csv,.tsv,.json,.xml,.html,.htm,.docx,.pdf,text/plain,text/markdown,text/csv,application/json,application/xml,text/xml,text/html,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+          <span class="helper-text import-status" id="importStatus" data-i18n="input.importHelp">Drop a TXT, DOCX, or PDF file into the editor, or choose one from your device.</span>
         </div>
         <textarea id="scriptInput" class="page-textarea" data-i18n-placeholder="input.scriptPlaceholder" placeholder="Paste or write your script here..."></textarea>
 

@@ -3,6 +3,9 @@
 :root {
   font-family: Inter, "Segoe UI", Arial, sans-serif;
   --flow-app-opacity: 1;
+  --remote-rail-width: 94px;
+  --remote-rail-gap: 12px;
+  --remote-card-bg: #0f172a;
   --teleprompter-font-size: 56px;
   --teleprompter-font-family: Inter, "Segoe UI", Arial, sans-serif;
   --teleprompter-text-rgb: 248 251 255;
@@ -46,6 +49,7 @@
 }
 
 body[data-theme="dark"] {
+  --remote-card-bg: #020617;
   --theme-text: #edf2ff;
   --theme-link: #edf2ff;
   --theme-muted: rgba(203, 213, 225, 0.82);
@@ -77,6 +81,7 @@ body[data-theme="dark"] {
 }
 
 body[data-theme="bright"] {
+  --remote-card-bg: #f8fbff;
   --theme-text: #10203d;
   --theme-link: #10203d;
   --theme-muted: rgba(30, 41, 59, 0.8);
@@ -110,6 +115,7 @@ body[data-theme="bright"] {
 }
 
 body[data-theme="meadow"] {
+  --remote-card-bg: #172a16;
   --theme-text: #f7ffea;
   --theme-link: #f7ffea;
   --theme-muted: rgba(235, 255, 216, 0.84);
@@ -155,7 +161,6 @@ body {
   padding: 0;
   overflow: hidden;
   background: transparent;
-  border-radius: 24px;
 }
 
 body {
@@ -173,6 +178,71 @@ body[data-performance-mode="true"] *::before,
 body[data-performance-mode="true"] *::after {
   animation: none !important;
   transition: none !important;
+}
+
+body[data-performance-mode="true"] .remote-card {
+  animation: remoteCardFadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both !important;
+  transition:
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms ease,
+    background 220ms ease,
+    filter 220ms ease !important;
+}
+
+body[data-performance-mode="true"] .remote-card::before {
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+}
+
+body[data-performance-mode="true"] .remote-card::after {
+  transition: opacity 220ms ease, transform 220ms ease !important;
+}
+
+body[data-performance-mode="true"] .remote-card-preview {
+  transition:
+    gap 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 220ms ease,
+    color 220ms ease !important;
+}
+
+body[data-performance-mode="true"] .remote-card-badge {
+  transition: background 220ms ease, color 220ms ease, transform 220ms ease !important;
+}
+
+body[data-performance-mode="true"] .remote-card-body {
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms ease !important;
+}
+
+body[data-performance-mode="true"] .remote-card-excerpt,
+body[data-performance-mode="true"] .remote-card-hint {
+  transition: color 220ms ease, opacity 240ms ease, transform 240ms ease !important;
+}
+
+body[data-performance-mode="true"] .remote-reject {
+  transition: opacity 240ms ease, background 220ms ease, transform 240ms ease !important;
+}
+
+body[data-performance-mode="true"] .remote-card.is-accepting {
+  animation: none !important;
+}
+
+body[data-performance-mode="true"] .remote-card.is-accepted {
+  animation: none !important;
+}
+
+body[data-performance-mode="true"] .remote-card.is-denying {
+  animation: none !important;
+}
+
+body[data-performance-mode="true"] .remote-card.is-accepting::after {
+  animation: remoteCardAcceptSweep 1400ms linear infinite !important;
 }
 
 *,
@@ -207,9 +277,12 @@ a:active {
   padding: 12px;
   border-radius: 24px;
   background: var(--theme-shell-bg);
-  opacity: var(--flow-app-opacity);
   overflow: hidden;
   isolation: isolate;
+}
+
+.teleprompter-app {
+  opacity: var(--flow-app-opacity);
   transition: opacity 180ms ease;
 }
 
@@ -223,6 +296,17 @@ a:active {
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 8px;
+}
+
+body[data-page="teleprompter"] .teleprompter-app {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: var(--remote-rail-width);
+  bottom: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
 }
 
 .teleprompter-toolbar,
@@ -324,7 +408,7 @@ a:active {
 }
 
 .floating-controls {
-  position: fixed;
+  position: absolute;
   top: 14px;
   right: 14px;
   z-index: 20;
@@ -332,11 +416,390 @@ a:active {
   gap: 8px;
 }
 
+.remote-inbox {
+  position: fixed;
+  top: 8px;
+  right: 12px;
+  bottom: 8px;
+  width: calc(var(--remote-rail-width) - 16px);
+  z-index: 26;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.remote-card {
+  pointer-events: auto;
+  position: relative;
+  isolation: isolate;
+  width: 68px;
+  min-height: 68px;
+  height: auto;
+  max-height: 68px;
+  max-width: min(320px, calc(100vw - 40px));
+  margin-left: 18px;
+  margin-right: 8px;
+  border: 1px solid rgba(96, 165, 250, 0.32);
+  border-radius: 22px;
+  background: var(--remote-card-bg);
+  overflow: hidden;
+  cursor: pointer;
+  transform-origin: top right;
+  transform: none;
+  opacity: 1;
+  animation: remoteCardFadeIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: transform, opacity, width, max-height;
+  transition:
+    width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 220ms ease,
+    background 220ms ease,
+    filter 220ms ease;
+}
+
+.remote-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.14), rgba(59, 130, 246, 0.04) 58%, transparent 100%);
+  opacity: 0;
+  transform: scale(0.985);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.remote-card::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(96, 165, 250, 0), rgba(96, 165, 250, 0.88), rgba(191, 219, 254, 0.95), rgba(96, 165, 250, 0));
+  opacity: 0;
+  transform: scaleX(0.25);
+  transform-origin: left center;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes remoteCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+    filter: saturate(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: saturate(1);
+  }
+}
+
+@keyframes remoteCardAcceptSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-18%) scaleX(0.24);
+  }
+
+  20% {
+    opacity: 0.95;
+  }
+
+  70% {
+    opacity: 0.78;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(18%) scaleX(1);
+  }
+}
+
+.remote-inbox-window.is-expanded .remote-card,
+.remote-card.is-expanded,
+.remote-card:focus-within {
+  width: min(320px, calc(100vw - 40px));
+  min-height: 68px;
+  max-height: 220px;
+  transform: translateY(-2px) scale(1.008);
+}
+
+.remote-inbox-window.is-expanded .remote-card::before,
+.remote-card.is-expanded::before,
+.remote-card:focus-within::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.remote-card.is-important {
+  border-color: rgba(248, 113, 113, 0.44);
+}
+
+.remote-card.is-accepting {
+  width: min(320px, calc(100vw - 40px));
+  background: rgba(15, 23, 42, 0.97);
+  border-color: rgba(96, 165, 250, 0.54);
+  filter: saturate(1.04);
+  min-height: 68px;
+  max-height: 220px;
+  transform: translateY(-2px) scale(1.008);
+}
+
+.remote-card.is-accepted {
+  width: min(320px, calc(100vw - 40px));
+  background: rgba(15, 23, 42, 0.96);
+  border-color: rgba(96, 165, 250, 0.22);
+  min-height: 68px;
+  max-height: 220px;
+  opacity: 0;
+  transform: translateY(-10px) scale(0.965);
+  filter: saturate(1.02);
+}
+
+.remote-card.is-denying {
+  width: min(320px, calc(100vw - 40px));
+  background: rgba(127, 29, 29, 0.16);
+  border-color: rgba(248, 113, 113, 0.34);
+  min-height: 68px;
+  max-height: 220px;
+  opacity: 0;
+  transform: translateX(10px) scale(0.965);
+  filter: saturate(0.94);
+}
+
+.remote-card.is-accepting::before {
+  opacity: 1;
+  transform: scale(1);
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.18), rgba(56, 189, 248, 0.08) 58%, transparent 100%);
+}
+
+.remote-card.is-accepting::after {
+  opacity: 1;
+  animation: remoteCardAcceptSweep 1400ms linear infinite;
+}
+
+.remote-card.is-accepted::before,
+.remote-card.is-denying::before,
+.remote-card.is-accepted::after,
+.remote-card.is-denying::after {
+  opacity: 0;
+}
+
+.remote-card-preview {
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: 48px;
+  grid-template-rows: 48px;
+  gap: 0;
+  align-items: center;
+  justify-content: center;
+  justify-items: center;
+  align-content: center;
+  padding: 10px;
+  transition:
+    gap 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 220ms ease,
+    color 220ms ease;
+}
+
+.remote-inbox-window.is-expanded .remote-card .remote-card-preview,
+.remote-card.is-expanded .remote-card-preview,
+.remote-card:focus-within .remote-card-preview,
+.remote-card.is-accepting .remote-card-preview,
+.remote-card.is-accepted .remote-card-preview {
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  grid-template-rows: 1fr;
+  gap: 12px;
+  align-items: start;
+  justify-content: stretch;
+  justify-items: stretch;
+  align-content: start;
+  padding: 10px 12px 12px 10px;
+}
+
+.remote-card-badge {
+  width: 48px;
+  height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  background: rgba(96, 165, 250, 0.18);
+  color: #dbeafe;
+  font-size: 1.25rem;
+  font-weight: 800;
+  justify-self: center;
+  transition: background 220ms ease, color 220ms ease, transform 220ms ease;
+}
+
+.remote-inbox-window.is-expanded .remote-card .remote-card-badge,
+.remote-card.is-expanded .remote-card-badge,
+.remote-card:focus-within .remote-card-badge,
+.remote-card.is-accepting .remote-card-badge,
+.remote-card.is-accepted .remote-card-badge {
+  justify-self: start;
+}
+
+.remote-card.is-important .remote-card-badge {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
+}
+
+.remote-card-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+  opacity: 0;
+  max-width: 100%;
+  max-height: 0;
+  overflow: hidden;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition:
+    opacity 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    max-height 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms ease;
+}
+
+.remote-inbox-window.is-expanded .remote-card .remote-card-body,
+.remote-card.is-expanded .remote-card-body,
+.remote-card:focus-within .remote-card-body,
+.remote-card.is-accepting .remote-card-body,
+.remote-card.is-accepted .remote-card-body {
+  opacity: 1;
+  max-height: 148px;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.remote-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.remote-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.88rem;
+}
+
+.remote-importance {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--theme-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.remote-importance.is-important {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
+}
+
+.remote-card-excerpt {
+  margin: 8px 0 0;
+  color: var(--theme-subtle);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: color 220ms ease, opacity 240ms ease, transform 240ms ease;
+}
+
+.remote-card-hint {
+  display: inline-block;
+  margin-top: auto;
+  padding-top: 8px;
+  color: var(--theme-kicker);
+  font-size: 0.68rem;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 240ms ease, transform 240ms ease, color 220ms ease;
+}
+
+.remote-inbox-window.is-expanded .remote-card .remote-card-excerpt,
+.remote-card.is-expanded .remote-card-excerpt,
+.remote-card:focus-within .remote-card-excerpt,
+.remote-card.is-accepting .remote-card-excerpt,
+.remote-card.is-accepted .remote-card-excerpt,
+.remote-inbox-window.is-expanded .remote-card .remote-card-hint,
+.remote-card.is-expanded .remote-card-hint,
+.remote-card:focus-within .remote-card-hint,
+.remote-card.is-accepting .remote-card-hint,
+.remote-card.is-accepted .remote-card-hint {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.remote-reject {
+  align-self: start;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  pointer-events: none;
+  transition: opacity 240ms ease, background 220ms ease, transform 240ms ease;
+}
+
+.remote-inbox-window.is-expanded .remote-card .remote-reject,
+.remote-card.is-expanded .remote-reject,
+.remote-card:focus-within .remote-reject {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.remote-reject:hover {
+  background: rgba(248, 113, 113, 0.26);
+}
+
+body.reading-mode .remote-inbox {
+  top: 8px;
+}
+
 .floating-action {
   border: 0;
   width: 42px;
   min-width: 42px;
   height: 42px;
+  min-height: 42px;
+  flex: 0 0 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   padding: 0;
   border-radius: 14px;
   background: var(--theme-panel-bg);
@@ -442,6 +905,12 @@ a:active {
   -ms-overflow-style: none;
 }
 
+.teleprompter-viewport:focus,
+.teleprompter-viewport:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .teleprompter-toolbar,
 .teleprompter-viewport,
 .teleprompter-footer {
@@ -502,6 +971,8 @@ body[data-page="input"] .wide-card::-webkit-scrollbar-thumb:hover {
   text-align: center;
   letter-spacing: 0.01em;
   color: rgb(var(--teleprompter-text-rgb) / 1);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 .teleprompter-copy[dir="rtl"] {
@@ -796,6 +1267,100 @@ body[data-page="settings"] .page-shell::-webkit-scrollbar-thumb:hover {
   border: 1px solid var(--theme-group-border);
 }
 
+.remote-session-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.remote-session-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--theme-input-bg);
+  border: 1px solid var(--theme-control-border);
+}
+
+.remote-session-label {
+  color: var(--theme-muted);
+  font-size: 0.82rem;
+}
+
+.remote-session-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.remote-link-row {
+  align-items: flex-start;
+}
+
+.remote-access-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.remote-session-value,
+.remote-session-link {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.remote-session-link {
+  color: var(--theme-link);
+  text-decoration: none;
+}
+
+.remote-session-link:hover {
+  text-decoration: underline;
+}
+
+.remote-access-box {
+  min-height: 92px;
+  resize: none;
+}
+
+.remote-access-row .copy-chip {
+  align-self: flex-start;
+}
+
+.copy-chip {
+  flex: 0 0 auto;
+  min-width: 84px;
+}
+
+.remote-status-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(52, 211, 153, 0.18);
+  color: #a7f3d0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.status-pill.is-offline {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fecaca;
+}
+
+.remote-status-text {
+  margin-top: 0;
+}
+
 .group-grid {
   display: grid;
   gap: 12px;
@@ -1012,6 +1577,35 @@ input[type="number"] {
   margin-bottom: 10px;
 }
 
+.editor-import-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.compact-action {
+  min-height: 40px;
+  padding-inline: 14px;
+}
+
+.hidden-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.import-status {
+  margin-top: 0;
+  flex: 1 1 260px;
+}
+
 .toolbar-button {
   min-width: 44px;
   height: 38px;
@@ -1060,6 +1654,12 @@ input[type="number"] {
   unicode-bidi: plaintext;
 }
 
+.page-textarea.is-dragover {
+  border-color: rgba(129, 140, 248, 0.68);
+  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.2);
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), rgba(2, 6, 23, 0.08)), var(--theme-input-bg);
+}
+
 .page-textarea[dir="rtl"] {
   direction: rtl;
   text-align: right;
@@ -1078,6 +1678,11 @@ body[data-page="input"] #scriptInput {
 body[data-page="input"] .wide-card .helper-text {
   display: block;
   margin-top: 8px;
+}
+
+body[data-page="input"] .wide-card.is-dragover {
+  border-color: rgba(129, 140, 248, 0.5);
+  box-shadow: 0 0 0 4px rgba(129, 140, 248, 0.16);
 }
 
 .editor-help {
@@ -1182,6 +1787,37 @@ body[data-page="input"] .wide-card .helper-text {
 
 .toggle-input:checked::before {
   transform: translateX(20px);
+}
+
+.shortcut-list {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--theme-input-bg);
+  border: 1px solid var(--theme-control-border);
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--theme-muted);
+}
+
+.shortcut-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--theme-control-border);
+  background: var(--theme-control-bg);
+  color: var(--theme-text);
+  font: inherit;
+  font-weight: 600;
 }
 
 .slider-header {
@@ -1324,6 +1960,28 @@ body[data-page="input"] .groq-card {
   .teleprompter-toolbar {
     gap: 6px;
     padding: 6px;
+  }
+
+  body[data-page="teleprompter"] .teleprompter-app {
+    right: 10px;
+    bottom: calc(10px + 86px);
+  }
+
+  .remote-inbox {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    top: auto;
+    width: auto;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .remote-card.is-expanded,
+  .remote-card:focus-within {
+    width: min(280px, calc(100vw - 20px));
   }
 
   .icon-button {

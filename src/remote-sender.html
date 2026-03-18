@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Flow Remote Sender</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        --bg: #07111f;
+        --panel: rgba(15, 23, 42, 0.88);
+        --panel-border: rgba(148, 163, 184, 0.18);
+        --text: #f8fbff;
+        --muted: rgba(226, 232, 240, 0.72);
+        --accent: #60a5fa;
+        --danger: #f87171;
+        --success: #34d399;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        color: var(--text);
+        -webkit-text-size-adjust: 100%;
+        background:
+          radial-gradient(circle at top right, rgba(96, 165, 250, 0.16), transparent 30%),
+          radial-gradient(circle at bottom left, rgba(52, 211, 153, 0.14), transparent 24%),
+          linear-gradient(180deg, #020617, var(--bg));
+      }
+
+      main {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: calc(20px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom));
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        padding: 24px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+        backdrop-filter: blur(18px);
+      }
+
+      h1, h2, p { margin: 0; }
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+      }
+      .kicker {
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.74rem;
+        color: #93c5fd;
+      }
+      .language-switcher {
+        min-width: 132px;
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .subtitle {
+        margin-top: 10px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .grid {
+        display: grid;
+        gap: 16px;
+        margin-top: 24px;
+      }
+
+      label {
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 0.94rem;
+      }
+
+      input, textarea, select, button {
+        font: inherit;
+      }
+
+      input, textarea, select {
+        width: 100%;
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 16px;
+        background: rgba(2, 6, 23, 0.82);
+        color: var(--text);
+        padding: 14px 16px;
+        min-height: 46px;
+        font-size: 16px;
+        outline: none;
+      }
+
+      textarea {
+        min-height: 180px;
+        resize: vertical;
+      }
+
+      input:focus, textarea:focus, select:focus {
+        border-color: rgba(96, 165, 250, 0.75);
+        box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.16);
+      }
+
+      .row {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .actions {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 8px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 16px;
+        padding: 13px 18px;
+        min-height: 46px;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+
+      .primary {
+        background: linear-gradient(135deg, #3b82f6, #2563eb);
+        color: white;
+        font-weight: 700;
+      }
+
+      .secondary {
+        background: rgba(148, 163, 184, 0.14);
+        color: var(--text);
+      }
+
+      .status {
+        margin-top: 18px;
+        min-height: 24px;
+        color: var(--muted);
+      }
+
+      .status.error { color: #fecaca; }
+      .status.success { color: #a7f3d0; }
+      .status.warn { color: #fde68a; }
+
+      .note {
+        margin-top: 22px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(15, 23, 42, 0.58);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .important-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: rgba(248, 113, 113, 0.14);
+        color: #fecaca;
+        font-size: 0.82rem;
+      }
+
+      .section-divider {
+        margin: 24px 0 0;
+        padding-top: 24px;
+        border-top: 1px solid rgba(148, 163, 184, 0.14);
+      }
+
+      .session-summary {
+        margin-top: 10px;
+        color: #bfdbfe;
+        font-size: 0.92rem;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (max-width: 640px) {
+        .topbar {
+          flex-direction: column;
+        }
+        .row { grid-template-columns: 1fr; }
+        .card { padding: 18px; }
+        .actions {
+          flex-direction: column;
+        }
+
+        .actions button {
+          width: 100%;
+        }
+
+        textarea {
+          min-height: 160px;
+        }
+      }
+    </style>
+    <script src="/remote.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <section class="card">
+        <div class="topbar">
+          <div>
+            <p class="kicker" id="pageKicker">Flow Remote Sender</p>
+            <h1 id="pageTitle">Authenticate before sending text to a live receiver</h1>
+            <p class="subtitle" id="pageSubtitle">Use the active UUID plus the generated 24-word access password from the receiver settings page. After authentication, this page can only send text messages.</p>
+          </div>
+          <label class="language-switcher">
+            <span id="languageLabel">Language</span>
+            <select id="languageSelect">
+              <option value="en">English</option>
+              <option value="tr">Türkçe</option>
+              <option value="ar">العربية</option>
+              <option value="de">Deutsch</option>
+            </select>
+          </label>
+        </div>
+
+        <form id="authForm" class="grid">
+          <label>
+            <span id="authSessionIdLabel">Receiver UUID</span>
+            <input id="authSessionIdInput" name="sessionId" type="text" autocomplete="off" placeholder="Paste the active UUID from Flow settings" required />
+          </label>
+
+          <label>
+            <span id="authAccessPasswordLabel">Access password</span>
+            <textarea id="authAccessPasswordInput" name="accessPassword" autocomplete="off" placeholder="Paste the generated 24-word access password" required></textarea>
+          </label>
+
+          <div class="actions">
+            <button class="primary" id="authButton" type="submit">Continue</button>
+          </div>
+        </form>
+
+        <div class="status" id="authStatus" aria-live="polite"></div>
+
+        <section id="composerSection" class="section-divider hidden">
+          <div>
+            <h2 id="composerTitle">Authenticated sender</h2>
+            <p class="session-summary" id="sessionSummary">Connected to receiver</p>
+          </div>
+
+          <form id="remoteForm" class="grid">
+            <div class="row">
+              <label>
+                <span id="titleLabel">Title</span>
+                <input id="titleInput" name="title" type="text" maxlength="80" autocomplete="off" autocapitalize="sentences" placeholder="Example: Producer note" required />
+              </label>
+
+              <label>
+                <span id="importanceLabel">Importance</span>
+                <select id="importanceInput" name="importance">
+                  <option value="normal">Normal</option>
+                  <option value="important">IMPORTANT</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              <span id="contentLabel">Content</span>
+              <textarea id="contentInput" name="content" autocapitalize="sentences" placeholder="Type the text that should be offered to the receiver." required></textarea>
+            </label>
+
+            <div class="actions">
+              <button class="primary" id="sendButton" type="submit">Send</button>
+              <button class="secondary" id="cancelButton" type="button">Clear draft</button>
+              <button class="secondary" id="switchSessionButton" type="button">Switch receiver</button>
+            </div>
+          </form>
+
+          <div class="status" id="statusMessage" aria-live="polite"></div>
+        </section>
+
+        <div class="note">
+          <div class="important-chip" id="importantNote">IMPORTANT adds a red highlight tag in the receiver preview.</div>
+          <p id="portForwardNote" style="margin-top: 10px;">To use this from anywhere, the receiver machine still needs port 43127 opened and forwarded on the router/firewall to Flow.</p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

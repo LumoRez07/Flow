@@ -1,4 +1,5 @@
-import { applyAppearanceToDocument, applyTranslationsToDocument, defaultState, loadState, saveState, translate } from "./shared.js";
+import { CLOUD_RELAY_URL } from "./remote-config.js";
+import { applyAppearanceToDocument, applyTranslationsToDocument, defaultState, getThemeTeleprompterTextColor, loadState, saveState, translate } from "./shared.js";
 
 const MIN_WIDTH = 400;
 const MIN_HEIGHT = 200;
@@ -6,6 +7,8 @@ const MAX_WIDTH_FALLBACK = 2200;
 const MAX_HEIGHT_FALLBACK = 1400;
 const POSITION_PADDING = 600;
 const APPLY_DELAY = 70;
+const TOP_CENTER_X_OFFSET = 32;
+const REMOTE_STATUS_REFRESH_MS = 20_000;
 
 const invoke = window.__TAURI__?.core?.invoke;
 const tauriWindow = window.__TAURI__?.window;
@@ -13,6 +16,8 @@ const tauriDpi = window.__TAURI__?.dpi;
 
 const state = loadState();
 state.window = state.window || structuredClone(defaultState.window);
+state.desktop = state.desktop || structuredClone(defaultState.desktop);
+state.remote = state.remote || structuredClone(defaultState.remote);
 
 const ui = {
   xInput: document.querySelector("#xInput"),
@@ -39,10 +44,23 @@ const ui = {
   textSizeValue: document.querySelector("#textSizeValue"),
   themeSelect: document.querySelector("#themeSelect"),
   performanceModeInput: document.querySelector("#performanceModeInput"),
+  hideFromCaptureInput: document.querySelector("#hideFromCaptureInput"),
+  useSystemTrayInput: document.querySelector("#useSystemTrayInput"),
+  preventSleepInput: document.querySelector("#preventSleepInput"),
+  clickthroughShortcutInput: document.querySelector("#clickthroughShortcutInput"),
   textColorInput: document.querySelector("#textColorInput"),
   textOpacityInput: document.querySelector("#textOpacityInput"),
   textOpacityValue: document.querySelector("#textOpacityValue"),
   windowStatus: document.querySelector("#windowStatus"),
+  cloudRemoteFields: document.querySelector("#cloudRemoteFields"),
+  remoteSessionId: document.querySelector("#remoteSessionId"),
+  remoteAccessPasswordInput: document.querySelector("#remoteAccessPasswordInput"),
+  remoteSenderUrl: document.querySelector("#remoteSenderUrl"),
+  remoteLiveBadge: document.querySelector("#remoteLiveBadge"),
+  remoteSessionStatus: document.querySelector("#remoteSessionStatus"),
+  copySessionIdButton: document.querySelector("#copySessionIdButton"),
+  copyAccessPasswordButton: document.querySelector("#copyAccessPasswordButton"),
+  copySenderUrlButton: document.querySelector("#copySenderUrlButton"),
   closeWindowButton: document.querySelector("#closeWindowButton"),
   openTextButton: document.querySelector("#openTextButton")
 };
@@ -50,6 +68,7 @@ const ui = {
 let applyTimer = null;
 let isSyncingForm = false;
 let isApplying = false;
+let remoteStatusTimer = null;
 
 function t(key, params = {}) {
   return translate(key, state.language, params);
@@ -109,6 +128,44 @@ function updatePositioningAvailability() {
 
 function updateAppearanceAvailability() {
   ui.modeSelect.disabled = ui.performanceModeInput.checked;
+  ui.textColorInput.disabled = true;
+  ui.textColorInput.value = getThemeTeleprompterTextColor(ui.themeSelect.value);
+}
+
+function updateRemoteModeUi() {
+  ui.cloudRemoteFields.classList.remove("hidden");
+}
+
+function normalizeRemoteCloudUrl(value) {
+  return String(value || "").trim().replace(/\/$/, "");
+}
+
+const CONFIGURED_CLOUD_RELAY_URL = normalizeRemoteCloudUrl(CLOUD_RELAY_URL);
+
+function isCloudRemoteSelected() {
+  return true;
+}
+
+function isCloudRemoteEnabled() {
+  return Boolean(CONFIGURED_CLOUD_RELAY_URL);
+}
+
+function buildCloudApiUrl(path) {
+  const base = CONFIGURED_CLOUD_RELAY_URL;
+  if (!base) {
+    return "";
+  }
+
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function buildCloudSenderUrl(receiverId = state.remote?.receiverId || "") {
+  const base = CONFIGURED_CLOUD_RELAY_URL;
+  if (!base || !receiverId) {
+    return "";
+  }
+
+  return `${base}/?id=${encodeURIComponent(receiverId)}`;
 }
 
 async function getMainWindow() {
@@ -150,14 +207,20 @@ function fillForm() {
   ui.modeSelect.value = state.appearance?.mode || defaultState.appearance.mode;
   ui.fontSelect.value = state.appearance?.fontFamily || defaultState.appearance.fontFamily;
   ui.languageSelect.value = state.language || defaultState.language;
+  ui.remoteAccessPasswordInput.value = state.remote?.accessPassword || "";
   setSliderValue(ui.appOpacityInput, state.appearance?.appOpacity ?? defaultState.appearance.appOpacity);
   ui.textSizeInput.value = String(state.appearance?.textScale || defaultState.appearance.textScale);
   ui.themeSelect.value = state.appearance?.theme || defaultState.appearance.theme;
   ui.performanceModeInput.checked = Boolean(state.appearance?.performanceMode);
-  ui.textColorInput.value = state.appearance?.textColor || defaultState.appearance.textColor;
+  ui.hideFromCaptureInput.checked = Boolean(state.desktop?.hideFromCapture);
+  ui.useSystemTrayInput.checked = Boolean(state.desktop?.useSystemTray);
+  ui.preventSleepInput.checked = Boolean(state.desktop?.preventSleep);
+  ui.clickthroughShortcutInput.checked = Boolean(state.desktop?.clickthroughShortcutEnabled);
+  ui.textColorInput.value = getThemeTeleprompterTextColor(ui.themeSelect.value);
   ui.textOpacityInput.value = String(state.appearance?.textOpacity || defaultState.appearance.textOpacity);
   updatePositioningAvailability();
   updateAppearanceAvailability();
+  updateRemoteModeUi();
   updateValueLabels();
   applyAppearanceToDocument({
     theme: ui.themeSelect.value,
@@ -189,7 +252,8 @@ async function readCurrentWindow() {
       x: state.window.x,
       y: state.window.y,
       preset: state.window.preset
-    }
+    },
+    remote: state.remote
   });
   fillForm();
   ui.windowStatus.textContent = t("settings.synced");
@@ -202,6 +266,19 @@ function collectFormState() {
   state.window.y = Number(ui.yInput.value || 0);
   state.window.preset = ui.presetSelect.value;
   state.language = ui.languageSelect.value;
+  state.desktop = {
+    hideFromCapture: ui.hideFromCaptureInput.checked,
+    useSystemTray: ui.useSystemTrayInput.checked,
+    preventSleep: ui.preventSleepInput.checked,
+    clickthroughShortcutEnabled: ui.clickthroughShortcutInput.checked
+  };
+  state.remote = {
+    provider: "cloud",
+    receiverId: state.remote?.receiverId || defaultState.remote.receiverId,
+    receiverSecret: state.remote?.receiverSecret || defaultState.remote.receiverSecret,
+    accessPassword: state.remote?.accessPassword || defaultState.remote.accessPassword,
+    publicHost: "",
+  };
   state.appearance = {
     ...defaultState.appearance,
     ...(state.appearance || {}),
@@ -211,9 +288,24 @@ function collectFormState() {
     textScale: Number(ui.textSizeInput.value),
     theme: ui.themeSelect.value,
     performanceMode: ui.performanceModeInput.checked,
-    textColor: ui.textColorInput.value,
+    textColor: getThemeTeleprompterTextColor(ui.themeSelect.value),
     textOpacity: Number(ui.textOpacityInput.value)
   };
+}
+
+async function applyDesktopSettings() {
+  if (!invoke) {
+    return;
+  }
+
+  await invoke("set_capture_protection", { enabled: Boolean(state.desktop?.hideFromCapture) });
+  await invoke("set_system_tray_enabled", { enabled: Boolean(state.desktop?.useSystemTray) });
+  await invoke("set_prevent_sleep", { enabled: Boolean(state.desktop?.preventSleep) });
+  await invoke("set_clickthrough_shortcut_enabled", { enabled: Boolean(state.desktop?.clickthroughShortcutEnabled) });
+
+  if (!state.desktop?.clickthroughShortcutEnabled) {
+    await invoke("set_main_clickthrough", { enabled: false }).catch(console.error);
+  }
 }
 
 async function applyWindowSettings() {
@@ -237,7 +329,7 @@ async function applyWindowSettings() {
       const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
       if (monitor) {
         const outer = await appWindow.outerSize();
-        const x = monitor.position.x + Math.round((monitor.size.width - outer.width) / 2);
+        const x = monitor.position.x + Math.round((monitor.size.width - outer.width) / 2) + TOP_CENTER_X_OFFSET;
         const y = monitor.position.y;
         await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
         state.window.x = x;
@@ -255,11 +347,15 @@ async function applyWindowSettings() {
         y: state.window.y,
         preset: state.window.preset
       },
+      desktop: state.desktop,
+      remote: state.remote,
       language: state.language,
       appearance: state.appearance
     });
+    await applyDesktopSettings();
     fillForm();
     ui.windowStatus.textContent = t("settings.applied");
+    refreshRemoteStatus().catch(console.error);
   } finally {
     isApplying = false;
   }
@@ -280,9 +376,78 @@ function scheduleApply() {
   }, APPLY_DELAY);
 }
 
+async function copyText(value, successMessage) {
+  if (!value) {
+    ui.remoteSessionStatus.textContent = t("settings.copyNothing");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(value);
+    ui.remoteSessionStatus.textContent = successMessage;
+  } catch (error) {
+    console.error(error);
+    ui.remoteSessionStatus.textContent = t("settings.copyFailed");
+  }
+}
+
+function renderCloudRemoteStatus(status) {
+  const cloudSenderUrl = buildCloudSenderUrl(state.remote?.receiverId || "");
+
+  ui.remoteSessionId.textContent = state.remote?.receiverId || t("common.unavailable");
+  ui.remoteAccessPasswordInput.value = state.remote?.accessPassword || "";
+  ui.remoteSenderUrl.textContent = cloudSenderUrl || t("settings.remoteSenderUnavailable");
+  ui.remoteSenderUrl.href = cloudSenderUrl || "#";
+  ui.remoteSenderUrl.dataset.copyValue = cloudSenderUrl;
+
+  if (!CONFIGURED_CLOUD_RELAY_URL) {
+    ui.remoteLiveBadge.textContent = t("common.setup");
+    ui.remoteLiveBadge.classList.add("is-offline");
+    ui.remoteSessionStatus.textContent = t("settings.remoteStatusCloudNeedsBuild");
+    return;
+  }
+
+  const active = Boolean(status?.active);
+  const exists = Boolean(status?.exists);
+  ui.remoteLiveBadge.textContent = active ? t("common.live") : t("common.offline");
+  ui.remoteLiveBadge.classList.toggle("is-offline", !active);
+
+  if (!exists) {
+    ui.remoteSessionStatus.textContent = t("settings.remoteStatusCloudRegister");
+    return;
+  }
+
+  ui.remoteSessionStatus.textContent = active
+    ? t("settings.remoteStatusCloudActive")
+    : t("settings.remoteStatusCloudOffline");
+}
+
+async function fetchCloudRemoteStatus() {
+  const url = buildCloudApiUrl(`/api/receiver/${encodeURIComponent(state.remote?.receiverId || "")}/status`);
+  if (!url) {
+    renderCloudRemoteStatus(null);
+    return;
+  }
+
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    const status = await response.json().catch(() => null);
+    renderCloudRemoteStatus(response.ok ? status : null);
+  } catch (error) {
+    console.error(error);
+    renderCloudRemoteStatus(null);
+  }
+}
+
+async function refreshRemoteStatus() {
+  await fetchCloudRemoteStatus();
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   await configureSliderRanges();
   fillForm();
+  await applyDesktopSettings().catch(console.error);
+  await refreshRemoteStatus();
 
   [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
@@ -326,6 +491,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
   ui.performanceModeInput.addEventListener("input", scheduleApply);
   ui.performanceModeInput.addEventListener("change", scheduleApply);
+  [ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput].forEach((input) => {
+    input.addEventListener("input", scheduleApply);
+    input.addEventListener("change", scheduleApply);
+  });
 
   ui.closeWindowButton.addEventListener("click", () => {
     invoke?.("hide_aux_window", { kind: "settings" }).catch(console.error);
@@ -333,21 +502,48 @@ window.addEventListener("DOMContentLoaded", async () => {
   ui.openTextButton.addEventListener("click", () => {
     invoke?.("open_aux_window", { kind: "input" }).catch(console.error);
   });
+  ui.copySessionIdButton.addEventListener("click", () => {
+    copyText(ui.remoteSessionId.textContent, t("settings.copiedUuid"));
+  });
+  ui.copyAccessPasswordButton.addEventListener("click", () => {
+    copyText(ui.remoteAccessPasswordInput.value, t("settings.copiedAccessPassword"));
+  });
+  ui.copySenderUrlButton.addEventListener("click", () => {
+    copyText(ui.remoteSenderUrl.dataset.copyValue || "", t("settings.copiedSenderLink"));
+  });
 
   await readCurrentWindow().catch(console.error);
 
+  remoteStatusTimer = window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      refreshRemoteStatus().catch(console.error);
+    }
+  }, REMOTE_STATUS_REFRESH_MS);
+
   window.addEventListener("focus", async () => {
     Object.assign(state, loadState());
+    state.desktop = state.desktop || structuredClone(defaultState.desktop);
     await configureSliderRanges();
+    await applyDesktopSettings().catch(console.error);
     await readCurrentWindow().catch(console.error);
     fillForm();
+    await refreshRemoteStatus().catch(console.error);
   });
   window.addEventListener("storage", () => {
     Object.assign(state, loadState());
+    state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
+    applyDesktopSettings().catch(console.error);
   });
   window.addEventListener("flow-state-updated", () => {
     Object.assign(state, loadState());
+    state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
+    applyDesktopSettings().catch(console.error);
+  });
+  window.addEventListener("beforeunload", () => {
+    if (remoteStatusTimer) {
+      clearInterval(remoteStatusTimer);
+    }
   });
 });

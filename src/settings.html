@@ -23,6 +23,48 @@
 
         <div class="settings-group">
           <div>
+            <p class="page-kicker" data-i18n="settings.remoteInjection">Remote injection</p>
+            <h2 data-i18n="settings.remoteSession">Live receiver session</h2>
+          </div>
+
+          <div id="cloudRemoteFields" class="group-grid">
+            <p class="helper-text" data-i18n="settings.remoteCloudHelp">Cloud relay uses the active UUID plus the generated access password. Senders open the cloud sender page, and the relay checks that the UUID is live and the access password matches.</p>
+          </div>
+
+          <div class="remote-session-grid">
+            <div class="remote-session-card">
+              <span class="remote-session-label" data-i18n="settings.remoteUuid">Active UUID</span>
+              <div class="remote-session-row">
+                <span class="remote-session-value" id="remoteSessionId" data-i18n="common.loading">Loading…</span>
+                <button class="mini-link copy-chip" id="copySessionIdButton" type="button" data-i18n="common.copy">Copy</button>
+              </div>
+            </div>
+
+            <div class="remote-session-card">
+              <span class="remote-session-label" data-i18n="settings.remoteAccessPassword">Access password</span>
+              <div class="remote-session-row remote-link-row remote-access-row">
+                <textarea id="remoteAccessPasswordInput" class="page-textarea small-textarea remote-access-box" readonly></textarea>
+                <button class="mini-link copy-chip" id="copyAccessPasswordButton" type="button" data-i18n="common.copy">Copy</button>
+              </div>
+            </div>
+
+            <div class="remote-session-card">
+              <span class="remote-session-label" data-i18n="settings.remoteSenderPage">Sender page</span>
+              <div class="remote-session-row remote-link-row">
+                <a class="remote-session-link" id="remoteSenderUrl" href="#" target="_blank" rel="noreferrer" data-i18n="common.loading">Loading…</a>
+                <button class="mini-link copy-chip" id="copySenderUrlButton" type="button" data-i18n="common.copyLink">Copy link</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="remote-status-line">
+            <span class="status-pill" id="remoteLiveBadge" data-i18n="common.loading">Loading…</span>
+            <span class="helper-text remote-status-text" id="remoteSessionStatus" data-i18n="settings.remoteStatusWaiting">Waiting for relay status.</span>
+          </div>
+        </div>
+
+        <div class="settings-group">
+          <div>
             <p class="page-kicker" data-i18n="settings.positioning">Positioning</p>
             <h2 data-i18n="settings.windowPlacement">Window placement</h2>
           </div>
@@ -177,6 +219,75 @@
             </span>
             <input id="appOpacityInput" class="slider-input" type="range" min="15" max="100" step="1" />
           </label>
+        </div>
+
+        <div class="settings-group">
+          <div>
+            <p class="page-kicker" data-i18n="settings.privacy">Privacy & system</p>
+            <h2 data-i18n="settings.desktopBehavior">Desktop behavior</h2>
+          </div>
+
+          <label class="toggle-field" for="hideFromCaptureInput">
+            <span>
+              <span class="field-label inline-label" data-i18n="settings.hideFromCapture">Invisible in screen capture</span>
+              <span class="helper-text toggle-help" data-i18n="settings.hideFromCaptureHelp">Keeps Flow out of screenshots and screen recordings on supported Windows systems.</span>
+            </span>
+            <input id="hideFromCaptureInput" class="toggle-input" type="checkbox" />
+          </label>
+
+          <label class="toggle-field" for="useSystemTrayInput">
+            <span>
+              <span class="field-label inline-label" data-i18n="settings.systemTray">Use system tray icon</span>
+              <span class="helper-text toggle-help" data-i18n="settings.systemTrayHelp">When enabled, Flow hides from the taskbar and stays available from the system tray. When disabled, Flow appears on the taskbar.</span>
+            </span>
+            <input id="useSystemTrayInput" class="toggle-input" type="checkbox" />
+          </label>
+
+          <label class="toggle-field" for="preventSleepInput">
+            <span>
+              <span class="field-label inline-label" data-i18n="settings.preventSleep">Prevent sleep mode</span>
+              <span class="helper-text toggle-help" data-i18n="settings.preventSleepHelp">Keeps the display and system awake while Flow is running.</span>
+            </span>
+            <input id="preventSleepInput" class="toggle-input" type="checkbox" />
+          </label>
+        </div>
+
+        <div class="settings-group">
+          <div>
+            <p class="page-kicker" data-i18n="settings.usability">Usability</p>
+            <h2 data-i18n="settings.shortcuts">Keyboard shortcuts</h2>
+          </div>
+
+          <label class="toggle-field" for="clickthroughShortcutInput">
+            <span>
+              <span class="field-label inline-label" data-i18n="settings.clickthroughShortcut">Clickthrough mode shortcut</span>
+              <span class="helper-text toggle-help" data-i18n="settings.clickthroughShortcutHelp">Lets you toggle clickthrough mode with Ctrl + Shift + X.</span>
+            </span>
+            <input id="clickthroughShortcutInput" class="toggle-input" type="checkbox" />
+          </label>
+
+          <div class="shortcut-list" aria-label="Keyboard shortcut overview">
+            <div class="shortcut-row">
+              <span data-i18n="settings.shortcutPlayStop">Play / stop</span>
+              <kbd class="shortcut-key" data-i18n="settings.shortcutPlayStopValue">P</kbd>
+            </div>
+            <div class="shortcut-row">
+              <span data-i18n="settings.shortcutReset">Reset to start</span>
+              <kbd class="shortcut-key" data-i18n="settings.shortcutResetValue">R</kbd>
+            </div>
+            <div class="shortcut-row">
+              <span data-i18n="settings.shortcutBackward">Scroll backward</span>
+              <kbd class="shortcut-key" data-i18n="settings.shortcutBackwardValue">Page Up</kbd>
+            </div>
+            <div class="shortcut-row">
+              <span data-i18n="settings.shortcutSpeed">Speed down / up while playing</span>
+              <kbd class="shortcut-key" data-i18n="settings.shortcutSpeedValue">← / →</kbd>
+            </div>
+            <div class="shortcut-row">
+              <span data-i18n="settings.shortcutPause">Pause / continue</span>
+              <kbd class="shortcut-key" data-i18n="settings.shortcutPauseValue">Space</kbd>
+            </div>
+          </div>
         </div>
 
         <div class="helper-text" id="windowStatus" data-i18n="settings.autoApply">Changes apply automatically as you move sliders or pick a setting.</div>

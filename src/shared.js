@@ -4,6 +4,19 @@ export const defaultState = {
   groqKey: "",
   groqPrompt: "",
   language: "en",
+  desktop: {
+    hideFromCapture: true,
+    useSystemTray: true,
+    preventSleep: false,
+    clickthroughShortcutEnabled: false
+  },
+  remote: {
+    provider: "cloud",
+    receiverId: "",
+    receiverSecret: "",
+    accessPassword: "",
+    publicHost: "",
+  },
   window: {
     x: null,
     y: null,
@@ -18,7 +31,7 @@ export const defaultState = {
     performanceMode: false,
     appOpacity: 100,
     textScale: 100,
-    textColor: "#f8fbff",
+    textColor: "#ffffff",
     textOpacity: 88
   }
 };
@@ -60,6 +73,8 @@ const UI_STRINGS = {
     "common.settings": "Settings",
     "common.text": "Text",
     "common.close": "Close",
+    "common.on": "On",
+    "common.off": "Off",
     "common.ai": "AI",
     "common.wpm": "wpm",
     "common.slower": "Slower",
@@ -91,7 +106,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "Arrow mode",
     "tele.status.highlight": "Highlighting",
     "tele.progress": "Word {current} / {total}",
-    "tele.empty": "Open the text page and add your script.",
+    "tele.empty": "Open the text editor and add your script.",
     "tele.addGroqKey": "Add Groq API key on the text page first",
     "tele.promptExisting": "Describe how Groq should rewrite the current teleprompter text:",
     "tele.promptExistingDefault": "Rewrite this in Arabic with a different personality and aesthetic in 200 words.",
@@ -101,6 +116,8 @@ const UI_STRINGS = {
     "tele.generating": "Generating with Groq...",
     "tele.generated": "Groq generated a new script",
     "tele.groqFailed": "Groq failed: {error}",
+    "tele.clickthroughEnabled": "Clickthrough mode enabled",
+    "tele.clickthroughDisabled": "Clickthrough mode disabled",
     "tele.opened": "Opened {kind}",
     "tele.failedOpenInput": "Failed to open input: {error}",
     "tele.failedOpenSettings": "Failed to open settings: {error}",
@@ -110,6 +127,28 @@ const UI_STRINGS = {
     "settings.positioning": "Positioning",
     "settings.windowPlacement": "Window placement",
     "settings.windowLocation": "Window location",
+    "settings.privacy": "Privacy & system",
+    "settings.desktopBehavior": "Desktop behavior",
+    "settings.hideFromCapture": "Invisible in screen capture",
+    "settings.hideFromCaptureHelp": "Keeps Flow out of screenshots and screen recordings on supported Windows systems.",
+    "settings.systemTray": "Use system tray icon",
+    "settings.systemTrayHelp": "When enabled, Flow hides from the taskbar and stays available from the system tray. When disabled, Flow appears on the taskbar.",
+    "settings.preventSleep": "Prevent sleep mode",
+    "settings.preventSleepHelp": "Keeps the display and system awake while Flow is running.",
+    "settings.usability": "Usability",
+    "settings.shortcuts": "Keyboard shortcuts",
+    "settings.clickthroughShortcut": "Clickthrough mode shortcut",
+    "settings.clickthroughShortcutHelp": "Lets you toggle clickthrough mode with Ctrl + Shift + X.",
+    "settings.shortcutPlayStop": "Play / stop",
+    "settings.shortcutReset": "Reset to start",
+    "settings.shortcutBackward": "Scroll backward",
+    "settings.shortcutSpeed": "Speed down / up while playing",
+    "settings.shortcutPause": "Pause / continue",
+    "settings.shortcutPlayStopValue": "P",
+    "settings.shortcutResetValue": "R",
+    "settings.shortcutBackwardValue": "Page Up",
+    "settings.shortcutSpeedValue": "← / →",
+    "settings.shortcutPauseValue": "Space",
     "settings.x": "X",
     "settings.y": "Y",
     "settings.topCenter": "Top center",
@@ -144,6 +183,12 @@ const UI_STRINGS = {
     "input.teleprompterText": "Teleprompter text",
     "input.toolbar": "Formatting toolbar",
     "input.scriptPlaceholder": "Paste or write your script here...",
+    "input.importButton": "Import file",
+    "input.importHelp": "Drop a TXT, DOCX, or PDF file into the editor, or choose one from your device.",
+    "input.importing": "Importing {name}...",
+    "input.imported": "Loaded text from {name}.",
+    "input.importUnsupported": "That file type is not supported. Use TXT, DOCX, PDF, or another readable text file.",
+    "input.importFailed": "Could not read that file.",
     "input.meta": "{count} words · {minutes} min read",
     "input.editorHelp": "Formatting works like Reddit-style markdown for <strong>**bold**</strong> and <em>*italic*</em>, plus tags for <span class=\"toolbar-underline\">[u]underline[/u]</span>, <mark class=\"mark-yellow\">[yellow]highlight[/yellow]</mark>, <mark class=\"mark-blue\">[blue]highlight[/blue]</mark>, and <mark class=\"mark-red\">[red]highlight[/red]</mark>.",
     "input.groq": "Groq",
@@ -206,7 +251,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "Ok modu",
     "tele.status.highlight": "Vurgulanıyor",
     "tele.progress": "Kelime {current} / {total}",
-    "tele.empty": "Metin sayfasını açın ve metninizi ekleyin.",
+    "tele.empty": "Metin düzenleyicisini açın ve metninizi ekleyin.",
     "tele.addGroqKey": "Önce metin sayfasına Groq API anahtarını ekleyin",
     "tele.promptExisting": "Groq'un mevcut teleprompter metnini nasıl yeniden yazması gerektiğini açıklayın:",
     "tele.promptExistingDefault": "Bunu Arapça olarak farklı bir kişilik ve estetikle 200 kelimede yeniden yaz.",
@@ -321,7 +366,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "وضع السهم",
     "tele.status.highlight": "تمييز",
     "tele.progress": "الكلمة {current} / {total}",
-    "tele.empty": "افتح صفحة النص وأضف النص الخاص بك.",
+    "tele.empty": "افتح محرر النص وأضف النص الخاص بك.",
     "tele.addGroqKey": "أضف مفتاح Groq API أولاً من صفحة النص",
     "tele.promptExisting": "اشرح كيف يجب على Groq إعادة كتابة نص الملقن الحالي:",
     "tele.promptExistingDefault": "أعد كتابة هذا بالعربية بشخصية وجمالية مختلفة في 200 كلمة.",
@@ -436,7 +481,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "Pfeilmodus",
     "tele.status.highlight": "Hervorhebung",
     "tele.progress": "Wort {current} / {total}",
-    "tele.empty": "Öffne die Textseite und füge dein Skript hinzu.",
+    "tele.empty": "Öffne den Texteditor und füge dein Skript hinzu.",
     "tele.addGroqKey": "Füge zuerst den Groq-API-Schlüssel auf der Textseite hinzu",
     "tele.promptExisting": "Beschreibe, wie Groq den aktuellen Teleprompter-Text umschreiben soll:",
     "tele.promptExistingDefault": "Schreibe dies auf Arabisch mit einer anderen Persönlichkeit und Ästhetik in 200 Wörtern um.",
@@ -514,6 +559,202 @@ const UI_STRINGS = {
   }
 };
 
+Object.assign(UI_STRINGS.en, {
+  "common.copy": "Copy",
+  "common.copyLink": "Copy link",
+  "common.loading": "Loading…",
+  "common.unavailable": "Unavailable",
+  "common.live": "Live",
+  "common.offline": "Offline",
+  "common.setup": "Setup",
+  "tele.promptExistingDefault": "Rewrite this with a different tone, personality, and visual style in about 200 words.",
+  "doc.remoteInboxTitle": "Flow Notifications",
+  "settings.remoteInjection": "Remote injection",
+  "settings.remoteSession": "Live receiver session",
+  "settings.remoteTransport": "Remote transport",
+  "settings.remoteTransport.local": "Local relay",
+  "settings.remoteTransport.cloud": "Cloud relay",
+  "settings.remoteCloudHelp": "Cloud relay uses the active UUID plus the generated access password. Senders open the cloud sender page, and the relay checks that the UUID is live and the access password matches.",
+  "settings.remoteUuid": "Active UUID",
+  "settings.remoteAccessPassword": "Access password",
+  "settings.remoteSenderPage": "Sender page",
+  "settings.remoteStatusWaiting": "Waiting for relay status.",
+  "settings.remotePublicHost": "Public host / domain",
+  "settings.remotePublicHostPlaceholder": "Example: flow.example.com or 82.14.25.90",
+  "settings.remoteLocalHelp": "For local relay, the sender needs your public address, the UUID, and the generated access password above.",
+  "settings.copyNothing": "Nothing is available to copy yet.",
+  "settings.copyFailed": "Copy failed. You can still select the value manually.",
+  "settings.copiedUuid": "UUID copied.",
+  "settings.copiedAccessPassword": "Access password copied.",
+  "settings.copiedSenderLink": "Sender link copied.",
+  "settings.remoteStatusUnavailable": "The relay status is unavailable right now.",
+  "settings.remoteStatusListeningPublic": "Relay is listening on port {port}. The copied sender link uses your configured public host.",
+  "settings.remoteStatusListeningLocal": "Relay is listening on port {port}. Add a public host or domain below if you want the copied link to work outside your local network.",
+  "settings.remoteStatusPasswordMissing": "Access password is missing. Restart Flow to generate a new one.",
+  "settings.remoteStatusHeartbeatStale": "Receiver heartbeat is stale. Open the teleprompter window to restore the live session.",
+  "settings.remoteSenderUnavailable": "Cloud sender unavailable",
+  "settings.remoteStatusCloudNeedsBuild": "Cloud relay is not configured in the app build yet. Set the URL once in src/remote-config.js.",
+  "settings.remoteStatusCloudRegister": "Cloud relay is configured. Open the teleprompter window to start heartbeats and register this receiver.",
+  "settings.remoteStatusCloudActive": "Cloud relay is active. Senders need the UUID and the generated access password.",
+  "settings.remoteStatusCloudOffline": "Cloud relay knows this receiver, but it is currently offline. Keep Flow open to receive messages.",
+  "remote.importance.normal": "NORMAL",
+  "remote.importance.important": "IMPORTANT",
+  "remote.cardHint": "Double-click to inject · use × to deny",
+  "remote.rejectAria": "Deny remote message",
+  "remote.fetchFailed": "Unable to fetch cloud messages.",
+  "remote.resolveFailed": "Unable to resolve cloud message.",
+  "remote.acceptedAppending": "Remote message accepted. Appending text…",
+  "remote.denied": "Remote message denied.",
+  "remote.heartbeatFailed": "Cloud heartbeat failed with status {status}."
+});
+
+Object.assign(UI_STRINGS.tr, {
+  "common.copy": "Kopyala",
+  "common.copyLink": "Bağlantıyı kopyala",
+  "common.loading": "Yükleniyor…",
+  "common.unavailable": "Kullanılamıyor",
+  "common.live": "Canlı",
+  "common.offline": "Çevrimdışı",
+  "common.setup": "Kurulum",
+  "tele.promptExistingDefault": "Bunu farklı bir ton, kişilik ve görsel stille yaklaşık 200 kelimede yeniden yaz.",
+  "doc.remoteInboxTitle": "Flow Bildirimleri",
+  "settings.remoteInjection": "Uzak ekleme",
+  "settings.remoteSession": "Canlı alıcı oturumu",
+  "settings.remoteTransport": "Uzak aktarım",
+  "settings.remoteTransport.local": "Yerel röle",
+  "settings.remoteTransport.cloud": "Bulut rölesi",
+  "settings.remoteCloudHelp": "Bulut rölesi etkin UUID ile oluşturulan erişim parolasını kullanır. Gönderenler bulut gönderici sayfasını açar ve röle UUID'nin canlı olduğunu ve erişim parolasının eşleştiğini kontrol eder.",
+  "settings.remoteUuid": "Etkin UUID",
+  "settings.remoteAccessPassword": "Erişim parolası",
+  "settings.remoteSenderPage": "Gönderici sayfası",
+  "settings.remoteStatusWaiting": "Röle durumu bekleniyor.",
+  "settings.remotePublicHost": "Genel ana bilgisayar / alan adı",
+  "settings.remotePublicHostPlaceholder": "Örnek: flow.example.com veya 82.14.25.90",
+  "settings.remoteLocalHelp": "Yerel röle için gönderenin genel adresinize, UUID'ye ve yukarıdaki oluşturulan erişim parolasına ihtiyacı vardır.",
+  "settings.copyNothing": "Henüz kopyalanacak bir şey yok.",
+  "settings.copyFailed": "Kopyalama başarısız oldu. Değeri yine de elle seçebilirsiniz.",
+  "settings.copiedUuid": "UUID kopyalandı.",
+  "settings.copiedAccessPassword": "Erişim parolası kopyalandı.",
+  "settings.copiedSenderLink": "Gönderici bağlantısı kopyalandı.",
+  "settings.remoteStatusUnavailable": "Röle durumu şu anda kullanılamıyor.",
+  "settings.remoteStatusListeningPublic": "Röle {port} portunda dinliyor. Kopyalanan gönderici bağlantısı yapılandırdığınız genel ana bilgisayarı kullanır.",
+  "settings.remoteStatusListeningLocal": "Röle {port} portunda dinliyor. Kopyalanan bağlantının yerel ağınız dışında çalışmasını istiyorsanız aşağıya bir genel ana bilgisayar veya alan adı ekleyin.",
+  "settings.remoteStatusPasswordMissing": "Erişim parolası eksik. Yeniden oluşturmak için Flow'u yeniden başlatın.",
+  "settings.remoteStatusHeartbeatStale": "Alıcı kalp atışı eski. Canlı oturumu geri yüklemek için teleprompter penceresini açın.",
+  "settings.remoteSenderUnavailable": "Bulut gönderici kullanılamıyor",
+  "settings.remoteStatusCloudNeedsBuild": "Bulut rölesi henüz uygulama derlemesinde yapılandırılmadı. URL'yi bir kez src/remote-config.js içinde ayarlayın.",
+  "settings.remoteStatusCloudRegister": "Bulut rölesi yapılandırıldı. Kalp atışlarını başlatmak ve bu alıcıyı kaydetmek için teleprompter penceresini açın.",
+  "settings.remoteStatusCloudActive": "Bulut rölesi etkin. Gönderenlerin UUID'ye ve oluşturulan erişim parolasına ihtiyacı vardır.",
+  "settings.remoteStatusCloudOffline": "Bulut rölesi bu alıcıyı biliyor, ancak şu anda çevrimdışı. Mesaj almak için Flow'u açık tutun.",
+  "remote.importance.normal": "NORMAL",
+  "remote.importance.important": "ÖNEMLİ",
+  "remote.cardHint": "Eklemek için çift tıklayın · reddetmek için × kullanın",
+  "remote.rejectAria": "Uzak mesajı reddet",
+  "remote.fetchFailed": "Bulut mesajları alınamadı.",
+  "remote.resolveFailed": "Bulut mesajı çözümlenemedi.",
+  "remote.acceptedAppending": "Uzak mesaj kabul edildi. Metin ekleniyor…",
+  "remote.denied": "Uzak mesaj reddedildi.",
+  "remote.heartbeatFailed": "Bulut kalp atışı {status} durumuyla başarısız oldu."
+});
+
+Object.assign(UI_STRINGS.ar, {
+  "common.copy": "نسخ",
+  "common.copyLink": "نسخ الرابط",
+  "common.loading": "جارٍ التحميل…",
+  "common.unavailable": "غير متاح",
+  "common.live": "مباشر",
+  "common.offline": "غير متصل",
+  "common.setup": "إعداد",
+  "tele.promptExistingDefault": "أعد كتابة هذا بنبرة وشخصية وأسلوب بصري مختلف في نحو 200 كلمة.",
+  "doc.remoteInboxTitle": "إشعارات Flow",
+  "settings.remoteInjection": "الإدخال عن بُعد",
+  "settings.remoteSession": "جلسة المستقبِل المباشرة",
+  "settings.remoteTransport": "النقل عن بُعد",
+  "settings.remoteTransport.local": "مرحل محلي",
+  "settings.remoteTransport.cloud": "مرحل سحابي",
+  "settings.remoteCloudHelp": "يستخدم المرحل السحابي الـ UUID النشط مع كلمة مرور الوصول المُولدة. يفتح المُرسلون صفحة المُرسل السحابية ويتحقق المرحل من أن الـ UUID نشط وأن كلمة المرور مطابقة.",
+  "settings.remoteUuid": "UUID النشط",
+  "settings.remoteAccessPassword": "كلمة مرور الوصول",
+  "settings.remoteSenderPage": "صفحة المُرسل",
+  "settings.remoteStatusWaiting": "بانتظار حالة المرحل.",
+  "settings.remotePublicHost": "المضيف العام / النطاق",
+  "settings.remotePublicHostPlaceholder": "مثال: flow.example.com أو 82.14.25.90",
+  "settings.remoteLocalHelp": "في المرحل المحلي، يحتاج المُرسل إلى عنوانك العام وUUID وكلمة مرور الوصول المُولدة أعلاه.",
+  "settings.copyNothing": "لا يوجد شيء متاح للنسخ بعد.",
+  "settings.copyFailed": "فشل النسخ. ما زال بإمكانك تحديد القيمة يدويًا.",
+  "settings.copiedUuid": "تم نسخ UUID.",
+  "settings.copiedAccessPassword": "تم نسخ كلمة مرور الوصول.",
+  "settings.copiedSenderLink": "تم نسخ رابط المُرسل.",
+  "settings.remoteStatusUnavailable": "حالة المرحل غير متاحة الآن.",
+  "settings.remoteStatusListeningPublic": "يستمع المرحل على المنفذ {port}. يستخدم رابط المُرسل المنسوخ المضيف العام الذي قمت بإعداده.",
+  "settings.remoteStatusListeningLocal": "يستمع المرحل على المنفذ {port}. أضف مضيفًا عامًا أو نطاقًا أدناه إذا أردت أن يعمل الرابط المنسوخ خارج شبكتك المحلية.",
+  "settings.remoteStatusPasswordMissing": "كلمة مرور الوصول مفقودة. أعد تشغيل Flow لإنشاء واحدة جديدة.",
+  "settings.remoteStatusHeartbeatStale": "نبضة المستقبِل قديمة. افتح نافذة الملقن لاستعادة الجلسة المباشرة.",
+  "settings.remoteSenderUnavailable": "مرسل السحابة غير متاح",
+  "settings.remoteStatusCloudNeedsBuild": "لم يتم إعداد المرحل السحابي بعد داخل نسخة التطبيق. اضبط الرابط مرة واحدة في src/remote-config.js.",
+  "settings.remoteStatusCloudRegister": "تم إعداد المرحل السحابي. افتح نافذة الملقن لبدء النبضات وتسجيل هذا المستقبِل.",
+  "settings.remoteStatusCloudActive": "المرحل السحابي نشط. يحتاج المُرسلون إلى UUID وكلمة مرور الوصول المُولدة.",
+  "settings.remoteStatusCloudOffline": "يعرف المرحل السحابي هذا المستقبِل، لكنه غير متصل حاليًا. أبقِ Flow مفتوحًا لتلقي الرسائل.",
+  "remote.importance.normal": "عادي",
+  "remote.importance.important": "مهم",
+  "remote.cardHint": "انقر نقرًا مزدوجًا للإدخال · استخدم × للرفض",
+  "remote.rejectAria": "رفض الرسالة البعيدة",
+  "remote.fetchFailed": "تعذر جلب رسائل السحابة.",
+  "remote.resolveFailed": "تعذر معالجة رسالة السحابة.",
+  "remote.acceptedAppending": "تم قبول الرسالة البعيدة. تتم إضافة النص…",
+  "remote.denied": "تم رفض الرسالة البعيدة.",
+  "remote.heartbeatFailed": "فشلت نبضة السحابة بالحالة {status}."
+});
+
+Object.assign(UI_STRINGS.de, {
+  "common.copy": "Kopieren",
+  "common.copyLink": "Link kopieren",
+  "common.loading": "Lädt…",
+  "common.unavailable": "Nicht verfügbar",
+  "common.live": "Live",
+  "common.offline": "Offline",
+  "common.setup": "Einrichtung",
+  "tele.promptExistingDefault": "Schreibe dies mit einem anderen Ton, einer anderen Persönlichkeit und einem anderen visuellen Stil in etwa 200 Wörtern um.",
+  "doc.remoteInboxTitle": "Flow Benachrichtigungen",
+  "settings.remoteInjection": "Remote-Einspeisung",
+  "settings.remoteSession": "Live-Empfängersitzung",
+  "settings.remoteTransport": "Remote-Transport",
+  "settings.remoteTransport.local": "Lokales Relay",
+  "settings.remoteTransport.cloud": "Cloud-Relay",
+  "settings.remoteCloudHelp": "Das Cloud-Relay verwendet die aktive UUID und das generierte Zugriffspasswort. Sender öffnen die Cloud-Senderseite, und das Relay prüft, ob die UUID aktiv ist und das Zugriffspasswort stimmt.",
+  "settings.remoteUuid": "Aktive UUID",
+  "settings.remoteAccessPassword": "Zugriffspasswort",
+  "settings.remoteSenderPage": "Senderseite",
+  "settings.remoteStatusWaiting": "Warte auf Relay-Status.",
+  "settings.remotePublicHost": "Öffentlicher Host / Domain",
+  "settings.remotePublicHostPlaceholder": "Beispiel: flow.example.com oder 82.14.25.90",
+  "settings.remoteLocalHelp": "Für das lokale Relay benötigt der Sender deine öffentliche Adresse, die UUID und das oben generierte Zugriffspasswort.",
+  "settings.copyNothing": "Es ist noch nichts zum Kopieren verfügbar.",
+  "settings.copyFailed": "Kopieren fehlgeschlagen. Du kannst den Wert trotzdem manuell markieren.",
+  "settings.copiedUuid": "UUID kopiert.",
+  "settings.copiedAccessPassword": "Zugriffspasswort kopiert.",
+  "settings.copiedSenderLink": "Sender-Link kopiert.",
+  "settings.remoteStatusUnavailable": "Der Relay-Status ist im Moment nicht verfügbar.",
+  "settings.remoteStatusListeningPublic": "Das Relay lauscht auf Port {port}. Der kopierte Sender-Link verwendet deinen konfigurierten öffentlichen Host.",
+  "settings.remoteStatusListeningLocal": "Das Relay lauscht auf Port {port}. Füge unten einen öffentlichen Host oder eine Domain hinzu, wenn der kopierte Link auch außerhalb deines lokalen Netzwerks funktionieren soll.",
+  "settings.remoteStatusPasswordMissing": "Das Zugriffspasswort fehlt. Starte Flow neu, um ein neues zu erzeugen.",
+  "settings.remoteStatusHeartbeatStale": "Der Empfänger-Heartbeat ist veraltet. Öffne das Teleprompter-Fenster, um die Live-Sitzung wiederherzustellen.",
+  "settings.remoteSenderUnavailable": "Cloud-Sender nicht verfügbar",
+  "settings.remoteStatusCloudNeedsBuild": "Das Cloud-Relay ist im App-Build noch nicht konfiguriert. Lege die URL einmal in src/remote-config.js fest.",
+  "settings.remoteStatusCloudRegister": "Das Cloud-Relay ist konfiguriert. Öffne das Teleprompter-Fenster, um Heartbeats zu starten und diesen Empfänger zu registrieren.",
+  "settings.remoteStatusCloudActive": "Das Cloud-Relay ist aktiv. Sender benötigen die UUID und das generierte Zugriffspasswort.",
+  "settings.remoteStatusCloudOffline": "Das Cloud-Relay kennt diesen Empfänger, aber er ist derzeit offline. Lass Flow geöffnet, um Nachrichten zu empfangen.",
+  "remote.importance.normal": "NORMAL",
+  "remote.importance.important": "WICHTIG",
+  "remote.cardHint": "Doppelklicken zum Einfügen · mit × ablehnen",
+  "remote.rejectAria": "Remote-Nachricht ablehnen",
+  "remote.fetchFailed": "Cloud-Nachrichten konnten nicht geladen werden.",
+  "remote.resolveFailed": "Cloud-Nachricht konnte nicht verarbeitet werden.",
+  "remote.acceptedAppending": "Remote-Nachricht akzeptiert. Text wird angehängt…",
+  "remote.denied": "Remote-Nachricht abgelehnt.",
+  "remote.heartbeatFailed": "Cloud-Heartbeat mit Status {status} fehlgeschlagen."
+});
+
 const FONT_STACKS = {
   inter: 'Inter, "Segoe UI", Arial, sans-serif',
   "arabic-pro": '"Cairo", "Noto Naskh Arabic", "Segoe UI", Tahoma, Arial, sans-serif',
@@ -528,6 +769,24 @@ const FONT_STACKS = {
 
 const RTL_CHARACTERS = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
 const LTR_CHARACTERS = /[A-Za-z\u00C0-\u024F]/g;
+const MIN_SPEED = 60;
+const MAX_SPEED = 360;
+const ACCESS_PASSWORD_WORDS = [
+  "amber", "anchor", "apricot", "arcade", "arrow", "atlas", "aurora", "autumn",
+  "bamboo", "banner", "beacon", "berry", "blossom", "border", "breeze", "brook",
+  "candle", "canyon", "caramel", "cedar", "cherry", "clover", "comet", "copper",
+  "coral", "crystal", "daisy", "dawn", "delta", "ember", "falcon", "feather",
+  "fern", "field", "firefly", "forest", "frost", "galaxy", "garden", "glimmer",
+  "granite", "harbor", "hazel", "horizon", "island", "jasmine", "juniper", "lagoon",
+  "lantern", "lavender", "legend", "lemon", "lilac", "lotus", "lunar", "maple",
+  "meadow", "meteor", "midnight", "mist", "moon", "morning", "mountain", "nectar",
+  "nova", "oasis", "ocean", "olive", "onyx", "orchid", "pearl", "pebble",
+  "phoenix", "pine", "planet", "plaza", "prairie", "quartz", "rainfall", "raven",
+  "reef", "river", "robin", "rose", "saffron", "sail", "scarlet", "shadow",
+  "shore", "silver", "sky", "solar", "sparrow", "spring", "star", "stone",
+  "summit", "sunrise", "sunset", "thunder", "tiger", "topaz", "trail", "valley",
+  "velvet", "violet", "wave", "willow", "winter", "woodland", "zephyr"
+];
 
 function createDefaults() {
   return structuredClone(defaultState);
@@ -561,12 +820,89 @@ function normalizeFontFamily(value, fallback) {
   return Object.hasOwn(FONT_STACKS, value) ? value : fallback;
 }
 
+function normalizeSpeed(value, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return fallback;
+  }
+
+  return clamp(Math.round(numeric), MIN_SPEED, MAX_SPEED);
+}
+
 function normalizeTheme(value, fallback) {
   return THEME_OPTIONS.some((option) => option.value === value) ? value : fallback;
 }
 
+export function getThemeTeleprompterTextColor(theme) {
+  return normalizeTheme(theme, defaultState.appearance.theme) === "bright" ? "#000000" : "#ffffff";
+}
+
 function normalizeLanguage(value, fallback) {
   return LANGUAGE_OPTIONS.some((option) => option.value === value) ? value : fallback;
+}
+
+function normalizeRemoteCredential(value, fallback, maxLength = 128) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  return value.trim().slice(0, maxLength);
+}
+
+function normalizeRemoteHost(value, fallback) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  return value.trim().replace(/^https?:\/\//i, "").replace(/\/$/, "").slice(0, 255);
+}
+
+function normalizeRemoteProvider(value, fallback) {
+  return value === "cloud" ? "cloud" : fallback;
+}
+
+function normalizeDesktopSettings(value, fallback) {
+  return {
+    hideFromCapture: value?.hideFromCapture ?? fallback.hideFromCapture,
+    useSystemTray: value?.useSystemTray ?? fallback.useSystemTray,
+    preventSleep: value?.preventSleep ?? fallback.preventSleep,
+    clickthroughShortcutEnabled: value?.clickthroughShortcutEnabled ?? fallback.clickthroughShortcutEnabled
+  };
+}
+
+function generateRemoteId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `flow-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function generateRemoteSecret() {
+  const values = globalThis.crypto?.getRandomValues ? globalThis.crypto.getRandomValues(new Uint8Array(24)) : null;
+  if (values) {
+    return Array.from(values, (value) => value.toString(16).padStart(2, "0")).join("");
+  }
+
+  return `${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+}
+
+export function generateRemoteAccessPassword(wordCount = 24) {
+  const words = [];
+
+  if (globalThis.crypto?.getRandomValues) {
+    const values = globalThis.crypto.getRandomValues(new Uint32Array(wordCount));
+    values.forEach((value) => {
+      words.push(ACCESS_PASSWORD_WORDS[value % ACCESS_PASSWORD_WORDS.length]);
+    });
+    return words.join(" ");
+  }
+
+  for (let index = 0; index < wordCount; index += 1) {
+    words.push(ACCESS_PASSWORD_WORDS[Math.floor(Math.random() * ACCESS_PASSWORD_WORDS.length)]);
+  }
+
+  return words.join(" ");
 }
 
 export function resolveFontStack(fontFamily) {
@@ -622,6 +958,14 @@ export function normalizeState(rawState = {}) {
     groqKey: rawState.groqKey ?? rawState.geminiKey ?? defaults.groqKey,
     groqPrompt: rawState.groqPrompt ?? rawState.geminiPrompt ?? defaults.groqPrompt,
     language: rawState.language ?? defaults.language,
+    desktop: {
+      ...defaults.desktop,
+      ...(rawState.desktop || {})
+    },
+    remote: {
+      ...defaults.remote,
+      ...(rawState.remote || {})
+    },
     window: {
       ...defaults.window,
       ...(rawState.window || {})
@@ -633,12 +977,19 @@ export function normalizeState(rawState = {}) {
   };
 
   normalized.appearance.fontFamily = normalizeFontFamily(normalized.appearance.fontFamily, defaults.appearance.fontFamily);
+  normalized.speed = normalizeSpeed(normalized.speed, defaults.speed);
   normalized.language = normalizeLanguage(normalized.language, defaults.language);
+  normalized.desktop = normalizeDesktopSettings(normalized.desktop, defaults.desktop);
+  normalized.remote.provider = normalizeRemoteProvider(normalized.remote.provider, defaults.remote.provider);
+  normalized.remote.receiverId = normalizeRemoteCredential(normalized.remote.receiverId, "", 128) || generateRemoteId();
+  normalized.remote.receiverSecret = normalizeRemoteCredential(normalized.remote.receiverSecret, "", 256) || generateRemoteSecret();
+  normalized.remote.accessPassword = normalizeRemoteCredential(normalized.remote.accessPassword, "", 1024) || generateRemoteAccessPassword();
+  normalized.remote.publicHost = normalizeRemoteHost(normalized.remote.publicHost, defaults.remote.publicHost);
   normalized.appearance.theme = normalizeTheme(normalized.appearance.theme, defaults.appearance.theme);
   normalized.appearance.performanceMode = Boolean(normalized.appearance.performanceMode);
   normalized.appearance.appOpacity = normalizeAppOpacity(normalized.appearance.appOpacity, defaults.appearance.appOpacity);
   normalized.appearance.textScale = normalizeTextScale(normalized.appearance.textScale, defaults.appearance.textScale);
-  normalized.appearance.textColor = normalizeColor(normalized.appearance.textColor, defaults.appearance.textColor);
+  normalized.appearance.textColor = getThemeTeleprompterTextColor(normalized.appearance.theme);
   normalized.appearance.textOpacity = normalizeOpacity(normalized.appearance.textOpacity, defaults.appearance.textOpacity);
   normalized.appearance.mode = ["highlight", "scroll", "line", "arrow"].includes(normalized.appearance.mode)
     ? normalized.appearance.mode
@@ -651,6 +1002,18 @@ function mergeState(currentState, nextState = {}) {
   return normalizeState({
     ...currentState,
     ...nextState,
+    desktop: nextState.desktop
+      ? {
+          ...currentState.desktop,
+          ...nextState.desktop
+        }
+      : currentState.desktop,
+    remote: nextState.remote
+      ? {
+          ...currentState.remote,
+          ...nextState.remote
+        }
+      : currentState.remote,
     window: nextState.window
       ? {
           ...currentState.window,

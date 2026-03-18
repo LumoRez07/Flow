@@ -13,7 +13,7 @@
       <div class="teleprompter-toolbar">
         <button class="icon-button" id="speedDownButton" data-i18n-title="common.slower" data-i18n-aria-label="common.slower" title="Slower" aria-label="Slower">−</button>
         <label class="speed-pill speed-pill-label" for="speedLabel">
-          <input class="speed-pill-input" id="speedLabel" type="number" min="60" max="260" step="10" value="120" readonly data-i18n-aria-label="common.speedAria" aria-label="Speed in words per minute" />
+          <input class="speed-pill-input" id="speedLabel" type="number" min="60" max="360" step="10" value="120" readonly data-i18n-aria-label="common.speedAria" aria-label="Speed in words per minute" />
           <span class="speed-pill-unit" data-i18n="common.wpm">wpm</span>
         </label>
         <button class="icon-button" id="speedUpButton" data-i18n-title="common.faster" data-i18n-aria-label="common.faster" title="Faster" aria-label="Faster">+</button>
@@ -46,5 +46,7 @@
         </button>
       </div>
     </main>
+
+    <div class="remote-inbox" id="remoteInbox" aria-live="polite" aria-label="Remote message inbox"></div>
   </body>
 </html>

@@ -4,11 +4,26 @@
 
 <h1 align="center">Flow</h1>
 
-Flow is a lightweight desktop teleprompter built with Tauri, vanilla JavaScript, HTML, and CSS. It is designed for fast script reading, quick text editing, simple window controls, tray behavior, and AI-assisted script generation.
+<p align="center">
+  A clean, lightweight desktop teleprompter for Windows built with Tauri.
+</p>
 
-## Description
+## Overview
 
-Flow is a minimal teleprompter app for Windows that stays out of the way while you read. It includes a main teleprompter window, a text editor window, settings, an about page, system tray controls, and Groq-powered prompt generation for quickly drafting or rewriting scripts.
+Flow is a focused teleprompter app designed for fast reading, quick script editing, and low-friction control during recording or presentation. It combines a minimal always-on-top reading surface with a separate editor, live appearance controls, optional AI-assisted drafting, and cloud-based remote message delivery.
+
+## Highlights
+
+- Multiple playback styles: highlight, normal scroll, line-by-line, and arrow mode
+- Live speed control with keyboard shortcuts and click-to-jump navigation
+- Separate windows for the teleprompter, script editor, settings, and about page
+- Script formatting with bold, italic, underline, and highlight tags
+- Optional Groq-powered drafting and rewriting
+- Cloud remote inbox for receiving notes or script additions
+- Theme, font, transparency, and text-scale customization
+- Automatic RTL/LTR handling
+- English, Turkish, Arabic, and German localization
+- Windows-focused desktop features such as tray support, clickthrough mode, and capture hiding
 
 ## Screenshots
 

@@ -5,7 +5,7 @@
 <h1 align="center">Flow</h1>
 
 <p align="center">
-  A modern, high-performance teleprompter for Windows — built for clarity, control, and minimal overhead.
+  A modern, high-performance teleprompter for Windows - built for clarity, control, and minimal overhead.
 </p>
 
 <p align="center">

@@ -769,7 +769,6 @@ body[data-performance-mode="true"] .voice-wake-overlay:not(.is-animating) .voice
   justify-content: flex-start;
   gap: 10px;
   pointer-events: none;
-  contain: layout paint;
 }
 
 .remote-card {

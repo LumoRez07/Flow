@@ -519,7 +519,7 @@ fn ensure_window(
         return Ok(());
     }
 
-    let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App(path.into()))
+    let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(path.into()))
         .title(title)
         .inner_size(width, height)
         .visible(false)
@@ -529,8 +529,15 @@ fn ensure_window(
         .resizable(false)
         .skip_taskbar(true)
         .always_on_top(true)
-        .center()
-        .build()?;
+        .center();
+
+    if label == "remote-inbox" {
+        if let Some(main) = app.get_webview_window("main") {
+            builder = builder.owner(&main)?;
+        }
+    }
+
+    let window = builder.build()?;
 
     let capture_enabled = app
         .try_state::<DesktopState>()
@@ -844,14 +851,14 @@ fn sync_remote_inbox_window(app: tauri::AppHandle, has_messages: bool) -> Result
 
         let is_visible = window.is_visible().map_err(|error| error.to_string())?;
 
-        if is_visible {
-            return Ok(());
+        if !is_visible {
+            window
+                .set_always_on_top(true)
+                .map_err(|error| error.to_string())?;
+            window.show().map_err(|error| error.to_string())?;
         }
 
-        window
-            .set_always_on_top(true)
-            .map_err(|error| error.to_string())?;
-        window.show().map_err(|error| error.to_string())?;
+        window.set_focus().map_err(|error| error.to_string())?;
         return Ok(());
     }
 

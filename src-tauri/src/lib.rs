@@ -719,6 +719,11 @@ fn hide_main_window(app: tauri::AppHandle) {
 }
 
 #[tauri::command]
+fn show_main_window_command(app: tauri::AppHandle) {
+    show_main_window(&app);
+}
+
+#[tauri::command]
 fn set_capture_protection(
     app: tauri::AppHandle,
     desktop: tauri::State<DesktopState>,
@@ -1250,6 +1255,7 @@ pub fn run() {
             sync_remote_inbox_window,
             close_app,
             hide_main_window,
+            show_main_window_command,
             set_capture_protection,
             set_system_tray_enabled,
             set_prevent_sleep,

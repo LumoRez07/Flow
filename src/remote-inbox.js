@@ -9,19 +9,18 @@ const ui = {
   inbox: document.querySelector("#remoteInboxWindow")
 };
 
-const COLLAPSED_WIDTH = 260;
-const EXPANDED_WIDTH = 560;
+const COLLAPSED_WIDTH = 360;
+const EXPANDED_WIDTH = 360;
 const WINDOW_MIN_HEIGHT = 96;
 const WINDOW_BOTTOM_OFFSET = 24;
+const WINDOW_VERTICAL_PADDING = 16;
+const WINDOW_STACK_GAP = 10;
+const REMOTE_CARD_SLOT_HEIGHT = 220;
 
 let remoteMessages = [];
 const remotePendingActions = new Set();
 let pollTimer = null;
-let isExpanded = false;
-let collapseTimer = null;
 let lastMessageSignature = "";
-let layoutTransitionToken = 0;
-const cardCollapseTimers = new Map();
 
 function t(key, params = {}) {
   return translate(key, loadState().language, params);
@@ -71,14 +70,31 @@ async function positionInboxWindow() {
 }
 
 async function applyWindowLayout() {
-  if (!tauriWindow?.getCurrentWindow || !tauriDpi?.LogicalSize) {
+  if (!tauriWindow?.getCurrentWindow || !tauriDpi?.LogicalSize || !tauriDpi?.PhysicalPosition) {
     return;
   }
 
   const appWindow = tauriWindow.getCurrentWindow();
-  const width = isExpanded ? EXPANDED_WIDTH : COLLAPSED_WIDTH;
-  const contentHeight = Math.max(ui.inbox?.scrollHeight || 0, WINDOW_MIN_HEIGHT);
+  const width = COLLAPSED_WIDTH;
+  const visibleMessageCount = remoteMessages.filter((message) => !remotePendingActions.has(message.id)).length;
+  const contentHeight = visibleMessageCount > 0
+    ? WINDOW_VERTICAL_PADDING
+      + (visibleMessageCount * REMOTE_CARD_SLOT_HEIGHT)
+      + (Math.max(visibleMessageCount - 1, 0) * WINDOW_STACK_GAP)
+    : WINDOW_MIN_HEIGHT;
   const height = Math.max(contentHeight, WINDOW_MIN_HEIGHT);
+
+  const [outerSize, outerPosition] = await Promise.all([
+    appWindow.outerSize().catch(() => null),
+    appWindow.outerPosition().catch(() => null)
+  ]);
+
+  if (outerSize && outerPosition) {
+    const anchoredY = outerPosition.y + (outerSize.height - height);
+    if (anchoredY !== outerPosition.y) {
+      await appWindow.setPosition(new tauriDpi.PhysicalPosition(outerPosition.x, anchoredY)).catch(console.error);
+    }
+  }
 
   await appWindow.setSize(new tauriDpi.LogicalSize(width, height)).catch(console.error);
   await positionInboxWindow();
@@ -90,83 +106,12 @@ function getMessageSignature(messages = []) {
     .join("||");
 }
 
-function clearCollapseTimer() {
-  if (collapseTimer) {
-    clearTimeout(collapseTimer);
-    collapseTimer = null;
-  }
-}
-
-function clearCardCollapseTimer(messageId) {
-  const timer = cardCollapseTimers.get(messageId);
-  if (timer) {
-    clearTimeout(timer);
-    cardCollapseTimers.delete(messageId);
-  }
-}
-
-function expandCard(card, messageId) {
-  clearCardCollapseTimer(messageId);
-  card.classList.add("is-expanded");
-}
-
-function scheduleCardCollapse(card, messageId, delayMs = 140) {
-  clearCardCollapseTimer(messageId);
-  const timer = window.setTimeout(() => {
-    cardCollapseTimers.delete(messageId);
-    if (!card.matches(":hover") && !card.matches(":focus-within")) {
-      card.classList.remove("is-expanded");
-    }
-  }, delayMs);
-  cardCollapseTimers.set(messageId, timer);
-}
-
-function setExpanded(nextValue) {
-  clearCollapseTimer();
-
-  if (isExpanded === nextValue) {
-    return;
-  }
-
-  const token = ++layoutTransitionToken;
-  isExpanded = nextValue;
-
-  if (nextValue) {
-    ui.window?.classList.add("is-expanded");
-    applyWindowLayout().catch(console.error);
-    return;
-  }
-
-  applyWindowLayout()
-    .then(() => {
-      requestAnimationFrame(() => {
-        if (token !== layoutTransitionToken || isExpanded) {
-          return;
-        }
-
-        ui.window?.classList.remove("is-expanded");
-      });
-    })
-    .catch(console.error);
-}
-
-function scheduleCollapseCheck() {
-  clearCollapseTimer();
-  collapseTimer = window.setTimeout(() => {
-    if (!ui.window?.matches(":hover") && !ui.window?.matches(":focus-within")) {
-      setExpanded(false);
-    }
-  }, 120);
-}
-
 function renderRemoteInbox() {
   if (!ui.inbox) {
     return;
   }
 
   const visibleMessages = remoteMessages.filter((message) => !remotePendingActions.has(message.id));
-  cardCollapseTimers.forEach((timer) => clearTimeout(timer));
-  cardCollapseTimers.clear();
   ui.inbox.replaceChildren();
 
   visibleMessages.forEach((message) => {
@@ -195,22 +140,6 @@ function renderRemoteInbox() {
 
     card.querySelector(".remote-card-title").textContent = message.title;
     card.querySelector(".remote-card-excerpt").textContent = message.preview || message.content || "";
-
-    card.addEventListener("mouseenter", () => {
-      expandCard(card, message.id);
-    });
-
-    card.addEventListener("mouseleave", () => {
-      scheduleCardCollapse(card, message.id);
-    });
-
-    card.addEventListener("focusin", () => {
-      expandCard(card, message.id);
-    });
-
-    card.addEventListener("focusout", () => {
-      scheduleCardCollapse(card, message.id);
-    });
 
     card.addEventListener("dblclick", () => {
       acceptRemoteMessage(message.id).catch(console.error);
@@ -318,19 +247,6 @@ window.addEventListener("DOMContentLoaded", () => {
   applyWindowLayout().catch(console.error);
   syncRemoteMessages().catch(console.error);
 
-  ui.window?.addEventListener("mouseenter", () => {
-    setExpanded(true);
-  });
-  ui.window?.addEventListener("mouseleave", () => {
-    scheduleCollapseCheck();
-  });
-  ui.window?.addEventListener("focusin", () => {
-    setExpanded(true);
-  });
-  ui.window?.addEventListener("focusout", () => {
-    scheduleCollapseCheck();
-  });
-
   pollTimer = window.setInterval(() => {
     syncRemoteMessages().catch(console.error);
   }, 1200);
@@ -340,8 +256,6 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   window.addEventListener("beforeunload", () => {
-    clearCollapseTimer();
-    cardCollapseTimers.forEach((timer) => clearTimeout(timer));
     if (pollTimer) {
       clearInterval(pollTimer);
     }

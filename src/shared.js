@@ -22,17 +22,22 @@ export const defaultState = {
     y: null,
     width: 960,
     height: 260,
-    preset: "top-center"
+    preset: "top-center",
+    isPinned: true
   },
   appearance: {
     mode: "highlight",
     fontFamily: "inter",
     theme: "main",
+    style: "main",
     performanceMode: false,
     appOpacity: 100,
     textScale: 100,
     textColor: "#ffffff",
-    textOpacity: 88
+    textOpacity: 88,
+    voiceLanguage: "en-US",
+    voiceScrollStyle: "highlight",
+    appWideVoiceCommands: false
   }
 };
 
@@ -64,6 +69,12 @@ export const THEME_OPTIONS = [
   { value: "meadow", label: "Yellow-green" }
 ];
 
+export const STYLE_OPTIONS = [
+  { value: "main", label: "Main" },
+  { value: "glass", label: "Frosted Glass" },
+  { value: "minimal", label: "Minimalist" }
+];
+
 const UI_STRINGS = {
   en: {
     "doc.teleprompterTitle": "Flow Teleprompter",
@@ -88,6 +99,8 @@ const UI_STRINGS = {
     "common.stopKeep": "Stop and keep position",
     "common.openTextPage": "Open text page",
     "common.openSettings": "Open settings",
+    "common.pinWindow": "Pin window",
+    "common.unpinWindow": "Unpin window",
     "common.closeApp": "Close app",
     "common.collapse": "Collapse teleprompter",
     "common.expand": "Expand teleprompter",
@@ -106,6 +119,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "Arrow mode",
     "tele.status.highlight": "Highlighting",
     "tele.progress": "Word {current} / {total}",
+    "tele.floatingStats": "{words} left · {minutes} min left",
     "tele.empty": "Open the text editor and add your script.",
     "tele.addGroqKey": "Add Groq API key on the text page first",
     "tele.promptExisting": "Describe how Groq should rewrite the current teleprompter text:",
@@ -115,6 +129,8 @@ const UI_STRINGS = {
     "tele.cancelled": "Generation cancelled",
     "tele.generating": "Generating with Groq...",
     "tele.generated": "Groq generated a new script",
+    "tele.pinned": "Window pinned",
+    "tele.unpinned": "Window free dragging",
     "tele.groqFailed": "Groq failed: {error}",
     "tele.clickthroughEnabled": "Clickthrough mode enabled",
     "tele.clickthroughDisabled": "Clickthrough mode disabled",
@@ -154,22 +170,41 @@ const UI_STRINGS = {
     "settings.topCenter": "Top center",
     "settings.center": "Center",
     "settings.custom": "Custom x / y",
+    "settings.drag": "Free drag",
     "settings.appearance": "Appearance",
     "settings.sizeAndPlayback": "Size and playback style",
+    "settings.group.windowSize": "Window size",
+    "settings.group.playback": "Playback",
+    "settings.group.typography": "Typography",
+    "settings.group.visuals": "Visuals",
     "settings.width": "Width",
     "settings.height": "Height",
-    "settings.animationStyle": "Animation style",
+    "settings.animationStyle": "Scroll Mode",
     "settings.mode.highlight": "Highlight mode",
     "settings.mode.scroll": "Normal scroll mode",
     "settings.mode.line": "Line by line highlight",
     "settings.mode.arrow": "Arrow mode",
+    "settings.mode.voice": "Voice tracking",
+    "settings.voiceTrackingStyle": "Voice tracking style",
+    "settings.voiceTrackingStyleHelp": "Choose how the matched position is shown while speaking.",
+    "settings.voiceStyle.highlight": "Word highlight",
+    "settings.voiceStyle.line": "Line highlight",
+    "settings.voiceStyle.plain": "Plain text",
+    "settings.appWideVoiceCommands": "App-wide Flow voice commands",
+    "settings.appWideVoiceCommandsHelp": "Lets English Flow commands like 'Hey flow pause' or 'Hey flow down' work outside voice tracking too.",
     "settings.font": "Font",
     "settings.textSize": "Text size",
+    "settings.style": "Style",
+    "settings.style.main": "Main",
+    "settings.style.glass": "Frosted glass",
+    "settings.style.minimal": "Minimalist",
     "settings.theme": "Theme",
     "settings.theme.main": "Main",
     "settings.theme.dark": "Dark",
     "settings.theme.bright": "Bright",
     "settings.theme.meadow": "Yellow-green",
+    "settings.voiceLanguage": "Voice Language",
+    "settings.voiceModeHelp": "Matches spoken words to the script.",
     "settings.performance": "Performance mode",
     "settings.performanceHelp": "Disables UI animations and forces normal scrolling for smoother performance.",
     "settings.textColor": "Text color",
@@ -208,9 +243,11 @@ const UI_STRINGS = {
     "input.saved": "Saved locally.",
     "about.kicker": "About",
     "about.title": "About this project",
+    "about.summary": "A modern desktop teleprompter for smooth reading, quick editing, voice controls, and remote message injection.",
     "about.p1": "Flow is a teleprompter app built with web technologies and Tauri. It's designed to be simple, lightweight, and customizable.",
     "about.p2": "This project is open source and available on my <a href=\"https://github.com/LumoRez07\">GitHub account</a>. If you have any questions, suggestions, or want to contribute, feel free to reach out or open an issue.",
-    "about.p3": "This project was made by <a href=\"https://lumorez.vercel.app/\">LumoRez</a> with ❤️ in 2026."
+    "about.p3": "This project was made by <a href=\"https://lumorez.vercel.app/\">LumoRez</a> with ❤️ in 2026.",
+    "about.p4": "Flow includes script editing, multiple playback modes, voice tracking, AI-assisted drafting, remote notifications, tray controls, and Windows-first privacy options like capture protection."
   },
   tr: {
     "doc.teleprompterTitle": "Flow Teleprompter",
@@ -220,7 +257,7 @@ const UI_STRINGS = {
     "common.settings": "Ayarlar",
     "common.text": "Metin",
     "common.close": "Kapat",
-    "common.ai": "YZ",
+    "common.ai": "AI",
     "common.wpm": "k/dk",
     "common.slower": "Daha yavaş",
     "common.faster": "Daha hızlı",
@@ -233,6 +270,8 @@ const UI_STRINGS = {
     "common.stopKeep": "Durdur ve konumu koru",
     "common.openTextPage": "Metin sayfasını aç",
     "common.openSettings": "Ayarları aç",
+    "common.pinWindow": "Pencereyi sabitle",
+    "common.unpinWindow": "Pencere sabitlemesini kaldır",
     "common.closeApp": "Uygulamayı kapat",
     "common.collapse": "Teleprompter'ı daralt",
     "common.expand": "Teleprompter'ı genişlet",
@@ -251,6 +290,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "Ok modu",
     "tele.status.highlight": "Vurgulanıyor",
     "tele.progress": "Kelime {current} / {total}",
+    "tele.floatingStats": "{words} kaldı · {minutes} dk kaldı",
     "tele.empty": "Metin düzenleyicisini açın ve metninizi ekleyin.",
     "tele.addGroqKey": "Önce metin sayfasına Groq API anahtarını ekleyin",
     "tele.promptExisting": "Groq'un mevcut teleprompter metnini nasıl yeniden yazması gerektiğini açıklayın:",
@@ -275,8 +315,13 @@ const UI_STRINGS = {
     "settings.topCenter": "Üst orta",
     "settings.center": "Orta",
     "settings.custom": "Özel x / y",
+    "settings.drag": "Serbest sürükleme",
     "settings.appearance": "Görünüm",
     "settings.sizeAndPlayback": "Boyut ve oynatma stili",
+    "settings.group.windowSize": "Pencere boyutu",
+    "settings.group.playback": "Oynatma",
+    "settings.group.typography": "Tipografi",
+    "settings.group.visuals": "Görseller",
     "settings.width": "Genişlik",
     "settings.height": "Yükseklik",
     "settings.animationStyle": "Animasyon stili",
@@ -284,13 +329,27 @@ const UI_STRINGS = {
     "settings.mode.scroll": "Normal kaydırma modu",
     "settings.mode.line": "Satır satır vurgu",
     "settings.mode.arrow": "Ok modu",
+    "settings.mode.voice": "Ses takibi",
+    "settings.voiceTrackingStyle": "Ses takibi stili",
+    "settings.voiceTrackingStyleHelp": "Konuşurken eşleşen konumun nasıl gösterileceğini seçin.",
+    "settings.voiceStyle.highlight": "Kelime vurgusu",
+    "settings.voiceStyle.line": "Satır vurgusu",
+    "settings.voiceStyle.plain": "Düz metin",
+    "settings.appWideVoiceCommands": "Uygulama genelinde Flow ses komutları",
+    "settings.appWideVoiceCommandsHelp": "'Hey flow pause' veya 'Hey flow down' gibi İngilizce Flow komutlarının ses takibi dışında da çalışmasını sağlar.",
     "settings.font": "Yazı tipi",
     "settings.textSize": "Metin boyutu",
+    "settings.style": "Stil",
+    "settings.style.main": "Ana",
+    "settings.style.glass": "Buzlu cam",
+    "settings.style.minimal": "Minimalist",
     "settings.theme": "Tema",
     "settings.theme.main": "Ana",
     "settings.theme.dark": "Koyu",
     "settings.theme.bright": "Parlak",
     "settings.theme.meadow": "Sarı-yeşil",
+    "settings.voiceLanguage": "Ses dili",
+    "settings.voiceModeHelp": "Konuşulan kelimeleri metinle eşleştirir.",
     "settings.performance": "Performans modu",
     "settings.performanceHelp": "Daha akıcı performans için arayüz animasyonlarını kapatır ve normal kaydırmayı zorlar.",
     "settings.textColor": "Metin rengi",
@@ -323,9 +382,11 @@ const UI_STRINGS = {
     "input.saved": "Yerel olarak kaydedildi.",
     "about.kicker": "Hakkında",
     "about.title": "Bu proje hakkında",
+    "about.summary": "Akıcı okuma, hızlı düzenleme, sesli kontroller ve uzak mesaj ekleme için modern bir masaüstü teleprompter.",
     "about.p1": "Flow, web teknolojileri ve Tauri ile oluşturulmuş bir teleprompter uygulamasıdır. Basit, hafif ve özelleştirilebilir olacak şekilde tasarlanmıştır.",
     "about.p2": "Bu proje açık kaynaklıdır ve <a href=\"https://github.com/LumoRez07\">GitHub hesabımda</a> yer almaktadır. Sorularınız, önerileriniz varsa veya katkı sağlamak istiyorsanız iletişime geçebilir ya da bir issue açabilirsiniz.",
-    "about.p3": "Bu proje 2026 yılında <a href=\"https://lumorez.vercel.app/\">LumoRez</a> tarafından ❤️ ile yapıldı."
+    "about.p3": "Bu proje 2026 yılında <a href=\"https://lumorez.vercel.app/\">LumoRez</a> tarafından ❤️ ile yapıldı.",
+    "about.p4": "Flow; metin düzenleme, birden fazla oynatma modu, ses takibi, yapay zekâ destekli taslak oluşturma, uzak bildirimler, sistem tepsisi kontrolleri ve ekran yakalama koruması gibi Windows odaklı gizlilik seçenekleri içerir."
   },
   ar: {
     "doc.teleprompterTitle": "ملقن Flow",
@@ -335,7 +396,7 @@ const UI_STRINGS = {
     "common.settings": "الإعدادات",
     "common.text": "النص",
     "common.close": "إغلاق",
-    "common.ai": "ذكاء",
+    "common.ai": "AI",
     "common.wpm": "ك/د",
     "common.slower": "أبطأ",
     "common.faster": "أسرع",
@@ -348,6 +409,8 @@ const UI_STRINGS = {
     "common.stopKeep": "إيقاف مع حفظ الموضع",
     "common.openTextPage": "فتح صفحة النص",
     "common.openSettings": "فتح الإعدادات",
+    "common.pinWindow": "تثبيت النافذة",
+    "common.unpinWindow": "إلغاء تثبيت النافذة",
     "common.closeApp": "إغلاق التطبيق",
     "common.collapse": "تصغير الملقن",
     "common.expand": "توسيع الملقن",
@@ -366,6 +429,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "وضع السهم",
     "tele.status.highlight": "تمييز",
     "tele.progress": "الكلمة {current} / {total}",
+    "tele.floatingStats": "المتبقي {words} · المتبقي {minutes} دقيقة",
     "tele.empty": "افتح محرر النص وأضف النص الخاص بك.",
     "tele.addGroqKey": "أضف مفتاح Groq API أولاً من صفحة النص",
     "tele.promptExisting": "اشرح كيف يجب على Groq إعادة كتابة نص الملقن الحالي:",
@@ -390,8 +454,13 @@ const UI_STRINGS = {
     "settings.topCenter": "أعلى الوسط",
     "settings.center": "الوسط",
     "settings.custom": "مخصص x / y",
+    "settings.drag": "سحب حر",
     "settings.appearance": "المظهر",
     "settings.sizeAndPlayback": "الحجم ونمط التشغيل",
+    "settings.group.windowSize": "حجم النافذة",
+    "settings.group.playback": "التشغيل",
+    "settings.group.typography": "الطباعة",
+    "settings.group.visuals": "المظهر",
     "settings.width": "العرض",
     "settings.height": "الارتفاع",
     "settings.animationStyle": "نمط الحركة",
@@ -399,13 +468,27 @@ const UI_STRINGS = {
     "settings.mode.scroll": "وضع التمرير العادي",
     "settings.mode.line": "تمييز سطر بسطر",
     "settings.mode.arrow": "وضع السهم",
+    "settings.mode.voice": "تتبع الصوت",
+    "settings.voiceTrackingStyle": "نمط تتبع الصوت",
+    "settings.voiceTrackingStyleHelp": "اختر كيف يظهر الموضع المطابق أثناء التحدث.",
+    "settings.voiceStyle.highlight": "تمييز الكلمة",
+    "settings.voiceStyle.line": "تمييز السطر",
+    "settings.voiceStyle.plain": "نص عادي",
+    "settings.appWideVoiceCommands": "أوامر Flow الصوتية على مستوى التطبيق",
+    "settings.appWideVoiceCommandsHelp": "يسمح لأوامر Flow الإنجليزية مثل 'Hey flow pause' أو 'Hey flow down' بالعمل حتى خارج وضع تتبع الصوت.",
     "settings.font": "الخط",
     "settings.textSize": "حجم النص",
+    "settings.style": "الأسلوب",
+    "settings.style.main": "الرئيسي",
+    "settings.style.glass": "زجاج بلوري",
+    "settings.style.minimal": "بسيط",
     "settings.theme": "السمة",
     "settings.theme.main": "الرئيسية",
     "settings.theme.dark": "داكن",
     "settings.theme.bright": "فاتح",
     "settings.theme.meadow": "أصفر-أخضر",
+    "settings.voiceLanguage": "لغة الصوت",
+    "settings.voiceModeHelp": "يطابق الكلمات المنطوقة مع النص.",
     "settings.performance": "وضع الأداء",
     "settings.performanceHelp": "يعطّل حركات الواجهة ويفرض التمرير العادي لأداء أكثر سلاسة.",
     "settings.textColor": "لون النص",
@@ -438,9 +521,11 @@ const UI_STRINGS = {
     "input.saved": "تم الحفظ محليًا.",
     "about.kicker": "حول",
     "about.title": "حول هذا المشروع",
+    "about.summary": "ملقن مكتبي حديث لقراءة سلسة وتحرير سريع وتحكم صوتي وإدخال الرسائل عن بُعد.",
     "about.p1": "Flow هو تطبيق ملقن نصوص مبني بتقنيات الويب وTauri. صُمم ليكون بسيطًا وخفيفًا وقابلًا للتخصيص.",
     "about.p2": "هذا المشروع مفتوح المصدر ومتوفر على <a href=\"https://github.com/LumoRez07\">حسابي على GitHub</a>. إذا كانت لديك أسئلة أو اقتراحات أو ترغب في المساهمة، فلا تتردد في التواصل أو فتح issue.",
-    "about.p3": "تم إنشاء هذا المشروع بواسطة <a href=\"https://lumorez.vercel.app/\">LumoRez</a> مع ❤️ في عام 2026."
+    "about.p3": "تم إنشاء هذا المشروع بواسطة <a href=\"https://lumorez.vercel.app/\">LumoRez</a> مع ❤️ في عام 2026.",
+    "about.p4": "يتضمن Flow تحرير النصوص وأنماط تشغيل متعددة وتتبعًا صوتيًا وصياغة مدعومة بالذكاء الاصطناعي وإشعارات عن بُعد وعناصر تحكم من شريط النظام وخيارات خصوصية موجهة لويندوز مثل الحماية من الالتقاط."
   },
   de: {
     "doc.teleprompterTitle": "Flow Teleprompter",
@@ -450,7 +535,7 @@ const UI_STRINGS = {
     "common.settings": "Einstellungen",
     "common.text": "Text",
     "common.close": "Schließen",
-    "common.ai": "KI",
+    "common.ai": "AI",
     "common.wpm": "WPM",
     "common.slower": "Langsamer",
     "common.faster": "Schneller",
@@ -463,6 +548,8 @@ const UI_STRINGS = {
     "common.stopKeep": "Stoppen und Position behalten",
     "common.openTextPage": "Textseite öffnen",
     "common.openSettings": "Einstellungen öffnen",
+    "common.pinWindow": "Fenster anheften",
+    "common.unpinWindow": "Fenster lösen",
     "common.closeApp": "App schließen",
     "common.collapse": "Teleprompter einklappen",
     "common.expand": "Teleprompter ausklappen",
@@ -481,6 +568,7 @@ const UI_STRINGS = {
     "tele.status.arrow": "Pfeilmodus",
     "tele.status.highlight": "Hervorhebung",
     "tele.progress": "Wort {current} / {total}",
+    "tele.floatingStats": "{words} übrig · {minutes} Min. übrig",
     "tele.empty": "Öffne den Texteditor und füge dein Skript hinzu.",
     "tele.addGroqKey": "Füge zuerst den Groq-API-Schlüssel auf der Textseite hinzu",
     "tele.promptExisting": "Beschreibe, wie Groq den aktuellen Teleprompter-Text umschreiben soll:",
@@ -505,8 +593,13 @@ const UI_STRINGS = {
     "settings.topCenter": "Oben mittig",
     "settings.center": "Zentriert",
     "settings.custom": "Benutzerdefiniert x / y",
+    "settings.drag": "Freies Ziehen",
     "settings.appearance": "Darstellung",
     "settings.sizeAndPlayback": "Größe und Wiedergabestil",
+    "settings.group.windowSize": "Fenstergröße",
+    "settings.group.playback": "Wiedergabe",
+    "settings.group.typography": "Typografie",
+    "settings.group.visuals": "Darstellung",
     "settings.width": "Breite",
     "settings.height": "Höhe",
     "settings.animationStyle": "Animationsstil",
@@ -514,13 +607,27 @@ const UI_STRINGS = {
     "settings.mode.scroll": "Normaler Scrollmodus",
     "settings.mode.line": "Zeilenweise Hervorhebung",
     "settings.mode.arrow": "Pfeilmodus",
+    "settings.mode.voice": "Sprachverfolgung",
+    "settings.voiceTrackingStyle": "Sprachstil",
+    "settings.voiceTrackingStyleHelp": "Wähle, wie die erkannte Position beim Sprechen angezeigt wird.",
+    "settings.voiceStyle.highlight": "Worthervorhebung",
+    "settings.voiceStyle.line": "Zeilenhervorhebung",
+    "settings.voiceStyle.plain": "Klartext",
+    "settings.appWideVoiceCommands": "App-weite Flow-Sprachbefehle",
+    "settings.appWideVoiceCommandsHelp": "Erlaubt englische Flow-Befehle wie 'Hey flow pause' oder 'Hey flow down' auch außerhalb der Sprachverfolgung.",
     "settings.font": "Schriftart",
     "settings.textSize": "Textgröße",
+    "settings.style": "Stil",
+    "settings.style.main": "Haupt",
+    "settings.style.glass": "Milchglas",
+    "settings.style.minimal": "Minimalistisch",
     "settings.theme": "Design",
     "settings.theme.main": "Haupt",
     "settings.theme.dark": "Dunkel",
     "settings.theme.bright": "Hell",
     "settings.theme.meadow": "Gelbgrün",
+    "settings.voiceLanguage": "Spracheingabe",
+    "settings.voiceModeHelp": "Gleicht gesprochene Wörter mit dem Skript ab.",
     "settings.performance": "Performance-Modus",
     "settings.performanceHelp": "Deaktiviert UI-Animationen und erzwingt normales Scrollen für flüssigere Leistung.",
     "settings.textColor": "Textfarbe",
@@ -553,9 +660,11 @@ const UI_STRINGS = {
     "input.saved": "Lokal gespeichert.",
     "about.kicker": "Über",
     "about.title": "Über dieses Projekt",
+    "about.summary": "Ein moderner Desktop-Teleprompter für flüssiges Lesen, schnelles Bearbeiten, Sprachsteuerung und Remote-Nachrichten.",
     "about.p1": "Flow ist eine Teleprompter-App, die mit Web-Technologien und Tauri entwickelt wurde. Sie wurde so gestaltet, dass sie einfach, leichtgewichtig und anpassbar ist.",
     "about.p2": "Dieses Projekt ist Open Source und auf meinem <a href=\"https://github.com/LumoRez07\">GitHub-Konto</a> verfügbar. Wenn du Fragen oder Vorschläge hast oder beitragen möchtest, melde dich gern oder eröffne ein Issue.",
-    "about.p3": "Dieses Projekt wurde 2026 von <a href=\"https://lumorez.vercel.app/\">LumoRez</a> mit ❤️ erstellt."
+    "about.p3": "Dieses Projekt wurde 2026 von <a href=\"https://lumorez.vercel.app/\">LumoRez</a> mit ❤️ erstellt.",
+    "about.p4": "Flow bietet Skriptbearbeitung, mehrere Wiedergabemodi, Sprachverfolgung, KI-gestützte Entwürfe, Remote-Benachrichtigungen, Tray-Steuerung und Windows-orientierte Datenschutzoptionen wie Aufnahmeschutz."
   }
 };
 
@@ -614,10 +723,38 @@ Object.assign(UI_STRINGS.tr, {
   "common.loading": "Yükleniyor…",
   "common.unavailable": "Kullanılamıyor",
   "common.live": "Canlı",
+  "common.on": "Açık",
+  "common.off": "Kapalı",
   "common.offline": "Çevrimdışı",
   "common.setup": "Kurulum",
   "tele.promptExistingDefault": "Bunu farklı bir ton, kişilik ve görsel stille yaklaşık 200 kelimede yeniden yaz.",
+  "tele.pinned": "Pencere sabitlendi",
+  "tele.unpinned": "Pencere serbest sürüklenebilir",
+  "tele.clickthroughEnabled": "Tıklama geçiş modu etkinleştirildi",
+  "tele.clickthroughDisabled": "Tıklama geçiş modu devre dışı bırakıldı",
   "doc.remoteInboxTitle": "Flow Bildirimleri",
+  "settings.privacy": "Gizlilik ve sistem",
+  "settings.desktopBehavior": "Masaüstü davranışı",
+  "settings.hideFromCapture": "Ekran yakalamada görünmez",
+  "settings.hideFromCaptureHelp": "Desteklenen Windows sistemlerinde Flow'u ekran görüntülerinden ve ekran kayıtlarından gizler.",
+  "settings.systemTray": "Sistem tepsisi simgesini kullan",
+  "settings.systemTrayHelp": "Etkin olduğunda Flow görev çubuğundan gizlenir ve sistem tepsisinden kullanılabilir kalır. Devre dışı olduğunda Flow görev çubuğunda görünür.",
+  "settings.preventSleep": "Uyku modunu engelle",
+  "settings.preventSleepHelp": "Flow çalışırken ekranı ve sistemi uyanık tutar.",
+  "settings.usability": "Kullanılabilirlik",
+  "settings.shortcuts": "Klavye kısayolları",
+  "settings.clickthroughShortcut": "Tıklama geçiş modu kısayolu",
+  "settings.clickthroughShortcutHelp": "Ctrl + Shift + X ile tıklama geçiş modunu açıp kapatmanızı sağlar.",
+  "settings.shortcutPlayStop": "Başlat / durdur",
+  "settings.shortcutReset": "Başa dön",
+  "settings.shortcutBackward": "Geri kaydır",
+  "settings.shortcutSpeed": "Oynatırken hızı azalt / artır",
+  "settings.shortcutPause": "Duraklat / devam et",
+  "settings.shortcutPlayStopValue": "P",
+  "settings.shortcutResetValue": "R",
+  "settings.shortcutBackwardValue": "Page Up",
+  "settings.shortcutSpeedValue": "← / →",
+  "settings.shortcutPauseValue": "Boşluk",
   "settings.remoteInjection": "Uzak ekleme",
   "settings.remoteSession": "Canlı alıcı oturumu",
   "settings.remoteTransport": "Uzak aktarım",
@@ -652,6 +789,12 @@ Object.assign(UI_STRINGS.tr, {
   "remote.rejectAria": "Uzak mesajı reddet",
   "remote.fetchFailed": "Bulut mesajları alınamadı.",
   "remote.resolveFailed": "Bulut mesajı çözümlenemedi.",
+  "input.importButton": "Dosya içe aktar",
+  "input.importHelp": "Bir TXT, DOCX veya PDF dosyasını düzenleyiciye bırakın ya da cihazınızdan seçin.",
+  "input.importing": "{name} içe aktarılıyor...",
+  "input.imported": "{name} dosyasından metin yüklendi.",
+  "input.importUnsupported": "Bu dosya türü desteklenmiyor. TXT, DOCX, PDF veya okunabilir başka bir metin dosyası kullanın.",
+  "input.importFailed": "Bu dosya okunamadı.",
   "remote.acceptedAppending": "Uzak mesaj kabul edildi. Metin ekleniyor…",
   "remote.denied": "Uzak mesaj reddedildi.",
   "remote.heartbeatFailed": "Bulut kalp atışı {status} durumuyla başarısız oldu."
@@ -663,10 +806,38 @@ Object.assign(UI_STRINGS.ar, {
   "common.loading": "جارٍ التحميل…",
   "common.unavailable": "غير متاح",
   "common.live": "مباشر",
+  "common.on": "تشغيل",
+  "common.off": "إيقاف",
   "common.offline": "غير متصل",
   "common.setup": "إعداد",
   "tele.promptExistingDefault": "أعد كتابة هذا بنبرة وشخصية وأسلوب بصري مختلف في نحو 200 كلمة.",
+  "tele.pinned": "تم تثبيت النافذة",
+  "tele.unpinned": "النافذة قابلة للسحب الحر",
+  "tele.clickthroughEnabled": "تم تفعيل وضع المرور بالنقر",
+  "tele.clickthroughDisabled": "تم تعطيل وضع المرور بالنقر",
   "doc.remoteInboxTitle": "إشعارات Flow",
+  "settings.privacy": "الخصوصية والنظام",
+  "settings.desktopBehavior": "سلوك سطح المكتب",
+  "settings.hideFromCapture": "إخفاء من التقاط الشاشة",
+  "settings.hideFromCaptureHelp": "يبقي Flow خارج لقطات الشاشة وتسجيلات الشاشة على أنظمة Windows المدعومة.",
+  "settings.systemTray": "استخدام أيقونة شريط النظام",
+  "settings.systemTrayHelp": "عند التفعيل، يختفي Flow من شريط المهام ويظل متاحًا من شريط النظام. عند التعطيل، يظهر Flow في شريط المهام.",
+  "settings.preventSleep": "منع وضع السكون",
+  "settings.preventSleepHelp": "يبقي الشاشة والنظام في وضع الاستيقاظ أثناء تشغيل Flow.",
+  "settings.usability": "سهولة الاستخدام",
+  "settings.shortcuts": "اختصارات لوحة المفاتيح",
+  "settings.clickthroughShortcut": "اختصار وضع المرور بالنقر",
+  "settings.clickthroughShortcutHelp": "يتيح لك تبديل وضع المرور بالنقر باستخدام Ctrl + Shift + X.",
+  "settings.shortcutPlayStop": "تشغيل / إيقاف",
+  "settings.shortcutReset": "إعادة إلى البداية",
+  "settings.shortcutBackward": "تمرير للخلف",
+  "settings.shortcutSpeed": "إبطاء / تسريع أثناء التشغيل",
+  "settings.shortcutPause": "إيقاف مؤقت / متابعة",
+  "settings.shortcutPlayStopValue": "P",
+  "settings.shortcutResetValue": "R",
+  "settings.shortcutBackwardValue": "Page Up",
+  "settings.shortcutSpeedValue": "← / →",
+  "settings.shortcutPauseValue": "مسافة",
   "settings.remoteInjection": "الإدخال عن بُعد",
   "settings.remoteSession": "جلسة المستقبِل المباشرة",
   "settings.remoteTransport": "النقل عن بُعد",
@@ -701,6 +872,12 @@ Object.assign(UI_STRINGS.ar, {
   "remote.rejectAria": "رفض الرسالة البعيدة",
   "remote.fetchFailed": "تعذر جلب رسائل السحابة.",
   "remote.resolveFailed": "تعذر معالجة رسالة السحابة.",
+  "input.importButton": "استيراد ملف",
+  "input.importHelp": "أسقط ملف TXT أو DOCX أو PDF داخل المحرر، أو اختر ملفًا من جهازك.",
+  "input.importing": "جارٍ استيراد {name}...",
+  "input.imported": "تم تحميل النص من {name}.",
+  "input.importUnsupported": "نوع الملف هذا غير مدعوم. استخدم TXT أو DOCX أو PDF أو أي ملف نصي آخر قابل للقراءة.",
+  "input.importFailed": "تعذر قراءة هذا الملف.",
   "remote.acceptedAppending": "تم قبول الرسالة البعيدة. تتم إضافة النص…",
   "remote.denied": "تم رفض الرسالة البعيدة.",
   "remote.heartbeatFailed": "فشلت نبضة السحابة بالحالة {status}."
@@ -712,10 +889,38 @@ Object.assign(UI_STRINGS.de, {
   "common.loading": "Lädt…",
   "common.unavailable": "Nicht verfügbar",
   "common.live": "Live",
+  "common.on": "Ein",
+  "common.off": "Aus",
   "common.offline": "Offline",
   "common.setup": "Einrichtung",
   "tele.promptExistingDefault": "Schreibe dies mit einem anderen Ton, einer anderen Persönlichkeit und einem anderen visuellen Stil in etwa 200 Wörtern um.",
+  "tele.pinned": "Fenster angeheftet",
+  "tele.unpinned": "Fenster frei verschiebbar",
+  "tele.clickthroughEnabled": "Klickdurch-Modus aktiviert",
+  "tele.clickthroughDisabled": "Klickdurch-Modus deaktiviert",
   "doc.remoteInboxTitle": "Flow Benachrichtigungen",
+  "settings.privacy": "Datenschutz und System",
+  "settings.desktopBehavior": "Desktop-Verhalten",
+  "settings.hideFromCapture": "In Bildschirmaufnahmen unsichtbar",
+  "settings.hideFromCaptureHelp": "Hält Flow auf unterstützten Windows-Systemen aus Screenshots und Bildschirmaufzeichnungen heraus.",
+  "settings.systemTray": "Systemtray-Symbol verwenden",
+  "settings.systemTrayHelp": "Wenn aktiviert, wird Flow aus der Taskleiste ausgeblendet und bleibt über das Systemtray erreichbar. Wenn deaktiviert, erscheint Flow in der Taskleiste.",
+  "settings.preventSleep": "Ruhezustand verhindern",
+  "settings.preventSleepHelp": "Hält Bildschirm und System wach, während Flow läuft.",
+  "settings.usability": "Bedienung",
+  "settings.shortcuts": "Tastenkürzel",
+  "settings.clickthroughShortcut": "Klickdurch-Modus-Kürzel",
+  "settings.clickthroughShortcutHelp": "Ermöglicht das Umschalten des Klickdurch-Modus mit Ctrl + Shift + X.",
+  "settings.shortcutPlayStop": "Start / Stopp",
+  "settings.shortcutReset": "Zum Anfang zurücksetzen",
+  "settings.shortcutBackward": "Zurück scrollen",
+  "settings.shortcutSpeed": "Während der Wiedergabe langsamer / schneller",
+  "settings.shortcutPause": "Pause / Fortsetzen",
+  "settings.shortcutPlayStopValue": "P",
+  "settings.shortcutResetValue": "R",
+  "settings.shortcutBackwardValue": "Page Up",
+  "settings.shortcutSpeedValue": "← / →",
+  "settings.shortcutPauseValue": "Leertaste",
   "settings.remoteInjection": "Remote-Einspeisung",
   "settings.remoteSession": "Live-Empfängersitzung",
   "settings.remoteTransport": "Remote-Transport",
@@ -750,6 +955,12 @@ Object.assign(UI_STRINGS.de, {
   "remote.rejectAria": "Remote-Nachricht ablehnen",
   "remote.fetchFailed": "Cloud-Nachrichten konnten nicht geladen werden.",
   "remote.resolveFailed": "Cloud-Nachricht konnte nicht verarbeitet werden.",
+  "input.importButton": "Datei importieren",
+  "input.importHelp": "Lege eine TXT-, DOCX- oder PDF-Datei im Editor ab oder wähle eine von deinem Gerät aus.",
+  "input.importing": "{name} wird importiert...",
+  "input.imported": "Text aus {name} geladen.",
+  "input.importUnsupported": "Dieser Dateityp wird nicht unterstützt. Verwende TXT, DOCX, PDF oder eine andere lesbare Textdatei.",
+  "input.importFailed": "Diese Datei konnte nicht gelesen werden.",
   "remote.acceptedAppending": "Remote-Nachricht akzeptiert. Text wird angehängt…",
   "remote.denied": "Remote-Nachricht abgelehnt.",
   "remote.heartbeatFailed": "Cloud-Heartbeat mit Status {status} fehlgeschlagen."
@@ -833,8 +1044,21 @@ function normalizeTheme(value, fallback) {
   return THEME_OPTIONS.some((option) => option.value === value) ? value : fallback;
 }
 
+function normalizeStyle(value, fallback) {
+  return STYLE_OPTIONS.some((option) => option.value === value) ? value : fallback;
+}
+
 export function getThemeTeleprompterTextColor(theme) {
   return normalizeTheme(theme, defaultState.appearance.theme) === "bright" ? "#000000" : "#ffffff";
+}
+
+function normalizeTeleprompterTextColor(value, fallback) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const normalized = value.trim();
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(normalized) ? normalized : fallback;
 }
 
 function normalizeLanguage(value, fallback) {
@@ -986,12 +1210,20 @@ export function normalizeState(rawState = {}) {
   normalized.remote.accessPassword = normalizeRemoteCredential(normalized.remote.accessPassword, "", 1024) || generateRemoteAccessPassword();
   normalized.remote.publicHost = normalizeRemoteHost(normalized.remote.publicHost, defaults.remote.publicHost);
   normalized.appearance.theme = normalizeTheme(normalized.appearance.theme, defaults.appearance.theme);
+  normalized.appearance.style = normalizeStyle(normalized.appearance.style, defaults.appearance.style);
   normalized.appearance.performanceMode = Boolean(normalized.appearance.performanceMode);
+  normalized.appearance.appWideVoiceCommands = Boolean(normalized.appearance.appWideVoiceCommands);
   normalized.appearance.appOpacity = normalizeAppOpacity(normalized.appearance.appOpacity, defaults.appearance.appOpacity);
   normalized.appearance.textScale = normalizeTextScale(normalized.appearance.textScale, defaults.appearance.textScale);
-  normalized.appearance.textColor = getThemeTeleprompterTextColor(normalized.appearance.theme);
+  normalized.appearance.textColor = normalizeTeleprompterTextColor(
+    normalized.appearance.textColor,
+    getThemeTeleprompterTextColor(normalized.appearance.theme)
+  );
   normalized.appearance.textOpacity = normalizeOpacity(normalized.appearance.textOpacity, defaults.appearance.textOpacity);
-  normalized.appearance.mode = ["highlight", "scroll", "line", "arrow"].includes(normalized.appearance.mode)
+  normalized.appearance.voiceScrollStyle = ["highlight", "line", "plain"].includes(normalized.appearance.voiceScrollStyle)
+    ? normalized.appearance.voiceScrollStyle
+    : defaults.appearance.voiceScrollStyle;
+  normalized.appearance.mode = ["highlight", "scroll", "line", "arrow", "voice"].includes(normalized.appearance.mode)
     ? normalized.appearance.mode
     : defaults.appearance.mode;
 
@@ -1253,6 +1485,7 @@ export function applyAppearanceToDocument(appearance = {}, target = document) {
   };
 
   applyThemeToDocument(merged.theme, target);
+  target.body.dataset.style = merged.style || defaultState.appearance.style;
   target.body.dataset.performanceMode = merged.performanceMode ? "true" : "false";
   target.documentElement?.style?.setProperty("--flow-app-opacity", String(clamp(merged.appOpacity / 100, 0.15, 1)));
 }

@@ -5,6 +5,7 @@ import {
   applyTranslationsToDocument,
   clamp,
   defaultState,
+  estimateMinutes,
   generateRemoteAccessPassword,
   generateWithGroq,
   loadState,
@@ -15,11 +16,64 @@ import {
   translate
 } from "./shared.js";
 
+
+// Configuration constants
 const MIN_WIDTH = 400;
 const MIN_HEIGHT = 200;
 const COLLAPSED_HEIGHT = 56;
 const COLLAPSE_DURATION = 420;
 const TOP_CENTER_X_OFFSET = 32;
+const VOICE_WORD_VIEWPORT_OFFSET = 0.42;
+const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
+const VOICE_SCROLL_EASING = 0.1;
+const VOICE_SCROLL_MAX_STEP = 10;
+const VOICE_COMMAND_PREFIX = "hey flow";
+const VOICE_COMMAND_SOUND_URL = new URL("./assets/voice-command-recognized.mp3", import.meta.url).href;
+const VOICE_COMMAND_SOUND_REPEAT_GUARD_MS = 700;
+const VOICE_COMMAND_RESTART_DELAY_MS = 0;
+const VOICE_COMMAND_COOLDOWN_MS = 40;
+const VOICE_COMMAND_REPEAT_GUARD_MS = 450;
+const VOICE_COMMAND_ACTION_REPEAT_GUARD_MS = 520;
+const VOICE_COMMAND_MIN_CONFIDENCE = 0.45;
+const VOICE_COMMAND_BUFFER_TOKEN_LIMIT = 12;
+const VOICE_COMMAND_LOOKBACK_TOKENS = 10;
+const VOSK_COMMAND_BUFFER_SIZE = 4096;
+const VOSK_COMMAND_MODEL_URL = new URL("./assets/vosk-model-small-en-us-0.15.tar.gz", import.meta.url).href;
+const VOICE_WAKE_VISUAL_MS = 2400;
+const VOICE_WAKE_COMMAND_WINDOW_MS = 3200;
+const VOICE_WAKE_COOLDOWN_MS = 2000;
+const VOICE_WAKE_REPEAT_GUARD_MS = 900;
+const VOICE_WAKE_MIN_CONFIDENCE = 0.82;
+const VOICE_COMMAND_GRAMMAR = "#JSGF V1.0; grammar flow; public <command> = hey flow ((free drag) | (top center) | play | start | hide | show | minimize | minimise | expand | exit | quit | restart | reset | replay | stop | pause | continue | resume | up | down);";
+const VOICE_COMMAND_GREETING_ALIASES = new Set(["hey", "hi"]);
+const VOICE_COMMAND_WAKE_ALIASES = new Set(["flow", "flo", "flor", "flown"]);
+const VOICE_COMMAND_FILLER_TOKENS = new Set(["please", "the", "a", "an", "to", "for", "now", "okay", "ok", "hey", "just"]);
+const VOICE_COMMAND_ACTION_ALIASES = [
+  ["open-about", ["about", "about flow", "info"]],
+  ["open-settings", ["settings", "setting", "preferences", "open settings"]],
+  ["open-input", ["text editor", "text page", "input", "editor", "open text editor"]],
+  ["use-groq", ["use groq", "groq", "ask groq", "generate with groq"]],
+  ["next-theme", ["next theme", "change theme", "switch theme"]],
+  ["open-receiver", ["open receiver", "receiver", "receiver inbox", "open inbox", "remote inbox"]],
+  ["free-drag", ["free drag", "free-drag", "freedrag", "drag free"]],
+  ["top-center", ["top center", "top centre", "top-center", "topcentre", "center top", "centre top"]],
+  ["play", ["play", "start", "begin"]],
+  ["hide", ["hide", "hyde", "high", "hides", "conceal", "disappear", "vanish"]],
+  ["show", ["show", "unhide", "display", "reveal", "appear"]],
+  ["minimize", ["minimize", "minimise", "minimized", "minimised", "mini", "minimum", "collapse", "collapsed"]],
+  ["expand", ["expand", "restore", "open"]],
+  ["exit", ["exit", "exist", "eggsit", "eggzit", "close", "quit"]],
+  ["restart", ["restart", "reset", "replay"]],
+  ["stop", ["stop", "end"]],
+  ["pause", ["pause", "halt", "hold", "wait"]],
+  ["continue", ["continue", "resume", "continue on"]],
+  ["up", ["up", "previous", "back"]],
+  ["down", ["down", "next", "forward"]]
+];
+const VOSK_COMMAND_GRAMMAR_PHRASES = Array.from(new Set([
+  VOICE_COMMAND_PREFIX,
+  ...VOICE_COMMAND_ACTION_ALIASES.flatMap(([, aliases]) => aliases.map((alias) => `${VOICE_COMMAND_PREFIX} ${alias}`))
+]));
 
 const invoke = window.__TAURI__?.core?.invoke;
 const tauriWindow = window.__TAURI__?.window;
@@ -37,7 +91,10 @@ const CLOUD_POLL_BACKOFF_STEP_MS = 4_000;
 
 const ui = {};
 let tickTimer = null;
+let voiceRecognition = null;
+let voiceCommandRecognition = null;
 let scrollAnimationFrame = null;
+let viewportScrollAnimationFrame = null;
 let currentIndex = 0;
 let isPlaying = false;
 let isPaused = false;
@@ -62,6 +119,68 @@ const remotePendingActions = new Set();
 let remoteCloudPollDelayMs = CLOUD_POLL_MIN_INTERVAL_MS;
 const remoteCardCollapseTimers = new Map();
 let unlistenClickthroughChanged = null;
+let normalizedWordTokens = [];
+let wordIndexByNormalizedToken = [];
+let normalizedTokenRangeByWord = [];
+let voiceTranscript = "";
+let viewportScrollTarget = null;
+let voiceCommandAudio = null;
+let voiceCommandSoundAssetAvailable = true;
+let voiceCommandFallbackAudioContext = null;
+let lastVoiceCommandSoundKey = "";
+let lastVoiceCommandSoundAt = 0;
+let lastVoiceCommandKey = "";
+let lastVoiceCommandAt = 0;
+let lastVoiceCommandAction = "";
+let lastVoiceCommandActionAt = 0;
+let isVoiceCommandRecognitionStarting = false;
+let isVoiceCommandRecognitionBlocked = false;
+let voiceCommandTranscript = "";
+let voiceCommandCooldownUntil = 0;
+let voiceCommandRestartTimer = null;
+let voiceCommandModel = null;
+let voiceCommandModelPromise = null;
+let voiceCommandMediaStream = null;
+let voiceCommandAudioContext = null;
+let voiceCommandSourceNode = null;
+let voiceCommandProcessorNode = null;
+let voiceCommandSilenceNode = null;
+let voiceTrackingMediaStream = null;
+let voiceTrackingAudioContext = null;
+let voiceTrackingSourceNode = null;
+let voiceTrackingProcessorNode = null;
+let voiceTrackingSilenceNode = null;
+let voiceTrackingSession = 0;
+let lastVoiceTrackingAudioProcessAt = 0;
+let voiceCommandListenerSession = 0;
+let voiceCommandResumeListenersInstalled = false;
+let voiceCommandSyncPromise = Promise.resolve();
+let voiceCommandHealthTimer = null;
+let lastVoiceCommandAudioProcessAt = 0;
+let voiceWakeOverlayTimer = null;
+let voiceWakeActiveUntil = 0;
+let lastVoiceWakeAt = 0;
+let voiceWakeAwaitingFollowup = false;
+let shouldAnnounceClickthroughStatus = false;
+let lineMapRebuildFrame = null;
+let cachedPromptViewportWidth = 0;
+let cachedPromptViewportHeight = 0;
+let cachedPromptScrollableHeight = 0;
+let lastAppliedViewportTop = null;
+let lastResponsiveFontSize = 0;
+let lastResponsiveViewportWidth = 0;
+let lastResponsiveViewportHeight = 0;
+
+const VOICE_COMMAND_ACTION_DEDUPE_ACTIONS = new Set([
+  "up",
+  "down",
+  "hide",
+  "show",
+  "minimize",
+  "expand",
+  "free-drag",
+  "top-center"
+]);
 
 function syncStateFromStorage() {
   const latest = loadState();
@@ -120,12 +239,107 @@ function cacheUi() {
   ui.floatingControls = document.querySelector("#floatingControls");
   ui.floatingReplayButton = document.querySelector("#floatingReplayButton");
   ui.floatingPauseButton = document.querySelector("#floatingPauseButton");
+  ui.floatingPlaybackMeta = document.querySelector("#floatingPlaybackMeta");
   ui.floatingStopButton = document.querySelector("#floatingStopButton");
   ui.remoteInbox = document.querySelector("#remoteInbox");
   ui.inputButton = document.querySelector("#inputButton");
   ui.settingsButton = document.querySelector("#settingsButton");
   ui.closeAppButton = document.querySelector("#closeAppButton");
   ui.collapseButton = document.querySelector("#collapseButton");
+  ui.pinButton = document.querySelector("#pinButton");
+  ui.dragOverlay = document.querySelector("#dragOverlay");
+  ui.voiceWakeOverlay = document.querySelector("#voiceWakeOverlay");
+}
+
+
+function isFreeDragMode() {
+  return state.window?.preset === "drag";
+}
+
+function isWindowPinned() {
+  return state.window?.isPinned !== false;
+}
+
+function updateDragControls() {
+  const isFreeDrag = isFreeDragMode();
+  const isPinned = isWindowPinned();
+  const pinLabel = isPinned ? t("common.unpinWindow") : t("common.pinWindow");
+
+  if (ui.pinButton) {
+    ui.pinButton.classList.toggle("hidden", !isFreeDrag);
+    ui.pinButton.textContent = isPinned ? "📌" : "📍";
+    ui.pinButton.title = pinLabel;
+    ui.pinButton.setAttribute("aria-label", pinLabel);
+  }
+
+  if (ui.dragOverlay) {
+    const shouldShowOverlay = isFreeDrag && !isPinned;
+    ui.dragOverlay.classList.toggle("hidden", !shouldShowOverlay);
+    ui.dragOverlay.setAttribute("aria-hidden", shouldShowOverlay ? "false" : "true");
+  }
+}
+
+async function captureCurrentWindowState() {
+  if (!tauriWindow?.getCurrentWindow) {
+    return null;
+  }
+
+  const appWindow = tauriWindow.getCurrentWindow();
+  const [position, size] = await Promise.all([
+    appWindow.outerPosition?.().catch?.(() => null) ?? null,
+    appWindow.outerSize?.().catch?.(() => null) ?? null
+  ]);
+
+  return {
+    x: position?.x ?? state.window?.x ?? null,
+    y: position?.y ?? state.window?.y ?? null,
+    width: size?.width ?? state.window?.width ?? defaultState.window.width,
+    height: size?.height ?? state.window?.height ?? defaultState.window.height
+  };
+}
+
+async function setWindowPinned(nextPinned, options = {}) {
+  if (!isFreeDragMode()) {
+    updateDragControls();
+    return;
+  }
+
+  const { announce = true } = options;
+  const currentWindowState = await captureCurrentWindowState();
+  const mergedState = saveState({
+    window: {
+      ...state.window,
+      ...(currentWindowState || {}),
+      isPinned: nextPinned
+    }
+  });
+  Object.assign(state, mergedState);
+  updateDragControls();
+
+  if (announce && ui.statusLabel) {
+    ui.statusLabel.textContent = nextPinned ? t("tele.pinned") : t("tele.unpinned");
+  }
+}
+
+async function toggleDragOverlay() {
+  await setWindowPinned(!isWindowPinned());
+}
+
+async function setWindowPreset(preset, options = {}) {
+  const currentWindowState = await captureCurrentWindowState();
+  const nextPinned = options.isPinned ?? (preset === "drag" ? false : true);
+  const mergedState = saveState({
+    window: {
+      ...state.window,
+      ...(currentWindowState || {}),
+      preset,
+      isPinned: nextPinned
+    }
+  });
+
+  Object.assign(state, mergedState);
+  updateDragControls();
+  await applyStoredWindowSettings().catch(console.error);
 }
 
 function words() {
@@ -155,6 +369,11 @@ async function bindDesktopEventListeners() {
   }
 
   unlistenClickthroughChanged = await tauriEvent.listen("flow-clickthrough-changed", (event) => {
+    if (!shouldAnnounceClickthroughStatus) {
+      return;
+    }
+
+    shouldAnnounceClickthroughStatus = false;
     const enabled = Boolean(event.payload);
     if (ui.statusLabel) {
       ui.statusLabel.textContent = enabled ? t("tele.clickthroughEnabled") : t("tele.clickthroughDisabled");
@@ -175,6 +394,8 @@ function restartPlaybackLoopForCurrentMode() {
     playScrollMode();
   } else if (activeMode === "arrow") {
     beginArrowMode();
+  } else if (activeMode === "voice") {
+    playVoiceMode();
   } else {
     playTimedStep();
   }
@@ -247,17 +468,48 @@ function focusPlaybackSurface() {
 }
 
 function getActiveMode() {
-  return state.appearance?.performanceMode ? "scroll" : state.appearance.mode;
+  const preferredMode = state.appearance?.mode || defaultState.appearance.mode;
+  if (preferredMode === "voice") {
+    return "voice";
+  }
+
+  return state.appearance?.performanceMode ? "scroll" : preferredMode;
 }
 
 function getScrollBehavior() {
   return state.appearance?.performanceMode ? "auto" : "smooth";
 }
 
+function getVoiceScrollStyle() {
+  const voiceStyle = state.appearance?.voiceScrollStyle || defaultState.appearance.voiceScrollStyle;
+  return ["highlight", "line", "plain"].includes(voiceStyle)
+    ? voiceStyle
+    : defaultState.appearance.voiceScrollStyle;
+}
+
+function getAnimationStyle() {
+  const activeMode = getActiveMode();
+  if (activeMode !== "voice") {
+    return activeMode;
+  }
+
+  const voiceStyle = getVoiceScrollStyle();
+  if (voiceStyle === "line") {
+    return "line";
+  }
+
+  if (voiceStyle === "plain") {
+    return "scroll";
+  }
+
+  return "highlight";
+}
+
 function getPlaybackLabel() {
   if (!isPlaying) return currentIndex > 0 ? t("tele.status.stopped") : t("tele.status.ready");
   const activeMode = getActiveMode();
   if (isPaused) return activeMode === "arrow" ? t("tele.status.arrowPaused") : t("tele.status.paused");
+  if (activeMode === "voice") return "🎤 Listening...";
   if (state.appearance?.performanceMode) return t("tele.status.performance");
   if (activeMode === "scroll") return t("tele.status.scrolling");
   if (activeMode === "line") return t("tele.status.line");
@@ -268,19 +520,52 @@ function getPlaybackLabel() {
 function updateStatus() {
   const total = wordNodes.length;
   const current = total === 0 ? 0 : Math.min(currentIndex + 1, total);
-  ui.progressLabel.textContent = t("tele.progress", { current, total });
-  ui.statusLabel.textContent = getPlaybackLabel();
+  const nextProgressLabelText = t("tele.progress", { current, total });
+  const nextStatusLabelText = getPlaybackLabel();
+
+  if (ui.progressLabel.textContent !== nextProgressLabelText) {
+    ui.progressLabel.textContent = nextProgressLabelText;
+  }
+
+  if (ui.statusLabel.textContent !== nextStatusLabelText) {
+    ui.statusLabel.textContent = nextStatusLabelText;
+  }
+
+  updateFloatingPlaybackMeta();
 }
 
 function updatePlaybackIndicators(force = false) {
   const activeMode = getActiveMode();
   const now = performance.now();
   const shouldThrottle = activeMode === "scroll";
+  const throttleWindow = state.appearance?.performanceMode ? 220 : 120;
 
-  if (force || !shouldThrottle || now - lastStatusUpdateAt >= 120 || !isPlaying || isPaused) {
+  if (force || !shouldThrottle || now - lastStatusUpdateAt >= throttleWindow || !isPlaying || isPaused) {
     lastStatusUpdateAt = now;
     updateStatus();
   }
+}
+
+function refreshPromptViewportMetrics() {
+  if (!ui.promptViewport) {
+    cachedPromptViewportWidth = 0;
+    cachedPromptViewportHeight = 0;
+    cachedPromptScrollableHeight = 0;
+    return 0;
+  }
+
+  cachedPromptViewportWidth = ui.promptViewport.clientWidth;
+  cachedPromptViewportHeight = ui.promptViewport.clientHeight;
+  cachedPromptScrollableHeight = Math.max(ui.promptViewport.scrollHeight - cachedPromptViewportHeight, 0);
+  return cachedPromptScrollableHeight;
+}
+
+function getCachedPromptScrollableHeight() {
+  if (!cachedPromptViewportHeight && ui.promptViewport) {
+    return refreshPromptViewportMetrics();
+  }
+
+  return cachedPromptScrollableHeight;
 }
 
 function updateCollapseButton() {
@@ -292,6 +577,43 @@ function updateCollapseButton() {
 function setReadingMode(enabled) {
   document.body.classList.toggle("reading-mode", enabled);
   ui.floatingControls.classList.toggle("hidden", !enabled);
+
+  if (!enabled) {
+    ui.floatingPlaybackMeta?.classList.add("hidden");
+  }
+}
+
+function formatMinutesLeft(wordCount, speed) {
+  const minutes = estimateMinutes(wordCount, speed);
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return "0";
+  }
+
+  if (minutes >= 10) {
+    return String(Math.round(minutes));
+  }
+
+  return minutes.toFixed(1).replace(/\.0$/, "");
+}
+
+function updateFloatingPlaybackMeta() {
+  if (!ui.floatingPlaybackMeta) {
+    return;
+  }
+
+  const shouldShow = (isPlaying || isPaused) && wordNodes.length > 0;
+  ui.floatingPlaybackMeta.classList.toggle("hidden", !shouldShow);
+
+  if (!shouldShow) {
+    return;
+  }
+
+  const wordsLeft = Math.max(wordNodes.length - currentIndex - 1, 0);
+  const minutesLeft = formatMinutesLeft(wordsLeft, state.speed);
+  ui.floatingPlaybackMeta.textContent = t("tele.floatingStats", {
+    words: wordsLeft,
+    minutes: minutesLeft
+  });
 }
 
 function updatePlayButtons() {
@@ -313,6 +635,7 @@ function updatePlayButtons() {
 
   const showReplay = isPaused && currentIndex > 0;
   ui.floatingReplayButton.classList.toggle("hidden", !showReplay);
+  updateFloatingPlaybackMeta();
 }
 
 function hexToRgbTriplet(hexColor) {
@@ -331,9 +654,10 @@ function hexToRgbTriplet(hexColor) {
 function applyAppearanceSettings() {
   const appearance = state.appearance || defaultState.appearance;
   applyAppearanceToDocument(appearance);
-  document.body.dataset.animationStyle = getActiveMode();
+  document.body.dataset.animationStyle = getAnimationStyle();
   document.documentElement.style.setProperty("--teleprompter-font-family", resolveFontStack(appearance.fontFamily));
   document.documentElement.style.setProperty("--teleprompter-text-rgb", hexToRgbTriplet(appearance.textColor));
+  document.documentElement.style.setProperty("--teleprompter-active-text", appearance.textColor);
   document.documentElement.style.setProperty("--teleprompter-text-opacity", String(clamp(appearance.textOpacity / 100, 0.1, 1)));
 
   if (getActiveMode() !== "scroll") {
@@ -464,10 +788,17 @@ function rebuildLineMap() {
     lineIndexByWord[index] = lineGroups.length - 1;
     node.dataset.lineIndex = String(lineGroups.length - 1);
   });
+
+  refreshPromptViewportMetrics();
 }
 
 function scheduleLineMapRebuild() {
-  requestAnimationFrame(() => {
+  if (lineMapRebuildFrame) {
+    return;
+  }
+
+  lineMapRebuildFrame = requestAnimationFrame(() => {
+    lineMapRebuildFrame = null;
     rebuildLineMap();
     lastRenderedLineIndex = -1;
     lastRenderedWordIndex = -1;
@@ -477,12 +808,25 @@ function scheduleLineMapRebuild() {
 }
 
 function applyResponsiveText() {
-  const widthSize = ui.promptViewport.clientWidth * 0.11;
-  const heightSize = ui.promptViewport.clientHeight * 0.18;
+  refreshPromptViewportMetrics();
+
+  const widthSize = cachedPromptViewportWidth * 0.11;
+  const heightSize = cachedPromptViewportHeight * 0.18;
   const baseSize = clamp(Math.min(widthSize, heightSize), 28, 120);
   const scale = (state.appearance?.textScale || defaultState.appearance.textScale) / 100;
   const computed = clamp(baseSize * scale, 20, 180);
+
+  const viewportChanged = cachedPromptViewportWidth !== lastResponsiveViewportWidth
+    || cachedPromptViewportHeight !== lastResponsiveViewportHeight;
+
+  if (!viewportChanged && computed === lastResponsiveFontSize) {
+    return;
+  }
+
   document.documentElement.style.setProperty("--teleprompter-font-size", `${computed}px`);
+  lastResponsiveFontSize = computed;
+  lastResponsiveViewportWidth = cachedPromptViewportWidth;
+  lastResponsiveViewportHeight = cachedPromptViewportHeight;
   scheduleLineMapRebuild();
 }
 
@@ -552,6 +896,9 @@ function renderScript() {
   wordNodes = [];
   lineGroups = [];
   lineIndexByWord = [];
+  normalizedWordTokens = [];
+  wordIndexByNormalizedToken = [];
+  normalizedTokenRangeByWord = [];
   lastRenderedMode = null;
   lastRenderedWordIndex = -1;
   lastRenderedLineIndex = -1;
@@ -564,6 +911,22 @@ function renderScript() {
     updateStatus();
     return;
   }
+
+  allWords.forEach((token, index) => {
+    const normalizedTokens = tokenizeNormalizedText(token.text);
+    if (normalizedTokens.length === 0) {
+      normalizedTokenRangeByWord[index] = null;
+      return;
+    }
+
+    const start = normalizedWordTokens.length;
+    normalizedWordTokens.push(...normalizedTokens);
+    wordIndexByNormalizedToken.push(...normalizedTokens.map(() => index));
+    normalizedTokenRangeByWord[index] = {
+      start,
+      end: normalizedWordTokens.length - 1
+    };
+  });
 
   let wordIndex = 0;
   let currentDecorationGroup = null;
@@ -627,6 +990,7 @@ function renderScript() {
   });
 
   ui.promptText.appendChild(fragment);
+  refreshPromptViewportMetrics();
   scheduleLineMapRebuild();
 }
 
@@ -673,7 +1037,7 @@ function findPreservedWordIndex(previousScript, nextScript, previousIndex) {
 }
 
 function rerenderScriptPreservingPosition(previousScript) {
-  const currentScrollable = Math.max((ui.promptViewport?.scrollHeight || 0) - (ui.promptViewport?.clientHeight || 0), 0);
+  const currentScrollable = refreshPromptViewportMetrics();
   const playbackSnapshot = {
     wasPlaying: isPlaying,
     wasPaused: isPaused,
@@ -699,7 +1063,7 @@ function rerenderScriptPreservingPosition(previousScript) {
 
       currentIndex = findPreservedWordIndex(previousScript, state.script, playbackSnapshot.previousIndex);
 
-      const totalScrollable = Math.max(ui.promptViewport.scrollHeight - ui.promptViewport.clientHeight, 0);
+      const totalScrollable = refreshPromptViewportMetrics();
       const previousScrollable = Math.max(playbackSnapshot.previousScrollHeight - playbackSnapshot.previousClientHeight, 0);
       const previousScrollRatio = previousScrollable > 0
         ? clamp(playbackSnapshot.previousScrollTop / previousScrollable, 0, 1)
@@ -801,6 +1165,13 @@ function clearRenderedState() {
   lastRenderedMode = null;
   lastRenderedWordIndex = -1;
   lastRenderedLineIndex = -1;
+}
+
+function renderPlainState() {
+  if (lastRenderedMode !== "plain") {
+    clearRenderedState();
+    lastRenderedMode = "plain";
+  }
 }
 
 function setClassesForLine(lineIndex, classNames, enabled) {
@@ -906,14 +1277,68 @@ function renderLineState(mode) {
 
 function scrollToNode(node) {
   if (!node) return;
-  const top = node.offsetTop - ui.promptViewport.clientHeight * 0.32;
-  ui.promptViewport.scrollTo({ top: Math.max(top, 0), behavior: getScrollBehavior() });
+  const viewportOffset = getActiveMode() === "voice" ? VOICE_WORD_VIEWPORT_OFFSET : 0.32;
+  const top = node.offsetTop - ui.promptViewport.clientHeight * viewportOffset;
+  const nextTop = Math.max(top, 0);
+
+  if (getActiveMode() === "voice") {
+    animateViewportScroll(nextTop);
+    return;
+  }
+
+  ui.promptViewport.scrollTo({ top: nextTop, behavior: getScrollBehavior() });
+}
+
+function stopViewportScrollAnimation() {
+  if (viewportScrollAnimationFrame) {
+    cancelAnimationFrame(viewportScrollAnimationFrame);
+    viewportScrollAnimationFrame = null;
+  }
+
+  viewportScrollTarget = null;
+}
+
+function animateViewportScroll(targetTop) {
+  if (!ui.promptViewport) {
+    return;
+  }
+
+  viewportScrollTarget = Math.max(targetTop, 0);
+
+  if (viewportScrollAnimationFrame) {
+    return;
+  }
+
+  const step = () => {
+    if (!ui.promptViewport || viewportScrollTarget === null) {
+      stopViewportScrollAnimation();
+      return;
+    }
+
+    const currentTop = ui.promptViewport.scrollTop;
+    const delta = viewportScrollTarget - currentTop;
+
+    if (Math.abs(delta) < 0.6) {
+      ui.promptViewport.scrollTop = viewportScrollTarget;
+      stopViewportScrollAnimation();
+      return;
+    }
+
+    const easedStep = delta * VOICE_SCROLL_EASING;
+    const limitedStep = Math.sign(easedStep) * Math.min(Math.abs(easedStep), VOICE_SCROLL_MAX_STEP);
+    ui.promptViewport.scrollTop = currentTop + limitedStep;
+    viewportScrollAnimationFrame = requestAnimationFrame(step);
+  };
+
+  viewportScrollAnimationFrame = requestAnimationFrame(step);
 }
 
 function clearPromptScrollTransform() {
   if (ui.promptText) {
     ui.promptText.style.transform = "";
   }
+
+  lastAppliedViewportTop = null;
 }
 
 function setViewportPosition(top, behavior = "auto") {
@@ -925,20 +1350,32 @@ function setViewportPosition(top, behavior = "auto") {
     }
 
     if (ui.promptText) {
-      ui.promptText.style.transform = `translate3d(0, ${-nextTop}px, 0)`;
+      if (lastAppliedViewportTop === null || Math.abs(lastAppliedViewportTop - nextTop) >= 0.5) {
+        ui.promptText.style.transform = `translate3d(0, ${-nextTop}px, 0)`;
+        lastAppliedViewportTop = nextTop;
+      }
     }
     return;
   }
 
   clearPromptScrollTransform();
+  stopViewportScrollAnimation();
   ui.promptViewport.scrollTo({ top: nextTop, behavior });
 }
 
 function scrollToLine(lineIndex) {
   const line = lineGroups[lineIndex];
   if (!line) return;
-  const top = line.top - ui.promptViewport.clientHeight * 0.28;
-  ui.promptViewport.scrollTo({ top: Math.max(top, 0), behavior: getScrollBehavior() });
+  const viewportOffset = getActiveMode() === "voice" ? VOICE_LINE_VIEWPORT_OFFSET : 0.28;
+  const top = line.top - ui.promptViewport.clientHeight * viewportOffset;
+  const nextTop = Math.max(top, 0);
+
+  if (getActiveMode() === "voice") {
+    animateViewportScroll(nextTop);
+    return;
+  }
+
+  ui.promptViewport.scrollTo({ top: nextTop, behavior: getScrollBehavior() });
 }
 
 function getLineTargetTop(lineIndex) {
@@ -947,7 +1384,8 @@ function getLineTargetTop(lineIndex) {
     return 0;
   }
 
-  return Math.max(line.top - ui.promptViewport.clientHeight * 0.28, 0);
+  const viewportHeight = cachedPromptViewportHeight || ui.promptViewport.clientHeight;
+  return Math.max(line.top - viewportHeight * 0.28, 0);
 }
 
 function updateWordState(shouldScroll = true) {
@@ -958,7 +1396,30 @@ function updateWordState(shouldScroll = true) {
     return;
   }
 
-  if (activeMode === "highlight") {
+  if (activeMode === "voice") {
+    const voiceStyle = getVoiceScrollStyle();
+    const activeLineIndex = lineIndexByWord[currentIndex] ?? 0;
+
+    if (voiceStyle === "line") {
+      renderLineState("line");
+
+      if (shouldScroll) {
+        scrollToLine(activeLineIndex);
+      }
+    } else if (voiceStyle === "plain") {
+      renderPlainState();
+
+      if (shouldScroll) {
+        scrollToLine(activeLineIndex);
+      }
+    } else {
+      renderHighlightState();
+
+      if (shouldScroll) {
+        scrollToLine(activeLineIndex);
+      }
+    }
+  } else if (activeMode === "highlight") {
     renderHighlightState();
 
     if (shouldScroll) {
@@ -993,6 +1454,13 @@ function clearPlayback() {
   }
 
   lastScrollFrameAt = 0;
+  voiceTranscript = "";
+  resetVoiceCommandTranscript();
+  stopViewportScrollAnimation();
+
+  if (voiceRecognition?.remove || voiceTrackingMediaStream || voiceTrackingAudioContext) {
+    stopVoiceTracking().catch(console.error);
+  }
 }
 
 function stopPlayback(reset = true) {
@@ -1007,7 +1475,7 @@ function stopPlayback(reset = true) {
     setViewportPosition(0, getScrollBehavior());
     clearRenderedState();
   } else {
-    const totalScrollable = Math.max(ui.promptViewport.scrollHeight - ui.promptViewport.clientHeight, 0);
+    const totalScrollable = refreshPromptViewportMetrics();
     const currentTop = getActiveMode() === "scroll"
       ? totalScrollable * scrollProgress
       : ui.promptViewport.scrollTop;
@@ -1016,6 +1484,47 @@ function stopPlayback(reset = true) {
 
   updateWordState(false);
   updatePlayButtons();
+  syncVoiceCommandListener();
+}
+
+function pausePlayback() {
+  if (!isPlaying || isPaused) {
+    return false;
+  }
+
+  const activeMode = getActiveMode();
+  isPaused = true;
+
+  if (activeMode !== "arrow" && activeMode !== "voice") {
+    clearPlayback();
+  }
+
+  updatePlaybackIndicators(true);
+  updatePlayButtons();
+  syncVoiceCommandListener();
+  return true;
+}
+
+function resumePlayback() {
+  if (!isPlaying || !isPaused) {
+    return false;
+  }
+
+  const activeMode = getActiveMode();
+  isPaused = false;
+
+  if (activeMode === "scroll") {
+    playScrollMode();
+  } else if (activeMode === "voice") {
+    updateWordState(true);
+  } else if (activeMode !== "arrow") {
+    playTimedStep();
+  }
+
+  updatePlaybackIndicators(true);
+  updatePlayButtons();
+  syncVoiceCommandListener();
+  return true;
 }
 
 function finishPlayback() {
@@ -1026,6 +1535,7 @@ function finishPlayback() {
   scrollProgress = 1;
   updatePlaybackIndicators(true);
   updatePlayButtons();
+  syncVoiceCommandListener();
 }
 
 function playTimedStep() {
@@ -1045,6 +1555,7 @@ function playTimedStep() {
 function playScrollMode() {
   const totalWords = Math.max(wordNodes.length, 1);
   lastScrollFrameAt = 0;
+  refreshPromptViewportMetrics();
 
   const step = (now) => {
     if (!isPlaying || isPaused) {
@@ -1060,9 +1571,12 @@ function playScrollMode() {
     const progressDelta = (elapsedMs * state.speed) / (60000 * totalWords);
     scrollProgress = clamp(scrollProgress + progressDelta, 0, 1);
 
-    const totalScrollable = Math.max(ui.promptViewport.scrollHeight - ui.promptViewport.clientHeight, 0);
+    const totalScrollable = getCachedPromptScrollableHeight();
     setViewportPosition(totalScrollable * scrollProgress, "auto");
-    currentIndex = Math.min(Math.floor(scrollProgress * totalWords), Math.max(wordNodes.length - 1, 0));
+    const nextIndex = Math.min(Math.floor(scrollProgress * totalWords), Math.max(wordNodes.length - 1, 0));
+    if (nextIndex !== currentIndex) {
+      currentIndex = nextIndex;
+    }
 
     if (state.appearance?.performanceMode) {
       updatePlaybackIndicators(false);
@@ -1081,11 +1595,1664 @@ function playScrollMode() {
   scrollAnimationFrame = requestAnimationFrame(step);
 }
 
+function movePlaybackByLine(direction) {
+  if (wordNodes.length === 0 || lineGroups.length === 0) {
+    return false;
+  }
+
+  const activeMode = getActiveMode();
+
+  if (activeMode === "arrow" && isPlaying && !isPaused) {
+    stepArrowMode(direction);
+    return true;
+  }
+
+  const activeLineIndex = lineIndexByWord[currentIndex] ?? 0;
+  const nextLineIndex = clamp(activeLineIndex + direction, 0, Math.max(lineGroups.length - 1, 0));
+  const nextLine = lineGroups[nextLineIndex];
+  if (!nextLine) {
+    return false;
+  }
+
+  if (activeMode === "voice") {
+    currentIndex = nextLine.firstIndex;
+    updateWordState(true);
+    return true;
+  }
+
+  jumpToIndex(nextLine.firstIndex);
+  return true;
+}
+
 function beginArrowMode() {
   isPlaying = true;
   isPaused = false;
   setReadingMode(true);
   updateWordState(true);
+}
+
+
+function getVoiceLanguageTag() {
+  return String(
+    state.appearance?.voiceLanguage
+      || ({ ar: "ar-SA", tr: "tr-TR", de: "de-DE", en: "en-US" }[state.language] || state.language || "en-US")
+  ).trim() || "en-US";
+}
+
+function applyLocaleVoiceNormalization(text, locale) {
+  let normalized = String(text || "");
+
+  if (/^ar\b/i.test(locale)) {
+    normalized = normalized
+      .replace(/[\u064B-\u065F\u0670\u06D6-\u06ED]/gu, "")
+      .replace(/ـ/gu, "")
+      .replace(/[أإآٱ]/gu, "ا")
+      .replace(/[ؤئ]/gu, (character) => (character === "ؤ" ? "و" : "ي"))
+      .replace(/ى/gu, "ي")
+      .replace(/ة/gu, "ه");
+  }
+
+  if (/^de\b/i.test(locale)) {
+    normalized = normalized.replace(/ß/gu, "ss");
+  }
+
+  return normalized;
+}
+
+function resetVoiceCommandGuard() {
+  lastVoiceCommandKey = "";
+  lastVoiceCommandAt = 0;
+  lastVoiceCommandAction = "";
+  lastVoiceCommandActionAt = 0;
+}
+
+function resetVoiceCommandTranscript() {
+  voiceCommandTranscript = "";
+}
+
+function clearVoiceWakeState(options = {}) {
+  const { hideOverlay = true } = options;
+  voiceWakeActiveUntil = 0;
+  voiceWakeAwaitingFollowup = false;
+
+  if (hideOverlay) {
+    hideVoiceWakeOverlay();
+  }
+}
+
+function hideVoiceWakeOverlay() {
+  if (voiceWakeOverlayTimer) {
+    clearTimeout(voiceWakeOverlayTimer);
+    voiceWakeOverlayTimer = null;
+  }
+
+  if (ui.voiceWakeOverlay) {
+    ui.voiceWakeOverlay.classList.remove("is-animating");
+    ui.voiceWakeOverlay.classList.add("hidden");
+    ui.voiceWakeOverlay.setAttribute("aria-hidden", "true");
+  }
+}
+
+function showVoiceWakeOverlay(durationMs = VOICE_WAKE_VISUAL_MS) {
+  if (!ui.voiceWakeOverlay) {
+    return;
+  }
+
+  ui.voiceWakeOverlay.classList.remove("is-animating");
+  ui.voiceWakeOverlay.classList.remove("hidden");
+  ui.voiceWakeOverlay.setAttribute("aria-hidden", "false");
+  void ui.voiceWakeOverlay.offsetWidth;
+  ui.voiceWakeOverlay.classList.add("is-animating");
+
+  if (voiceWakeOverlayTimer) {
+    clearTimeout(voiceWakeOverlayTimer);
+  }
+
+  voiceWakeOverlayTimer = window.setTimeout(() => {
+    voiceWakeOverlayTimer = null;
+    hideVoiceWakeOverlay();
+  }, durationMs);
+}
+
+function activateVoiceWake(options = {}) {
+  const { awaitFollowup = true } = options;
+  const now = performance.now();
+
+  if (now - lastVoiceWakeAt < VOICE_WAKE_COOLDOWN_MS) {
+    voiceWakeActiveUntil = now + VOICE_WAKE_COMMAND_WINDOW_MS;
+    voiceWakeAwaitingFollowup = awaitFollowup;
+    return;
+  }
+
+  voiceWakeActiveUntil = now + VOICE_WAKE_COMMAND_WINDOW_MS;
+  voiceWakeAwaitingFollowup = awaitFollowup;
+  lastVoiceWakeAt = now;
+  showVoiceWakeOverlay();
+}
+
+function isVoiceWakeActive() {
+  const active = performance.now() < voiceWakeActiveUntil;
+  if (!active) {
+    voiceWakeAwaitingFollowup = false;
+  }
+  return active;
+}
+
+function appendVoiceCommandTranscript(text) {
+  const nextTokens = tokenizeNormalizedText(`${voiceCommandTranscript} ${text}`, "en-US");
+  voiceCommandTranscript = nextTokens.slice(-VOICE_COMMAND_BUFFER_TOKEN_LIMIT).join(" ");
+}
+
+function getRecognitionResultTranscripts(result) {
+  if (!result) {
+    return [];
+  }
+
+  return Array.from(result)
+    .map((alternative) => alternative?.transcript?.trim())
+    .filter(Boolean);
+}
+
+function findVoiceCommandInTranscripts(transcripts, transcriptPrefix = "") {
+  for (const transcript of transcripts) {
+    const directMatch = extractVoiceCommand(transcript);
+    if (directMatch) {
+      return directMatch;
+    }
+
+    if (transcriptPrefix) {
+      const bufferedMatch = extractVoiceCommand(`${transcriptPrefix} ${transcript}`.trim());
+      if (bufferedMatch) {
+        return bufferedMatch;
+      }
+    }
+  }
+
+  return null;
+}
+
+function findVoiceCommandInResultWindow(results, resultStart = 0, transcriptPrefix = "") {
+  const mergedTranscripts = [];
+
+  for (let i = resultStart; i < results.length; i += 1) {
+    const transcripts = getRecognitionResultTranscripts(results[i]);
+    const directMatch = findVoiceCommandInTranscripts(transcripts, transcriptPrefix);
+    if (directMatch) {
+      return directMatch;
+    }
+
+    if (transcripts[0]) {
+      mergedTranscripts.push(transcripts[0]);
+    }
+  }
+
+  if (mergedTranscripts.length === 0) {
+    return null;
+  }
+
+  const mergedTranscript = mergedTranscripts.join(" ").trim();
+  if (!mergedTranscript) {
+    return null;
+  }
+
+  return extractVoiceCommand(mergedTranscript)
+    || (transcriptPrefix ? extractVoiceCommand(`${transcriptPrefix} ${mergedTranscript}`.trim()) : null);
+}
+
+function getVoiceCommandAction(phrase) {
+  for (const [action, aliases] of VOICE_COMMAND_ACTION_ALIASES) {
+    if (aliases.includes(phrase)) {
+      return action;
+    }
+  }
+
+  return null;
+}
+
+function isVoiceWakeToken(token) {
+  if (!token) {
+    return false;
+  }
+
+  if (VOICE_COMMAND_WAKE_ALIASES.has(token)) {
+    return true;
+  }
+
+  return token.startsWith("flo");
+}
+
+function isVoiceWakeSequence(tokens, index) {
+  return VOICE_COMMAND_GREETING_ALIASES.has(tokens[index]) && isVoiceWakeToken(tokens[index + 1]);
+}
+
+function hasVoiceWakePhrase(text) {
+  const tokens = tokenizeNormalizedText(text, "en-US");
+  if (tokens.length < 2) {
+    return false;
+  }
+
+  for (let index = Math.max(tokens.length - VOICE_COMMAND_LOOKBACK_TOKENS, 0); index < tokens.length - 1; index += 1) {
+    if (isVoiceWakeSequence(tokens, index)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function getVoiceCommandActionFuzzy(phrase) {
+  for (const [action, aliases] of VOICE_COMMAND_ACTION_ALIASES) {
+    if (aliases.some((alias) => phrase === alias || phrase.startsWith(alias) || alias.startsWith(phrase))) {
+      return action;
+    }
+  }
+
+  return null;
+}
+
+function isVoiceAliasTokenMatch(spokenToken, aliasToken) {
+  if (!spokenToken || !aliasToken) {
+    return false;
+  }
+
+  if (spokenToken === aliasToken) {
+    return true;
+  }
+
+  if (spokenToken.length >= 3 && aliasToken.length >= 3) {
+    return spokenToken.startsWith(aliasToken) || aliasToken.startsWith(spokenToken);
+  }
+
+  return false;
+}
+
+function getVoiceTokenEditDistance(left, right) {
+  const a = String(left || "");
+  const b = String(right || "");
+
+  if (!a) {
+    return b.length;
+  }
+
+  if (!b) {
+    return a.length;
+  }
+
+  const rows = Array.from({ length: a.length + 1 }, (_, index) => index);
+
+  for (let column = 1; column <= b.length; column += 1) {
+    let diagonal = rows[0];
+    rows[0] = column;
+
+    for (let row = 1; row <= a.length; row += 1) {
+      const previous = rows[row];
+      const substitutionCost = a[row - 1] === b[column - 1] ? 0 : 1;
+      rows[row] = Math.min(
+        rows[row] + 1,
+        rows[row - 1] + 1,
+        diagonal + substitutionCost
+      );
+      diagonal = previous;
+    }
+  }
+
+  return rows[a.length];
+}
+
+function isVoiceAliasTokenFuzzyMatch(spokenToken, aliasToken) {
+  if (isVoiceAliasTokenMatch(spokenToken, aliasToken)) {
+    return true;
+  }
+
+  if (!spokenToken || !aliasToken) {
+    return false;
+  }
+
+  const maxLength = Math.max(spokenToken.length, aliasToken.length);
+  if (maxLength < 4) {
+    return false;
+  }
+
+  const distance = getVoiceTokenEditDistance(spokenToken, aliasToken);
+  return distance <= (maxLength >= 8 ? 2 : 1);
+}
+
+function getVoiceCommandActionFromTokens(candidateTokens) {
+  for (const [action, aliases] of VOICE_COMMAND_ACTION_ALIASES) {
+    for (const alias of aliases) {
+      const aliasTokens = alias.split(" ");
+      if (aliasTokens.length > candidateTokens.length) {
+        continue;
+      }
+
+      const matches = aliasTokens.every((aliasToken, index) => isVoiceAliasTokenFuzzyMatch(candidateTokens[index], aliasToken));
+      if (!matches) {
+        continue;
+      }
+
+      return {
+        action,
+        matchedPhrase: candidateTokens.slice(0, aliasTokens.length).join(" ")
+      };
+    }
+  }
+
+  const singleTokenAction = getVoiceCommandAction(candidateTokens[0]) || getVoiceCommandActionFuzzy(candidateTokens[0]);
+  if (singleTokenAction) {
+    return {
+      action: singleTokenAction,
+      matchedPhrase: candidateTokens[0]
+    };
+  }
+
+  return null;
+}
+
+function collectVoiceCommandCandidateTokens(tokens, startIndex) {
+  const collected = [];
+
+  for (let index = startIndex; index < tokens.length && collected.length < 4; index += 1) {
+    const token = tokens[index];
+    if (!token || VOICE_COMMAND_FILLER_TOKENS.has(token)) {
+      continue;
+    }
+
+    collected.push(token);
+  }
+
+  return collected;
+}
+
+function extractVoiceCommandWithoutWake(text) {
+  const tokens = tokenizeNormalizedText(text, "en-US");
+  if (tokens.length === 0) {
+    return null;
+  }
+
+  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, 0);
+  const match = getVoiceCommandActionFromTokens(candidateTokens);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    action: match.action,
+    phrase: `${VOICE_COMMAND_PREFIX} ${match.matchedPhrase}`
+  };
+}
+
+function hasSpeechRecognitionSupport() {
+  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+function getVoskResultText(message) {
+  return String(message?.result?.text || "").trim();
+}
+
+function getVoskResultWords(message) {
+  return Array.isArray(message?.result?.result) ? message.result.result : [];
+}
+
+function getAverageVoskWordConfidence(words = []) {
+  const validConfidences = words
+    .map((word) => Number(word?.conf))
+    .filter((confidence) => Number.isFinite(confidence) && confidence >= 0);
+
+  if (validConfidences.length === 0) {
+    return 0;
+  }
+
+  return validConfidences.reduce((sum, confidence) => sum + confidence, 0) / validConfidences.length;
+}
+
+function getWakePhraseConfidence(message) {
+  const words = getVoskResultWords(message);
+  if (words.length < 2) {
+    return 0;
+  }
+
+  const wakeTokens = tokenizeNormalizedText(VOICE_COMMAND_PREFIX, "en-US");
+  if (wakeTokens.length === 0) {
+    return 0;
+  }
+
+  const normalizedWords = words.map((word) => ({
+    token: tokenizeNormalizedText(word?.word || "", "en-US")[0] || "",
+    conf: Number(word?.conf)
+  }));
+
+  for (let index = 0; index <= normalizedWords.length - wakeTokens.length; index += 1) {
+    const candidateWords = normalizedWords.slice(index, index + wakeTokens.length);
+    const matchesWakePhrase = wakeTokens.every((wakeToken, tokenIndex) => {
+      return isVoiceAliasTokenFuzzyMatch(candidateWords[tokenIndex]?.token, wakeToken);
+    });
+
+    if (!matchesWakePhrase) {
+      continue;
+    }
+
+    return getAverageVoskWordConfidence(candidateWords);
+  }
+
+  return 0;
+}
+
+function hasOfflineVoiceCommandSupport() {
+  return Boolean(
+    window.Vosk?.createModel
+    && navigator.mediaDevices?.getUserMedia
+    && (window.AudioContext || window.webkitAudioContext)
+  );
+}
+
+function getOfflineVoiceCommandGrammar() {
+  return JSON.stringify([...VOSK_COMMAND_GRAMMAR_PHRASES, "[unk]"]);
+}
+
+async function ensureOfflineVoiceCommandModel() {
+  if (voiceCommandModel) {
+    return voiceCommandModel;
+  }
+
+  if (voiceCommandModelPromise) {
+    return voiceCommandModelPromise;
+  }
+
+  if (!hasOfflineVoiceCommandSupport()) {
+    return null;
+  }
+
+  voiceCommandModelPromise = window.Vosk.createModel(VOSK_COMMAND_MODEL_URL, -1)
+    .then((model) => {
+      voiceCommandModel = model;
+      isVoiceCommandRecognitionBlocked = false;
+      return model;
+    })
+    .catch((error) => {
+      console.error("Offline voice command model failed to load", error);
+      isVoiceCommandRecognitionBlocked = true;
+      voiceCommandModelPromise = null;
+      throw error;
+    });
+
+  return voiceCommandModelPromise;
+}
+
+async function resumeOfflineVoiceCommandAudioContext() {
+  if (!voiceCommandAudioContext || voiceCommandAudioContext.state !== "suspended") {
+    return;
+  }
+
+  try {
+    await voiceCommandAudioContext.resume();
+  } catch (error) {
+    // Resume may require a user gesture in some webviews.
+  }
+}
+
+function installOfflineVoiceCommandResumeListeners() {
+  if (voiceCommandResumeListenersInstalled) {
+    return;
+  }
+
+  voiceCommandResumeListenersInstalled = true;
+  const tryResume = async () => {
+    await resumeOfflineVoiceCommandAudioContext();
+
+    if (!voiceCommandAudioContext || voiceCommandAudioContext.state === "running") {
+      window.removeEventListener("pointerdown", tryResume, true);
+      window.removeEventListener("keydown", tryResume, true);
+      window.removeEventListener("touchstart", tryResume, true);
+      voiceCommandResumeListenersInstalled = false;
+    }
+  };
+
+  window.addEventListener("pointerdown", tryResume, true);
+  window.addEventListener("keydown", tryResume, true);
+  window.addEventListener("touchstart", tryResume, true);
+}
+
+function handleOfflineVoiceCommandTranscript(text, options = {}) {
+  const transcript = String(text || "").trim();
+  if (!transcript) {
+    return { handled: false, consumed: false };
+  }
+
+  const {
+    isFinal = false,
+    confidence = 0,
+    wakeConfidence = 0
+  } = options;
+  const wakeInTranscript = hasVoiceWakePhrase(transcript) && wakeConfidence >= VOICE_WAKE_MIN_CONFIDENCE;
+  const wakeDetected = wakeInTranscript;
+
+  if (!isFinal) {
+    return { handled: false, consumed: false };
+  }
+
+  if (wakeDetected) {
+    resetVoiceCommandTranscript();
+  }
+
+  const transcriptContainsWakePhrase = hasVoiceWakePhrase(transcript);
+  const command = extractVoiceCommand(transcript);
+
+  const canUseTranscriptCommand = !transcriptContainsWakePhrase || wakeInTranscript || (voiceWakeAwaitingFollowup && isVoiceWakeActive());
+
+  if (command && canUseTranscriptCommand && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(command)) {
+    clearVoiceWakeState();
+    return { handled: true, consumed: true };
+  }
+
+  if (wakeDetected) {
+    activateVoiceWake({ awaitFollowup: true });
+    return { handled: false, consumed: true };
+  }
+
+  const followupCommand = voiceWakeAwaitingFollowup && isVoiceWakeActive() && isFinal
+    ? extractVoiceCommandWithoutWake(transcript)
+    : null;
+
+  if (followupCommand && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(followupCommand)) {
+    clearVoiceWakeState();
+    return { handled: true, consumed: true };
+  }
+
+  if (isFinal) {
+    if (voiceWakeAwaitingFollowup) {
+      resetVoiceCommandTranscript();
+      return { handled: false, consumed: true };
+    } else {
+      appendVoiceCommandTranscript(transcript);
+    }
+  }
+
+  return { handled: false, consumed: false };
+}
+
+function disconnectOfflineVoiceCommandAudioGraph() {
+  if (voiceCommandSourceNode) {
+    try {
+      voiceCommandSourceNode.disconnect();
+    } catch (error) {
+      // Node already disconnected.
+    }
+    voiceCommandSourceNode = null;
+  }
+
+  if (voiceCommandProcessorNode) {
+    try {
+      voiceCommandProcessorNode.disconnect();
+    } catch (error) {
+      // Node already disconnected.
+    }
+    voiceCommandProcessorNode.onaudioprocess = null;
+    voiceCommandProcessorNode = null;
+  }
+
+  if (voiceCommandSilenceNode) {
+    try {
+      voiceCommandSilenceNode.disconnect();
+    } catch (error) {
+      // Node already disconnected.
+    }
+    voiceCommandSilenceNode = null;
+  }
+}
+
+async function disposeOfflineVoiceCommandAudioContext() {
+  if (!voiceCommandAudioContext) {
+    return;
+  }
+
+  const currentAudioContext = voiceCommandAudioContext;
+  voiceCommandAudioContext = null;
+  try {
+    await currentAudioContext.close();
+  } catch (error) {
+    // Audio context is already closed.
+  }
+
+  voiceCommandResumeListenersInstalled = false;
+}
+
+function shouldEnableVoiceCommandListener() {
+  return Boolean(state.appearance?.appWideVoiceCommands) && !(isPlaying && getActiveMode() === "voice");
+}
+
+function extractVoiceCommand(text) {
+  const tokens = tokenizeNormalizedText(text, "en-US");
+  if (tokens.length < 3) {
+    return null;
+  }
+
+  for (let index = Math.max(tokens.length - VOICE_COMMAND_LOOKBACK_TOKENS, 0); index < tokens.length - 2; index += 1) {
+    if (!isVoiceWakeSequence(tokens, index)) {
+      continue;
+    }
+
+    const candidateTokens = collectVoiceCommandCandidateTokens(tokens, index + 2);
+    const match = getVoiceCommandActionFromTokens(candidateTokens);
+    if (match) {
+      return {
+        action: match.action,
+        phrase: `${VOICE_COMMAND_PREFIX} ${match.matchedPhrase}`
+      };
+    }
+  }
+
+  return null;
+}
+
+function shouldHandleVoiceCommand(command) {
+  if (!command) {
+    return false;
+  }
+
+  const now = performance.now();
+  if (now < voiceCommandCooldownUntil) {
+    return false;
+  }
+
+  const key = `${command.action}:${command.phrase}`;
+  if (key === lastVoiceCommandKey && now - lastVoiceCommandAt < VOICE_COMMAND_REPEAT_GUARD_MS) {
+    return false;
+  }
+
+  if (
+    VOICE_COMMAND_ACTION_DEDUPE_ACTIONS.has(command.action)
+    && command.action === lastVoiceCommandAction
+    && now - lastVoiceCommandActionAt < VOICE_COMMAND_ACTION_REPEAT_GUARD_MS
+  ) {
+    return false;
+  }
+
+  lastVoiceCommandKey = key;
+  lastVoiceCommandAt = now;
+  lastVoiceCommandAction = command.action;
+  lastVoiceCommandActionAt = now;
+  return true;
+}
+
+function playVoiceCommandFallbackTone() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+
+  if (!voiceCommandFallbackAudioContext) {
+    voiceCommandFallbackAudioContext = new AudioContextClass();
+  }
+
+  const context = voiceCommandFallbackAudioContext;
+  if (context.state === "suspended") {
+    context.resume().catch(() => {});
+  }
+
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  const startAt = context.currentTime;
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(880, startAt);
+  oscillator.frequency.exponentialRampToValueAtTime(1320, startAt + 0.12);
+
+  gain.gain.setValueAtTime(0.0001, startAt);
+  gain.gain.exponentialRampToValueAtTime(0.12, startAt + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.18);
+
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  oscillator.start(startAt);
+  oscillator.stop(startAt + 0.18);
+}
+
+function playVoiceCommandRecognitionSound(command = null) {
+  const now = performance.now();
+  const soundKey = command?.action || command?.phrase || "voice-command";
+  if (soundKey === lastVoiceCommandSoundKey && now - lastVoiceCommandSoundAt < VOICE_COMMAND_SOUND_REPEAT_GUARD_MS) {
+    return;
+  }
+
+  lastVoiceCommandSoundKey = soundKey;
+  lastVoiceCommandSoundAt = now;
+
+  if (!voiceCommandSoundAssetAvailable) {
+    playVoiceCommandFallbackTone();
+    return;
+  }
+
+  if (!voiceCommandAudio) {
+    voiceCommandAudio = new Audio(VOICE_COMMAND_SOUND_URL);
+    voiceCommandAudio.preload = "auto";
+    voiceCommandAudio.volume = 0.65;
+    voiceCommandAudio.loop = false;
+    voiceCommandAudio.addEventListener("error", () => {
+      voiceCommandSoundAssetAvailable = false;
+      voiceCommandAudio = null;
+      playVoiceCommandFallbackTone();
+    });
+  }
+
+  try {
+    voiceCommandAudio.pause();
+    voiceCommandAudio.currentTime = 0;
+  } catch (error) {
+    // Ignore audio reset issues and try to play anyway.
+  }
+
+  voiceCommandAudio.play().catch(() => {
+    voiceCommandSoundAssetAvailable = false;
+    voiceCommandAudio = null;
+    playVoiceCommandFallbackTone();
+  });
+}
+
+function beginVoiceCommandCooldown() {
+  voiceCommandCooldownUntil = performance.now() + VOICE_COMMAND_COOLDOWN_MS;
+}
+
+function clearVoiceCommandRestartTimer() {
+  if (voiceCommandRestartTimer) {
+    clearTimeout(voiceCommandRestartTimer);
+    voiceCommandRestartTimer = null;
+  }
+}
+
+function scheduleVoiceCommandListenerRestart(delayMs = VOICE_COMMAND_RESTART_DELAY_MS) {
+  clearVoiceCommandRestartTimer();
+
+  if (!shouldEnableVoiceCommandListener() || isVoiceCommandRecognitionBlocked) {
+    return;
+  }
+
+  const delay = Math.max(delayMs, Math.ceil(voiceCommandCooldownUntil - performance.now()), 0);
+  voiceCommandRestartTimer = window.setTimeout(() => {
+    voiceCommandRestartTimer = null;
+
+    if (!shouldEnableVoiceCommandListener() || isVoiceCommandRecognitionBlocked) {
+      return;
+    }
+
+    isVoiceCommandRecognitionStarting = false;
+    startVoiceCommandListener();
+  }, delay);
+}
+
+function processVoiceCommand(command, options = {}) {
+  if (!command || !shouldHandleVoiceCommand(command)) {
+    return false;
+  }
+
+  const { playSound = true } = options;
+  resetVoiceCommandTranscript();
+  beginVoiceCommandCooldown();
+  const handled = handleVoiceCommandAction(command.action);
+
+  if (handled && playSound) {
+    playVoiceCommandRecognitionSound(command);
+  }
+
+  return handled;
+}
+
+function getAuxWindowLabel(kind) {
+  switch (kind) {
+    case "input":
+      return t("common.text");
+    case "settings":
+      return t("common.settings");
+    case "about":
+      return t("about.kicker");
+    case "remote-inbox":
+      return "Receiver";
+    default:
+      return kind;
+  }
+}
+
+function openAuxWindowFromVoiceCommand(kind, failureMessageKey = "tele.opened") {
+  openAuxWindow(kind).catch((error) => {
+    console.error(error);
+    ui.statusLabel.textContent = t(failureMessageKey, { error: error.message || error });
+  });
+}
+
+function cycleToNextTheme() {
+  const themes = ["main", "dark", "bright", "meadow"];
+  const currentTheme = state.appearance?.theme || defaultState.appearance.theme;
+  const currentIndex = Math.max(themes.indexOf(currentTheme), 0);
+  const nextTheme = themes[(currentIndex + 1) % themes.length];
+
+  const mergedState = saveState({
+    appearance: {
+      ...state.appearance,
+      theme: nextTheme
+    }
+  });
+
+  Object.assign(state, mergedState);
+  applyAppearanceSettings();
+  rerenderScriptPreservingPosition(state.script);
+  ui.statusLabel.textContent = t("tele.opened", { kind: t(`settings.theme.${nextTheme}`) });
+}
+
+async function hideMainWindowToTray() {
+  if (invoke) {
+    await invoke("hide_main_window");
+    return;
+  }
+
+  const appWindow = tauriWindow?.getCurrentWindow?.();
+  await appWindow?.hide?.().catch?.(console.error);
+}
+
+async function showMainWindowFromTray() {
+  if (invoke) {
+    await invoke("show_main_window_command");
+    return;
+  }
+
+  const appWindow = tauriWindow?.getCurrentWindow?.();
+  if (!appWindow) {
+    return;
+  }
+
+  await appWindow.unminimize?.().catch?.(() => {});
+  await appWindow.show?.().catch?.(console.error);
+  await appWindow.setAlwaysOnTop?.(true).catch?.(() => {});
+  await appWindow.setFocus?.().catch?.(() => {});
+}
+
+function handleVoiceCommandAction(action) {
+  switch (action) {
+    case "open-about":
+      openAuxWindowFromVoiceCommand("about", "tele.failedOpenSettings");
+      return true;
+    case "open-settings":
+      openAuxWindowFromVoiceCommand("settings", "tele.failedOpenSettings");
+      return true;
+    case "open-input":
+      openAuxWindowFromVoiceCommand("input", "tele.failedOpenInput");
+      return true;
+    case "use-groq":
+      generatePromptScript().catch(console.error);
+      return true;
+    case "next-theme":
+      cycleToNextTheme();
+      return true;
+    case "open-receiver":
+      openAuxWindowFromVoiceCommand("remote-inbox", "tele.failedOpenSettings");
+      return true;
+    case "free-drag":
+      setWindowPreset("drag", { isPinned: false }).catch(console.error);
+      return true;
+    case "top-center":
+      setWindowPreset("top-center", { isPinned: true }).catch(console.error);
+      return true;
+    case "play":
+      if (!isPlaying && !isPaused) {
+        play();
+        return true;
+      }
+
+      return resumePlayback();
+    case "hide":
+      hideMainWindowToTray().catch(console.error);
+      return true;
+    case "show":
+      showMainWindowFromTray().catch(console.error);
+      return true;
+    case "minimize":
+      setCollapsed(true).catch(console.error);
+      return true;
+    case "expand":
+      setCollapsed(false).catch(console.error);
+      return true;
+    case "exit":
+      invoke?.("close_app").catch(console.error);
+      return true;
+    case "restart":
+      replayFromStart();
+      return true;
+    case "stop":
+      stopPlayback(false);
+      return true;
+    case "pause":
+      return pausePlayback();
+    case "continue":
+      return resumePlayback();
+    case "up":
+      return movePlaybackByLine(-1);
+    case "down":
+      return movePlaybackByLine(1);
+    default:
+      return false;
+  }
+}
+
+function ensureVoiceCommandRecognition() {
+  if (!hasOfflineVoiceCommandSupport()) {
+    return null;
+  }
+
+  if (voiceCommandRecognition) {
+    return voiceCommandRecognition;
+  }
+
+  voiceCommandRecognition = {
+    engine: "vosk"
+  };
+
+  return voiceCommandRecognition;
+}
+
+async function stopVoiceCommandListener() {
+  voiceCommandListenerSession += 1;
+  isVoiceCommandRecognitionStarting = false;
+  resetVoiceCommandTranscript();
+  clearVoiceCommandRestartTimer();
+  lastVoiceCommandAudioProcessAt = 0;
+  clearVoiceWakeState();
+
+  disconnectOfflineVoiceCommandAudioGraph();
+
+  if (voiceCommandRecognition?.remove) {
+    try {
+      voiceCommandRecognition.remove();
+    } catch (error) {
+      // Recognizer already removed.
+    }
+  }
+
+  voiceCommandRecognition = null;
+
+  if (voiceCommandMediaStream) {
+    voiceCommandMediaStream.getTracks().forEach((track) => {
+      track.enabled = false;
+      track.stop();
+    });
+    voiceCommandMediaStream = null;
+  }
+
+  await disposeOfflineVoiceCommandAudioContext();
+}
+
+async function startVoiceCommandListener() {
+  if (!shouldEnableVoiceCommandListener() || isVoiceCommandRecognitionStarting || isVoiceCommandRecognitionBlocked || performance.now() < voiceCommandCooldownUntil) {
+    return;
+  }
+
+  clearVoiceCommandRestartTimer();
+
+  if (voiceCommandRecognition?.remove && voiceCommandAudioContext && voiceCommandMediaStream) {
+    return;
+  }
+
+  const marker = ensureVoiceCommandRecognition();
+  if (!marker) {
+    return;
+  }
+
+  const listenerSession = ++voiceCommandListenerSession;
+  isVoiceCommandRecognitionStarting = true;
+
+  try {
+    const model = await ensureOfflineVoiceCommandModel();
+    if (!model || !shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
+      return;
+    }
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: 1
+      }
+    });
+
+    voiceCommandMediaStream = mediaStream;
+    voiceCommandAudioContext = new AudioContextClass({ sampleRate: 16000 });
+    if (listenerSession !== voiceCommandListenerSession) {
+      mediaStream.getTracks().forEach((track) => track.stop());
+      await voiceCommandAudioContext.close().catch(() => {});
+      voiceCommandAudioContext = null;
+      return;
+    }
+
+    await resumeOfflineVoiceCommandAudioContext();
+    installOfflineVoiceCommandResumeListeners();
+
+    const recognizer = new model.KaldiRecognizer(
+      voiceCommandAudioContext.sampleRate,
+      getOfflineVoiceCommandGrammar()
+    );
+    recognizer.setWords(true);
+    recognizer.on("result", (message) => {
+      handleOfflineVoiceCommandTranscript(getVoskResultText(message), {
+        isFinal: true,
+        confidence: getAverageVoskWordConfidence(getVoskResultWords(message)),
+        wakeConfidence: getWakePhraseConfidence(message)
+      });
+    });
+
+    voiceCommandRecognition = recognizer;
+    voiceCommandSourceNode = voiceCommandAudioContext.createMediaStreamSource(mediaStream);
+    voiceCommandProcessorNode = voiceCommandAudioContext.createScriptProcessor(VOSK_COMMAND_BUFFER_SIZE, 1, 1);
+    voiceCommandSilenceNode = voiceCommandAudioContext.createGain();
+    voiceCommandSilenceNode.gain.value = 0;
+    lastVoiceCommandAudioProcessAt = performance.now();
+
+    voiceCommandProcessorNode.onaudioprocess = (event) => {
+      if (!voiceCommandRecognition?.acceptWaveform) {
+        return;
+      }
+
+      lastVoiceCommandAudioProcessAt = performance.now();
+
+      try {
+        voiceCommandRecognition.acceptWaveform(event.inputBuffer);
+      } catch (error) {
+        console.error("Offline voice command audio processing failed", error);
+      }
+    };
+
+    voiceCommandSourceNode.connect(voiceCommandProcessorNode);
+    voiceCommandProcessorNode.connect(voiceCommandSilenceNode);
+    voiceCommandSilenceNode.connect(voiceCommandAudioContext.destination);
+
+    if (listenerSession !== voiceCommandListenerSession || !shouldEnableVoiceCommandListener()) {
+      await stopVoiceCommandListener();
+      return;
+    }
+
+    isVoiceCommandRecognitionBlocked = false;
+  } catch (error) {
+    console.error("Offline voice command listener failed to start", error);
+    await stopVoiceCommandListener();
+    scheduleVoiceCommandListenerRestart(VOICE_COMMAND_RESTART_DELAY_MS + 120);
+  } finally {
+    isVoiceCommandRecognitionStarting = false;
+  }
+}
+
+function syncVoiceCommandListener(options = {}) {
+  const { forceReset = false } = options;
+
+  voiceCommandSyncPromise = voiceCommandSyncPromise
+    .catch(() => {})
+    .then(async () => {
+      if (forceReset) {
+        await stopVoiceCommandListener();
+      }
+
+      if (shouldEnableVoiceCommandListener()) {
+        await startVoiceCommandListener();
+        return;
+      }
+
+      await stopVoiceCommandListener();
+    });
+
+  return voiceCommandSyncPromise;
+}
+
+function refreshVoiceCommandListener(forceReset = false) {
+  window.setTimeout(() => {
+    syncVoiceCommandListener({ forceReset });
+  }, 0);
+}
+
+function startVoiceCommandHealthMonitor() {
+  if (voiceCommandHealthTimer) {
+    return;
+  }
+
+  voiceCommandHealthTimer = window.setInterval(() => {
+    if (isPlaying && getActiveMode() === "voice") {
+      if (!voiceRecognition || !voiceTrackingAudioContext || !voiceTrackingMediaStream) {
+        playVoiceMode();
+        return;
+      }
+
+      const trackingTracks = voiceTrackingMediaStream.getAudioTracks();
+      if (trackingTracks.length === 0 || trackingTracks.some((track) => track.readyState === "ended")) {
+        stopVoiceTracking()
+          .catch(console.error)
+          .finally(() => {
+            if (isPlaying && getActiveMode() === "voice") {
+              playVoiceMode();
+            }
+          });
+        return;
+      }
+
+      if (lastVoiceTrackingAudioProcessAt > 0 && performance.now() - lastVoiceTrackingAudioProcessAt > 3000) {
+        stopVoiceTracking()
+          .catch(console.error)
+          .finally(() => {
+            if (isPlaying && getActiveMode() === "voice") {
+              playVoiceMode();
+            }
+          });
+        return;
+      }
+    }
+
+    if (!shouldEnableVoiceCommandListener() || isVoiceCommandRecognitionStarting) {
+      return;
+    }
+
+    if (!voiceCommandRecognition || !voiceCommandAudioContext || !voiceCommandMediaStream) {
+      syncVoiceCommandListener({ forceReset: true });
+      return;
+    }
+
+    const tracks = voiceCommandMediaStream.getAudioTracks();
+    if (tracks.length === 0 || tracks.some((track) => track.readyState === "ended")) {
+      syncVoiceCommandListener({ forceReset: true });
+      return;
+    }
+
+    if (voiceCommandAudioContext.state === "suspended") {
+      resumeOfflineVoiceCommandAudioContext().catch(() => {});
+    }
+
+    if (lastVoiceCommandAudioProcessAt > 0 && performance.now() - lastVoiceCommandAudioProcessAt > 3000) {
+      syncVoiceCommandListener({ forceReset: true });
+    }
+  }, 2000);
+}
+
+function installVoiceCommandDebugHelpers() {
+  window.__flowVoiceDebug = {
+    extractCommand(text) {
+      return extractVoiceCommand(text);
+    },
+    simulateCommand(text, options = {}) {
+      const command = extractVoiceCommand(text);
+      if (!command) {
+        return { ok: false, reason: "no-command" };
+      }
+
+      const handled = processVoiceCommand(command, {
+        playSound: options.playSound !== false
+      });
+
+      return {
+        ok: handled,
+        command
+      };
+    },
+    getState() {
+      return {
+        voiceCommandCooldownUntil,
+        lastVoiceCommandKey,
+        lastVoiceCommandAt,
+        lastVoiceCommandSoundKey,
+        lastVoiceCommandSoundAt
+      };
+    },
+    reset() {
+      voiceCommandCooldownUntil = 0;
+      lastVoiceCommandKey = "";
+      lastVoiceCommandAt = 0;
+      lastVoiceCommandAction = "";
+      lastVoiceCommandActionAt = 0;
+      lastVoiceCommandSoundKey = "";
+      lastVoiceCommandSoundAt = 0;
+      resetVoiceCommandTranscript();
+    }
+  };
+}
+
+
+function normalizeText(text, locale = getVoiceLanguageTag()) {
+  return applyLocaleVoiceNormalization(text, locale)
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLocaleLowerCase(locale)
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function tokenizeNormalizedText(text, locale = getVoiceLanguageTag()) {
+  const normalized = normalizeText(text, locale);
+  return normalized ? normalized.split(" ") : [];
+}
+
+function getNormalizedTokenIndexForWord(wordIndex, edge = "end") {
+  const range = normalizedTokenRangeByWord[wordIndex];
+  if (range) {
+    return edge === "start" ? range.start : range.end;
+  }
+
+  const fallbackWordIndex = clamp(wordIndex, 0, Math.max(wordNodes.length - 1, 0));
+  const fallbackTokenIndex = wordIndexByNormalizedToken.findIndex((index) => index >= fallbackWordIndex);
+  if (fallbackTokenIndex >= 0) {
+    return fallbackTokenIndex;
+  }
+
+  return Math.max(normalizedWordTokens.length - 1, 0);
+}
+
+function getWordIndexForNormalizedToken(tokenIndex) {
+  if (!normalizedWordTokens.length) {
+    return -1;
+  }
+
+  const safeTokenIndex = clamp(tokenIndex, 0, normalizedWordTokens.length - 1);
+  return wordIndexByNormalizedToken[safeTokenIndex] ?? -1;
+}
+
+function getNormalizedTokenRangeForLine(lineIndex) {
+  const line = lineGroups[lineIndex];
+  if (!line) {
+    return null;
+  }
+
+  let start = -1;
+  let end = -1;
+
+  for (let wordIndex = line.firstIndex; wordIndex <= line.lastIndex; wordIndex += 1) {
+    const range = normalizedTokenRangeByWord[wordIndex];
+    if (!range) {
+      continue;
+    }
+
+    if (start < 0) {
+      start = range.start;
+    }
+
+    end = range.end;
+  }
+
+  return start >= 0 && end >= start ? { start, end } : null;
+}
+
+function isStrongPartialVoiceMatch(spokenToken, scriptToken) {
+  if (!spokenToken || !scriptToken) {
+    return false;
+  }
+
+  if (spokenToken === scriptToken) {
+    return true;
+  }
+
+  const sharedPrefixLength = (() => {
+    const maxLength = Math.min(spokenToken.length, scriptToken.length);
+    let length = 0;
+    while (length < maxLength && spokenToken[length] === scriptToken[length]) {
+      length += 1;
+    }
+    return length;
+  })();
+
+  if (sharedPrefixLength < 2) {
+    return false;
+  }
+
+  return sharedPrefixLength / scriptToken.length >= 0.55 || sharedPrefixLength >= Math.min(4, scriptToken.length);
+}
+
+function findVoicePartialMatchIndex(spokenTokens, options = {}) {
+  if (spokenTokens.length === 0 || normalizedWordTokens.length === 0) {
+    return -1;
+  }
+
+  const latestToken = spokenTokens[spokenTokens.length - 1];
+  if (!latestToken || latestToken.length < 2) {
+    return -1;
+  }
+
+  const currentToken = normalizedWordTokens[getNormalizedTokenIndexForWord(currentIndex, "start")];
+  if (isStrongPartialVoiceMatch(latestToken, currentToken)) {
+    return getNormalizedTokenIndexForWord(currentIndex, "start");
+  }
+
+  const maxIndex = normalizedWordTokens.length - 1;
+  const defaultStart = Math.max(getNormalizedTokenIndexForWord(currentIndex, "start"), 0);
+  const searchStart = clamp(options.startIndex ?? defaultStart, 0, maxIndex);
+  const defaultEnd = Math.min(searchStart + 11, maxIndex);
+  const searchEnd = clamp(options.endIndex ?? defaultEnd, searchStart, maxIndex);
+
+  for (let index = searchStart; index <= searchEnd; index += 1) {
+    const candidate = normalizedWordTokens[index];
+    if (!candidate || candidate.length < 2) {
+      continue;
+    }
+
+    if (isStrongPartialVoiceMatch(latestToken, candidate)) {
+      return index;
+    }
+  }
+
+  return -1;
+}
+
+function findVoiceExactMatchIndex(spokenTokens, options = {}) {
+  if (spokenTokens.length === 0 || normalizedWordTokens.length === 0) {
+    return -1;
+  }
+
+  const recentSpoken = spokenTokens.slice(-8);
+  const maxIndex = normalizedWordTokens.length - 1;
+  const defaultStart = Math.max(getNormalizedTokenIndexForWord(Math.max(currentIndex - 1, 0), "start"), 0);
+  const searchStart = clamp(options.startIndex ?? defaultStart, 0, maxIndex);
+  const defaultEnd = Math.min(searchStart + 35, maxIndex);
+  const searchEnd = clamp(options.endIndex ?? defaultEnd, searchStart, maxIndex);
+
+  for (let phraseLength = Math.min(5, recentSpoken.length); phraseLength >= 1; phraseLength -= 1) {
+    const spokenPhrase = recentSpoken.slice(-phraseLength).join(" ");
+    if (!spokenPhrase) {
+      continue;
+    }
+
+    const allowSingleWord = phraseLength === 1;
+    if (allowSingleWord && spokenPhrase.length < 3) {
+      continue;
+    }
+
+    for (let index = searchStart; index <= searchEnd - phraseLength + 1; index += 1) {
+      const candidate = normalizedWordTokens.slice(index, index + phraseLength);
+      if (candidate.some((token) => !token)) {
+        continue;
+      }
+
+      if (candidate.join(" ") === spokenPhrase) {
+        return index + phraseLength - 1;
+      }
+    }
+  }
+
+  return -1;
+}
+
+function findVoiceMatchIndex(spokenTokens, options = {}) {
+  const exactMatchIndex = findVoiceExactMatchIndex(spokenTokens, options);
+  if (exactMatchIndex >= 0) {
+    return exactMatchIndex;
+  }
+
+  if (normalizedWordTokens.length === 0) {
+    return -1;
+  }
+
+  const maxIndex = normalizedWordTokens.length - 1;
+  const defaultStart = Math.max(getNormalizedTokenIndexForWord(Math.max(currentIndex - 1, 0), "start"), 0);
+  const searchStart = clamp(options.startIndex ?? defaultStart, 0, maxIndex);
+  const defaultEnd = Math.min(searchStart + 35, maxIndex);
+  const searchEnd = clamp(options.endIndex ?? defaultEnd, searchStart, maxIndex);
+
+  return findVoicePartialMatchIndex(spokenTokens, { startIndex: searchStart, endIndex: searchEnd });
+}
+
+function findVoiceLineMatch(spokenTokens) {
+  if (spokenTokens.length === 0 || normalizedWordTokens.length === 0 || lineGroups.length === 0) {
+    return null;
+  }
+
+  const activeLineIndex = clamp(lineIndexByWord[currentIndex] ?? 0, 0, Math.max(lineGroups.length - 1, 0));
+  const candidateLineIndices = [activeLineIndex, activeLineIndex + 1]
+    .filter((lineIndex, index, collection) => lineIndex >= 0 && lineIndex < lineGroups.length && collection.indexOf(lineIndex) === index);
+
+  let bestMatch = null;
+
+  for (const matcher of [findVoiceExactMatchIndex, findVoicePartialMatchIndex]) {
+    for (const lineIndex of candidateLineIndices) {
+      const tokenRange = getNormalizedTokenRangeForLine(lineIndex);
+      if (!tokenRange) {
+        continue;
+      }
+
+      const matchedIndex = matcher(spokenTokens, {
+        startIndex: tokenRange.start,
+        endIndex: tokenRange.end
+      });
+
+      if (matchedIndex < 0) {
+        continue;
+      }
+
+      const matchedWordIndex = getWordIndexForNormalizedToken(matchedIndex);
+      if (matchedWordIndex < 0) {
+        continue;
+      }
+
+      if (!bestMatch || lineIndex > bestMatch.lineIndex || matchedIndex > bestMatch.matchedIndex) {
+        bestMatch = { matchedIndex, matchedWordIndex, lineIndex };
+      }
+    }
+
+    if (bestMatch) {
+      return bestMatch;
+    }
+  }
+
+  return null;
+}
+
+function getVoiceNextIndex(matchedIndex) {
+  if (matchedIndex < 0 || wordNodes.length === 0) {
+    return -1;
+  }
+
+  return Math.min(matchedIndex + 1, wordNodes.length - 1);
+}
+
+function disconnectVoiceTrackingAudioGraph() {
+  if (voiceTrackingSourceNode) {
+    try {
+      voiceTrackingSourceNode.disconnect();
+    } catch (error) {
+      // Node already disconnected.
+    }
+    voiceTrackingSourceNode = null;
+  }
+
+  if (voiceTrackingProcessorNode) {
+    try {
+      voiceTrackingProcessorNode.disconnect();
+    } catch (error) {
+      // Node already disconnected.
+    }
+    voiceTrackingProcessorNode.onaudioprocess = null;
+    voiceTrackingProcessorNode = null;
+  }
+
+  if (voiceTrackingSilenceNode) {
+    try {
+      voiceTrackingSilenceNode.disconnect();
+    } catch (error) {
+      // Node already disconnected.
+    }
+    voiceTrackingSilenceNode = null;
+  }
+}
+
+async function disposeVoiceTrackingAudioContext() {
+  if (!voiceTrackingAudioContext) {
+    return;
+  }
+
+  const currentAudioContext = voiceTrackingAudioContext;
+  voiceTrackingAudioContext = null;
+  try {
+    await currentAudioContext.close();
+  } catch (error) {
+    // Audio context is already closed.
+  }
+}
+
+async function stopVoiceTracking() {
+  voiceTrackingSession += 1;
+  lastVoiceTrackingAudioProcessAt = 0;
+
+  disconnectVoiceTrackingAudioGraph();
+
+  if (voiceRecognition?.remove) {
+    try {
+      voiceRecognition.remove();
+    } catch (error) {
+      // Recognizer already removed.
+    }
+  }
+
+  voiceRecognition = null;
+
+  if (voiceTrackingMediaStream) {
+    voiceTrackingMediaStream.getTracks().forEach((track) => {
+      track.enabled = false;
+      track.stop();
+    });
+    voiceTrackingMediaStream = null;
+  }
+
+  await disposeVoiceTrackingAudioContext();
+}
+
+function applyVoiceTrackingTranscript(transcript, options = {}) {
+  const text = String(transcript || "").trim();
+  if (!text || !isPlaying || getActiveMode() !== "voice") {
+    return;
+  }
+
+  const { isFinal = false, confidence = 0, wakeConfidence = 0 } = options;
+  const commandOutcome = handleOfflineVoiceCommandTranscript(text, { isFinal, confidence, wakeConfidence });
+  if (commandOutcome.handled || commandOutcome.consumed || isPaused) {
+    return;
+  }
+
+  const combinedTranscript = isFinal
+    ? `${voiceTranscript} ${text}`.trim()
+    : `${voiceTranscript} ${text}`.trim();
+
+  if (isFinal) {
+    voiceTranscript = combinedTranscript;
+  }
+
+  const spokenTokens = tokenizeNormalizedText(combinedTranscript);
+  const bestLineMatch = findVoiceLineMatch(spokenTokens);
+  const bestMatchIndex = bestLineMatch?.matchedWordIndex ?? -1;
+
+  if (bestMatchIndex >= currentIndex) {
+    const previousLineIndex = lineIndexByWord[currentIndex] ?? 0;
+    const nextLineIndex = bestLineMatch?.lineIndex ?? previousLineIndex;
+    currentIndex = bestMatchIndex;
+    updateWordState(nextLineIndex !== previousLineIndex);
+
+    if (currentIndex >= wordNodes.length - 1) {
+      finishPlayback();
+      stopVoiceTracking().catch(console.error);
+    }
+  }
+}
+
+async function startVoiceTracking() {
+  if (!hasOfflineVoiceCommandSupport()) {
+    throw new Error("Vosk voice recognition is not supported");
+  }
+
+  if (voiceRecognition?.remove && voiceTrackingAudioContext && voiceTrackingMediaStream) {
+    return;
+  }
+
+  const model = await ensureOfflineVoiceCommandModel();
+  if (!model) {
+    throw new Error("Vosk model could not be loaded");
+  }
+
+  const session = ++voiceTrackingSession;
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  const mediaStream = await navigator.mediaDevices.getUserMedia({
+    video: false,
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+      channelCount: 1
+    }
+  });
+
+  voiceTrackingMediaStream = mediaStream;
+  voiceTrackingAudioContext = new AudioContextClass({ sampleRate: 16000 });
+  if (session !== voiceTrackingSession) {
+    mediaStream.getTracks().forEach((track) => {
+      track.enabled = false;
+      track.stop();
+    });
+    await disposeVoiceTrackingAudioContext();
+    return;
+  }
+
+  if (voiceTrackingAudioContext.state === "suspended") {
+    try {
+      await voiceTrackingAudioContext.resume();
+    } catch (error) {
+      // Resume may require a user gesture in some webviews.
+    }
+  }
+
+  const recognizer = new model.KaldiRecognizer(voiceTrackingAudioContext.sampleRate);
+  recognizer.setWords(true);
+  recognizer.on("partialresult", (message) => {
+    applyVoiceTrackingTranscript(message?.result?.partial, { isFinal: false });
+  });
+  recognizer.on("result", (message) => {
+    applyVoiceTrackingTranscript(getVoskResultText(message), {
+      isFinal: true,
+      confidence: getAverageVoskWordConfidence(getVoskResultWords(message)),
+      wakeConfidence: getWakePhraseConfidence(message)
+    });
+  });
+
+  voiceRecognition = recognizer;
+  voiceTrackingSourceNode = voiceTrackingAudioContext.createMediaStreamSource(mediaStream);
+  voiceTrackingProcessorNode = voiceTrackingAudioContext.createScriptProcessor(VOSK_COMMAND_BUFFER_SIZE, 1, 1);
+  voiceTrackingSilenceNode = voiceTrackingAudioContext.createGain();
+  voiceTrackingSilenceNode.gain.value = 0;
+  lastVoiceTrackingAudioProcessAt = performance.now();
+
+  voiceTrackingProcessorNode.onaudioprocess = (event) => {
+    if (!voiceRecognition?.acceptWaveform) {
+      return;
+    }
+
+    lastVoiceTrackingAudioProcessAt = performance.now();
+
+    try {
+      voiceRecognition.acceptWaveform(event.inputBuffer);
+    } catch (error) {
+      console.error("Vosk voice tracking audio processing failed", error);
+    }
+  };
+
+  voiceTrackingSourceNode.connect(voiceTrackingProcessorNode);
+  voiceTrackingProcessorNode.connect(voiceTrackingSilenceNode);
+  voiceTrackingSilenceNode.connect(voiceTrackingAudioContext.destination);
+}
+
+function playVoiceMode() {
+  voiceTranscript = "";
+  resetVoiceCommandTranscript();
+  updateWordState(true);
+  if (ui.statusLabel) ui.statusLabel.textContent = "\u{1F3A4} Listening...";
+
+  stopVoiceCommandListener()
+    .catch(console.error)
+    .finally(() => {
+      startVoiceTracking().catch((error) => {
+        console.error("Vosk voice tracking failed to start", error);
+        if (ui.statusLabel) {
+          ui.statusLabel.textContent = "\u{1F3A4} Mic Request Failed";
+        }
+        stopPlayback();
+      });
+    });
 }
 
 function play() {
@@ -1107,21 +3274,30 @@ function play() {
 
   if (activeMode === "arrow") {
     beginArrowMode();
+    syncVoiceCommandListener();
+    return;
+  }
+
+  if (activeMode === "voice") {
+    playVoiceMode();
+    syncVoiceCommandListener();
     return;
   }
 
   if (activeMode === "scroll") {
     playScrollMode();
+    syncVoiceCommandListener();
     return;
   }
 
   playTimedStep();
+  syncVoiceCommandListener();
 }
 
 async function openAuxWindow(kind) {
   if (invoke) {
     await invoke("open_aux_window", { kind });
-    const kindLabel = kind === "input" ? t("common.text") : kind === "settings" ? t("common.settings") : kind;
+    const kindLabel = getAuxWindowLabel(kind);
     ui.statusLabel.textContent = t("tele.opened", { kind: kindLabel });
   }
 }
@@ -1425,30 +3601,11 @@ function togglePause() {
     return;
   }
 
-  const activeMode = getActiveMode();
-
-  if (activeMode === "arrow") {
-    isPaused = !isPaused;
-    updatePlaybackIndicators(true);
-    updatePlayButtons();
-    return;
-  }
-
   if (isPaused) {
-    isPaused = false;
-
-    if (activeMode === "scroll") {
-      playScrollMode();
-    } else {
-      playTimedStep();
-    }
+    resumePlayback();
   } else {
-    isPaused = true;
-    clearPlayback();
+    pausePlayback();
   }
-
-  updatePlaybackIndicators(true);
-  updatePlayButtons();
 }
 
 function replayFromStart() {
@@ -1476,9 +3633,14 @@ async function toggleClickthroughMode() {
   }
 
   try {
+    shouldAnnounceClickthroughStatus = true;
     const enabled = await invoke("toggle_main_clickthrough");
-    ui.statusLabel.textContent = enabled ? t("tele.clickthroughEnabled") : t("tele.clickthroughDisabled");
+    if (!unlistenClickthroughChanged && ui.statusLabel) {
+      shouldAnnounceClickthroughStatus = false;
+      ui.statusLabel.textContent = enabled ? t("tele.clickthroughEnabled") : t("tele.clickthroughDisabled");
+    }
   } catch (error) {
+    shouldAnnounceClickthroughStatus = false;
     console.error(error);
   }
 }
@@ -1497,7 +3659,7 @@ function stepArrowMode(direction) {
   }
 
   currentIndex = nextLine.firstIndex;
-  const totalScrollable = Math.max(ui.promptViewport.scrollHeight - ui.promptViewport.clientHeight, 0);
+  const totalScrollable = refreshPromptViewportMetrics();
   const targetTop = getLineTargetTop(nextLineIndex);
   scrollToLine(nextLineIndex);
   scrollProgress = totalScrollable > 0 ? clamp(targetTop / totalScrollable, 0, 1) : scrollProgress;
@@ -1534,7 +3696,7 @@ function jumpToIndex(targetIndex) {
   const nextIndex = clamp(targetIndex, 0, wordNodes.length - 1);
   currentIndex = nextIndex;
 
-  const totalScrollable = Math.max(ui.promptViewport.scrollHeight - ui.promptViewport.clientHeight, 0);
+  const totalScrollable = refreshPromptViewportMetrics();
   const activeLineIndex = lineIndexByWord[currentIndex] ?? 0;
   const targetTop = getLineTargetTop(activeLineIndex);
   scrollProgress = totalScrollable > 0 ? clamp(targetTop / totalScrollable, 0, 1) : 0;
@@ -1670,6 +3832,7 @@ function refreshFromStorage() {
 
   syncStateFromStorage();
   state.desktop = state.desktop || structuredClone(defaultState.desktop);
+  syncVoiceCommandListener();
 
   if (previousState.speed !== state.speed) {
     updateSpeedLabel();
@@ -1680,6 +3843,8 @@ function refreshFromStorage() {
     updateCollapseButton();
     updatePlayButtons();
   }
+
+  updateDragControls();
 
   if (previousState.appearance !== JSON.stringify(state.appearance)) {
     applyAppearanceSettings();
@@ -1775,6 +3940,11 @@ function wireEvents() {
     });
   });
 
+  if (ui.pinButton) {
+    ui.pinButton.addEventListener("click", () => {
+      toggleDragOverlay().catch(console.error);
+    });
+  }
   ui.collapseButton.addEventListener("click", () => {
     setCollapsed(!isCollapsed).catch(console.error);
   });
@@ -1785,7 +3955,21 @@ function wireEvents() {
     applyResponsiveText();
     updateSpeedInputMode();
   });
-  window.addEventListener("focus", refreshFromStorage);
+  window.addEventListener("focus", () => {
+    refreshFromStorage();
+    refreshVoiceCommandListener(true);
+    resumeOfflineVoiceCommandAudioContext().catch(() => {});
+  });
+  window.addEventListener("blur", () => {
+    resumeOfflineVoiceCommandAudioContext().catch(() => {});
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      refreshVoiceCommandListener(true);
+      resumeOfflineVoiceCommandAudioContext().catch(() => {});
+      return;
+    }
+  });
   window.addEventListener("storage", refreshFromStorage);
   window.addEventListener("flow-state-updated", refreshFromStorage);
   window.addEventListener("keydown", handlePlaybackHotkeys);
@@ -1793,8 +3977,14 @@ function wireEvents() {
     if (speedPersistTimer) {
       flushPendingSpeedPersist();
     }
+    stopVoiceCommandListener();
+    stopVoiceTracking();
     unlistenClickthroughChanged?.();
     unlistenClickthroughChanged = null;
+    if (voiceCommandHealthTimer) {
+      clearInterval(voiceCommandHealthTimer);
+      voiceCommandHealthTimer = null;
+    }
     remoteCardCollapseTimers.forEach((timer) => clearTimeout(timer));
     if (remoteHeartbeatTimer) {
       clearInterval(remoteHeartbeatTimer);
@@ -1847,16 +4037,20 @@ window.addEventListener("DOMContentLoaded", () => {
   applyDesktopPreferences().catch(console.error);
   applyTranslationsToDocument(state.language);
   cacheUi();
+  installVoiceCommandDebugHelpers();
   applyAppearanceSettings();
   updateCollapseButton();
+  updateDragControls();
   updateSpeedLabel();
   updateSpeedInputMode();
   renderScript();
   applyResponsiveText();
   bindDesktopEventListeners().catch(console.error);
   wireEvents();
+  startVoiceCommandHealthMonitor();
   startRemoteReceiverLoop();
   updatePlayButtons();
+  syncVoiceCommandListener();
   applyStoredWindowSettings().catch(console.error);
 });
 

@@ -30,7 +30,12 @@ const ui = {
   heightValue: document.querySelector("#heightValue"),
   presetSelect: document.querySelector("#presetSelect"),
   modeSelect: document.querySelector("#modeSelect"),
+  voiceLanguageGroup: document.querySelector("#voiceLanguageGroup"),
+  voiceLanguageSelect: document.querySelector("#voiceLanguageSelect"),
+  voiceStyleGroup: document.querySelector("#voiceStyleGroup"),
+  voiceStyleSelect: document.querySelector("#voiceStyleSelect"),
   fontSelect: document.querySelector("#fontSelect"),
+  appWideVoiceCommandsInput: document.querySelector("#appWideVoiceCommandsInput"),
   languageSelect: document.querySelector("#languageSelect"),
   languagePicker: document.querySelector("#languagePicker"),
   languageTrigger: document.querySelector("#languageTrigger"),
@@ -42,6 +47,7 @@ const ui = {
   appOpacityValue: document.querySelector("#appOpacityValue"),
   textSizeInput: document.querySelector("#textSizeInput"),
   textSizeValue: document.querySelector("#textSizeValue"),
+  styleSelect: document.querySelector("#styleSelect"),
   themeSelect: document.querySelector("#themeSelect"),
   performanceModeInput: document.querySelector("#performanceModeInput"),
   hideFromCaptureInput: document.querySelector("#hideFromCaptureInput"),
@@ -127,9 +133,13 @@ function updatePositioningAvailability() {
 }
 
 function updateAppearanceAvailability() {
-  ui.modeSelect.disabled = ui.performanceModeInput.checked;
-  ui.textColorInput.disabled = true;
-  ui.textColorInput.value = getThemeTeleprompterTextColor(ui.themeSelect.value);
+  ui.modeSelect.disabled = false;
+  const isVoiceMode = ui.modeSelect.value === "voice";
+  ui.voiceLanguageGroup.classList.toggle("hidden", !isVoiceMode);
+  ui.voiceLanguageSelect.disabled = !isVoiceMode;
+  ui.voiceStyleGroup.classList.toggle("hidden", !isVoiceMode);
+  ui.voiceStyleSelect.disabled = !isVoiceMode;
+  ui.textColorInput.disabled = false;
 }
 
 function updateRemoteModeUi() {
@@ -210,13 +220,19 @@ function fillForm() {
   ui.remoteAccessPasswordInput.value = state.remote?.accessPassword || "";
   setSliderValue(ui.appOpacityInput, state.appearance?.appOpacity ?? defaultState.appearance.appOpacity);
   ui.textSizeInput.value = String(state.appearance?.textScale || defaultState.appearance.textScale);
+  ui.styleSelect.value = state.appearance?.style || defaultState.appearance.style;
   ui.themeSelect.value = state.appearance?.theme || defaultState.appearance.theme;
+  
+  ui.voiceLanguageSelect.value = state.appearance?.voiceLanguage || "en-US";
+  ui.voiceStyleSelect.value = state.appearance?.voiceScrollStyle || defaultState.appearance.voiceScrollStyle;
+  ui.appWideVoiceCommandsInput.checked = Boolean(state.appearance?.appWideVoiceCommands);
+  
   ui.performanceModeInput.checked = Boolean(state.appearance?.performanceMode);
   ui.hideFromCaptureInput.checked = Boolean(state.desktop?.hideFromCapture);
   ui.useSystemTrayInput.checked = Boolean(state.desktop?.useSystemTray);
   ui.preventSleepInput.checked = Boolean(state.desktop?.preventSleep);
   ui.clickthroughShortcutInput.checked = Boolean(state.desktop?.clickthroughShortcutEnabled);
-  ui.textColorInput.value = getThemeTeleprompterTextColor(ui.themeSelect.value);
+  ui.textColorInput.value = state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value);
   ui.textOpacityInput.value = String(state.appearance?.textOpacity || defaultState.appearance.textOpacity);
   updatePositioningAvailability();
   updateAppearanceAvailability();
@@ -224,6 +240,7 @@ function fillForm() {
   updateValueLabels();
   applyAppearanceToDocument({
     theme: ui.themeSelect.value,
+    style: ui.styleSelect.value,
     performanceMode: ui.performanceModeInput.checked,
     appOpacity: Number(ui.appOpacityInput.value)
   });
@@ -283,12 +300,16 @@ function collectFormState() {
     ...defaultState.appearance,
     ...(state.appearance || {}),
     mode: ui.modeSelect.value,
+    voiceLanguage: ui.voiceLanguageSelect.value,
+    voiceScrollStyle: ui.voiceStyleSelect.value,
+    appWideVoiceCommands: ui.appWideVoiceCommandsInput.checked,
     fontFamily: ui.fontSelect.value,
     appOpacity: Number(ui.appOpacityInput.value),
     textScale: Number(ui.textSizeInput.value),
     theme: ui.themeSelect.value,
+    style: ui.styleSelect.value,
     performanceMode: ui.performanceModeInput.checked,
-    textColor: getThemeTeleprompterTextColor(ui.themeSelect.value),
+    textColor: ui.textColorInput.value || state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value),
     textOpacity: Number(ui.textOpacityInput.value)
   };
 }
@@ -453,7 +474,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     input.addEventListener("input", scheduleApply);
   });
 
-  [ui.presetSelect, ui.modeSelect, ui.fontSelect, ui.languageSelect, ui.themeSelect, ui.textColorInput].forEach((input) => {
+  [ui.presetSelect, ui.modeSelect, ui.voiceLanguageSelect, ui.voiceStyleSelect, ui.fontSelect, ui.languageSelect, ui.themeSelect, ui.styleSelect, ui.textColorInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
   });
@@ -489,9 +510,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       closeLanguageMenu();
     }
   });
-  ui.performanceModeInput.addEventListener("input", scheduleApply);
-  ui.performanceModeInput.addEventListener("change", scheduleApply);
-  [ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput].forEach((input) => {
+  [ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
   });

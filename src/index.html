@@ -5,6 +5,7 @@
     <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="doc.teleprompterTitle">Flow Teleprompter</title>
+    <script src="./assets/vendor/vosk.js"></script>
     <script type="module" src="/main.js" defer></script>
   </head>
 
@@ -26,24 +27,63 @@
 
       <div class="floating-controls hidden" id="floatingControls">
         <button class="floating-action hidden" id="floatingReplayButton" data-i18n-title="common.replayStart" data-i18n-aria-label="common.replayStart" title="Replay from start" aria-label="Replay from start">↺</button>
+        <span class="floating-playback-meta hidden" id="floatingPlaybackMeta" aria-live="polite">0 left · 0 min left</span>
         <button class="floating-action floating-pause" id="floatingPauseButton" data-i18n-title="common.pause" data-i18n-aria-label="common.pause" title="Pause" aria-label="Pause">⏸</button>
         <button class="floating-action floating-stop" id="floatingStopButton" data-i18n-title="common.stopKeep" data-i18n-aria-label="common.stopKeep" title="Stop and keep position" aria-label="Stop and keep position">■</button>
       </div>
 
-      <div class="teleprompter-viewport" id="promptViewport">
-        <div class="teleprompter-copy" id="promptText"></div>
+      <div class="teleprompter-stage">
+        <div class="teleprompter-viewport" id="promptViewport">
+          <div class="teleprompter-copy" id="promptText"></div>
+        </div>
+
+        <div class="voice-wake-overlay hidden" id="voiceWakeOverlay" aria-hidden="true">
+          <div class="voice-wake-loader" aria-hidden="true">
+            <div class="voice-wake-core"></div>
+          </div>
+        </div>
+
+        <div class="drag-overlay hidden" id="dragOverlay">
+          <div class="drag-handle" data-tauri-drag-region>
+            <svg viewBox="0 0 60 18" class="drag-icon" aria-hidden="true" focusable="false" style="pointer-events: none;">
+              <circle cx="6" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="12" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="18" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="24" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="30" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="36" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="42" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="48" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="54" cy="6" r="1.2" fill="currentColor"></circle>
+              <circle cx="6" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="18" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="24" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="30" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="36" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="42" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="48" cy="12" r="1.2" fill="currentColor"></circle>
+              <circle cx="54" cy="12" r="1.2" fill="currentColor"></circle>
+            </svg>
+          </div>
+        </div>
       </div>
 
-      <div class="teleprompter-footer">
-        <div class="footer-meta" id="footerMeta">
-          <span id="progressLabel">Word 0 / 0</span>
-          <span id="statusLabel" data-i18n="tele.status.ready">Ready</span>
+      <div class="teleprompter-footer" id="teleprompterFooter">
+        <div class="footer-row">
+          <div class="footer-meta" id="footerMeta">
+            <span id="progressLabel">Word 0 / 0</span>
+            <span id="statusLabel" data-i18n="tele.status.ready">Ready</span>
+          </div>
+          <div class="footer-actions" style="display: flex; gap: 8px; align-items: center;">
+            <button class="icon-button pin-button-active hidden" id="pinButton" data-i18n-title="common.unpinWindow" data-i18n-aria-label="common.unpinWindow" title="Unpin window" aria-label="Unpin window">📌</button>
+            <button class="collapse-toggle" id="collapseButton" data-i18n-title="common.collapse" data-i18n-aria-label="common.collapse" title="Collapse teleprompter" aria-label="Collapse teleprompter">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M6 9.5 12 15.5 18 9.5" />
+              </svg>
+            </button>
+          </div>
         </div>
-        <button class="collapse-toggle" id="collapseButton" data-i18n-title="common.collapse" data-i18n-aria-label="common.collapse" title="Collapse teleprompter" aria-label="Collapse teleprompter">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-            <path d="M6 9.5 12 15.5 18 9.5" />
-          </svg>
-        </button>
       </div>
     </main>
 

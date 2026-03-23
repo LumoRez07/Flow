@@ -1,7 +1,7 @@
 {
   "name": "flow",
   "private": true,
-  "version": "0.3.1",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "tauri": "tauri"
@@ -10,6 +10,7 @@
     "@tauri-apps/cli": "^2"
   },
   "dependencies": {
-    "@tauri-apps/api": "^2.10.1"
+    "@tauri-apps/api": "^2.10.1",
+    "vosk-browser": "^0.0.8"
   }
 }

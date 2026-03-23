@@ -74,6 +74,7 @@
             <option value="top-center" data-i18n="settings.topCenter">Top center</option>
             <option value="center" data-i18n="settings.center">Center</option>
             <option value="custom" data-i18n="settings.custom">Custom x / y</option>
+            <option value="drag" data-i18n="settings.drag">Free drag</option>
           </select>
 
           <div class="group-grid">
@@ -101,124 +102,193 @@
             <h2 data-i18n="settings.sizeAndPlayback">Size and playback style</h2>
           </div>
 
-          <div class="group-grid">
-            <label class="slider-field">
-              <span class="slider-header">
-                <span data-i18n="settings.width">Width</span>
-                <span class="slider-value" id="widthValue">960 px</span>
-              </span>
-              <input id="widthInput" class="slider-input" type="range" min="400" step="10" />
-            </label>
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.group.windowSize">Window size</h3>
+            </div>
+            <div class="group-grid settings-subgroup-grid">
+              <label class="slider-field">
+                <span class="slider-header">
+                  <span data-i18n="settings.width">Width</span>
+                  <span class="slider-value" id="widthValue">960 px</span>
+                </span>
+                <input id="widthInput" class="slider-input" type="range" min="400" step="10" />
+              </label>
 
-            <label class="slider-field">
-              <span class="slider-header">
-                <span data-i18n="settings.height">Height</span>
-                <span class="slider-value" id="heightValue">260 px</span>
-              </span>
-              <input id="heightInput" class="slider-input" type="range" min="200" step="10" />
-            </label>
-          </div>
-
-          <label class="field-label" for="modeSelect" data-i18n="settings.animationStyle">Animation style</label>
-          <select id="modeSelect" class="page-input">
-            <option value="highlight" data-i18n="settings.mode.highlight">Highlight mode</option>
-            <option value="scroll" data-i18n="settings.mode.scroll">Normal scroll mode</option>
-            <option value="line" data-i18n="settings.mode.line">Line by line highlight</option>
-            <option value="arrow" data-i18n="settings.mode.arrow">Arrow mode</option>
-          </select>
-
-          <label class="field-label" for="fontSelect" data-i18n="settings.font">Font</label>
-          <select id="fontSelect" class="page-input">
-            <option value="inter">Inter</option>
-            <option value="arabic-pro">Arabic Pro</option>
-            <option value="turkish-pro">Turkish Pro</option>
-            <option value="german-pro">German Pro</option>
-            <option value="system">System UI</option>
-            <option value="georgia">Georgia</option>
-            <option value="garamond">Garamond</option>
-            <option value="verdana">Verdana</option>
-            <option value="mono">Mono</option>
-          </select>
-
-          <label class="field-label" for="languageSelect" data-i18n="common.language">Language</label>
-          <div class="language-picker" id="languagePicker">
-            <select id="languageSelect" class="language-select-native" aria-hidden="true" tabindex="-1">
-              <option value="en" data-i18n="language.en">English</option>
-              <option value="tr" data-i18n="language.tr">Turkish</option>
-              <option value="ar" data-i18n="language.ar">Arabic</option>
-              <option value="de" data-i18n="language.de">German</option>
-            </select>
-            <button class="language-trigger" id="languageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
-              <span class="language-flag" id="languageTriggerFlag" data-flag="en" aria-hidden="true"></span>
-              <span class="language-trigger-label" id="languageTriggerLabel">English</span>
-              <span class="language-trigger-caret" aria-hidden="true">▾</span>
-            </button>
-            <div class="language-menu hidden" id="languageMenu" role="listbox">
-              <button class="language-option" type="button" data-value="en" role="option">
-                <span class="language-flag" data-flag="en" aria-hidden="true"></span>
-                <span class="language-option-label" data-language-label="en">English</span>
-              </button>
-              <button class="language-option" type="button" data-value="tr" role="option">
-                <span class="language-flag" data-flag="tr" aria-hidden="true"></span>
-                <span class="language-option-label" data-language-label="tr">Turkish</span>
-              </button>
-              <button class="language-option" type="button" data-value="ar" role="option">
-                <span class="language-flag" data-flag="ar" aria-hidden="true"></span>
-                <span class="language-option-label" data-language-label="ar">Arabic</span>
-              </button>
-              <button class="language-option" type="button" data-value="de" role="option">
-                <span class="language-flag" data-flag="de" aria-hidden="true"></span>
-                <span class="language-option-label" data-language-label="de">German</span>
-              </button>
+              <label class="slider-field">
+                <span class="slider-header">
+                  <span data-i18n="settings.height">Height</span>
+                  <span class="slider-value" id="heightValue">260 px</span>
+                </span>
+                <input id="heightInput" class="slider-input" type="range" min="200" step="10" />
+              </label>
             </div>
           </div>
 
-          <label class="slider-field">
-            <span class="slider-header">
-              <span data-i18n="settings.textSize">Text size</span>
-              <span class="slider-value" id="textSizeValue">100%</span>
-            </span>
-            <input id="textSizeInput" class="slider-input" type="range" min="60" max="180" step="5" />
-          </label>
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.group.playback">Playback</h3>
+            </div>
 
-          <label class="field-label" for="themeSelect" data-i18n="settings.theme">Theme</label>
-          <select id="themeSelect" class="page-input">
-            <option value="main" data-i18n="settings.theme.main">Main</option>
-            <option value="dark" data-i18n="settings.theme.dark">Dark</option>
-            <option value="bright" data-i18n="settings.theme.bright">Bright</option>
-            <option value="meadow" data-i18n="settings.theme.meadow">Yellow-green</option>
-          </select>
+            <label class="field-label" for="modeSelect" data-i18n="settings.animationStyle">Scroll Mode</label>
+            <select id="modeSelect" class="page-input">
+              <option value="highlight" data-i18n="settings.mode.highlight">Highlight mode</option>
+              <option value="scroll" data-i18n="settings.mode.scroll">Normal scroll mode</option>
+              <option value="line" data-i18n="settings.mode.line">Line by line highlight</option>
+              <option value="arrow" data-i18n="settings.mode.arrow">Arrow mode</option>
+              <option value="voice" data-i18n="settings.mode.voice">Voice tracking</option>
+            </select>
 
-          <label class="toggle-field" for="performanceModeInput">
-            <span>
-              <span class="field-label inline-label" data-i18n="settings.performance">Performance mode</span>
-              <span class="helper-text toggle-help" data-i18n="settings.performanceHelp">Disables UI animations and forces normal scrolling for smoother performance.</span>
-            </span>
-            <input id="performanceModeInput" class="toggle-input" type="checkbox" />
-          </label>
+            <div class="settings-subgroup hidden" id="voiceLanguageGroup">
+              <label class="field-label" for="voiceLanguageSelect" data-i18n="settings.voiceLanguage">Voice Language</label>
+              <span class="helper-text" data-i18n="settings.voiceModeHelp">Matches spoken words to the script to advance automatically.</span>
+              <select id="voiceLanguageSelect" class="page-input">
+                <option value="en-US">English (US)</option>
+                <option value="en-GB">English (UK)</option>
+                <option value="ar-SA">Arabic</option>
+                <option value="tr-TR">Turkish</option>
+                <option value="de-DE">German</option>
+                <option value="fr-FR">French</option>
+                <option value="es-ES">Spanish</option>
+              </select>
+            </div>
 
-          <div class="settings-grid appearance-grid">
-            <label>
-              <span data-i18n="settings.textColor">Text color</span>
-              <input id="textColorInput" class="page-input color-input" type="color" />
+            <div class="settings-subgroup hidden" id="voiceStyleGroup">
+              <label class="field-label" for="voiceStyleSelect" data-i18n="settings.voiceTrackingStyle">Voice tracking style</label>
+              <span class="helper-text" data-i18n="settings.voiceTrackingStyleHelp">Choose how the matched position is shown while speaking.</span>
+              <select id="voiceStyleSelect" class="page-input">
+                <option value="highlight" data-i18n="settings.voiceStyle.highlight">Word highlight</option>
+                <option value="line" data-i18n="settings.voiceStyle.line">Line highlight</option>
+                <option value="plain" data-i18n="settings.voiceStyle.plain">Plain text</option>
+              </select>
+            </div>
+
+            <label class="toggle-field" for="appWideVoiceCommandsInput">
+              <span>
+                <strong data-i18n="settings.appWideVoiceCommands">App-wide Flow voice commands</strong>
+                <small class="toggle-help" data-i18n="settings.appWideVoiceCommandsHelp">Lets English Flow commands like 'Hey flow pause' or 'Hey flow down' work outside voice tracking too.</small>
+              </span>
+              <input id="appWideVoiceCommandsInput" class="toggle-input" type="checkbox" />
+            </label>
+
+            <label class="toggle-field" for="performanceModeInput">
+              <span>
+                <span class="field-label inline-label" data-i18n="settings.performance">Performance mode</span>
+                <span class="helper-text toggle-help" data-i18n="settings.performanceHelp">Disables UI animations and forces normal scrolling for smoother performance.</span>
+              </span>
+              <input id="performanceModeInput" class="toggle-input" type="checkbox" />
             </label>
           </div>
 
-          <label class="slider-field">
-            <span class="slider-header">
-              <span data-i18n="settings.textTransparency">Text transparency</span>
-              <span class="slider-value" id="textOpacityValue">88%</span>
-            </span>
-            <input id="textOpacityInput" class="slider-input" type="range" min="10" max="100" step="1" />
-          </label>
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.group.typography">Typography</h3>
+            </div>
 
-          <label class="slider-field">
-            <span class="slider-header">
-              <span data-i18n="settings.appTransparency">App transparency</span>
-              <span class="slider-value" id="appOpacityValue">100%</span>
-            </span>
-            <input id="appOpacityInput" class="slider-input" type="range" min="15" max="100" step="1" />
-          </label>
+            <label class="field-label" for="fontSelect" data-i18n="settings.font">Font</label>
+            <select id="fontSelect" class="page-input">
+              <option value="inter">Inter</option>
+              <option value="arabic-pro">Arabic Pro</option>
+              <option value="turkish-pro">Turkish Pro</option>
+              <option value="german-pro">German Pro</option>
+              <option value="system">System UI</option>
+              <option value="georgia">Georgia</option>
+              <option value="garamond">Garamond</option>
+              <option value="verdana">Verdana</option>
+              <option value="mono">Mono</option>
+            </select>
+
+            <label class="field-label" for="languageSelect" data-i18n="common.language">Language</label>
+            <div class="language-picker" id="languagePicker">
+              <select id="languageSelect" class="language-select-native" aria-hidden="true" tabindex="-1">
+                <option value="en" data-i18n="language.en">English</option>
+                <option value="tr" data-i18n="language.tr">Turkish</option>
+                <option value="ar" data-i18n="language.ar">Arabic</option>
+                <option value="de" data-i18n="language.de">German</option>
+              </select>
+              <button class="language-trigger" id="languageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                <span class="language-flag" id="languageTriggerFlag" data-flag="en" aria-hidden="true"></span>
+                <span class="language-trigger-label" id="languageTriggerLabel">English</span>
+                <span class="language-trigger-caret" aria-hidden="true">▾</span>
+              </button>
+              <div class="language-menu hidden" id="languageMenu" role="listbox">
+                <button class="language-option" type="button" data-value="en" role="option">
+                  <span class="language-flag" data-flag="en" aria-hidden="true"></span>
+                  <span class="language-option-label" data-language-label="en">English</span>
+                </button>
+                <button class="language-option" type="button" data-value="tr" role="option">
+                  <span class="language-flag" data-flag="tr" aria-hidden="true"></span>
+                  <span class="language-option-label" data-language-label="tr">Turkish</span>
+                </button>
+                <button class="language-option" type="button" data-value="ar" role="option">
+                  <span class="language-flag" data-flag="ar" aria-hidden="true"></span>
+                  <span class="language-option-label" data-language-label="ar">Arabic</span>
+                </button>
+                <button class="language-option" type="button" data-value="de" role="option">
+                  <span class="language-flag" data-flag="de" aria-hidden="true"></span>
+                  <span class="language-option-label" data-language-label="de">German</span>
+                </button>
+              </div>
+            </div>
+
+            <label class="slider-field">
+              <span class="slider-header">
+                <span data-i18n="settings.textSize">Text size</span>
+                <span class="slider-value" id="textSizeValue">100%</span>
+              </span>
+              <input id="textSizeInput" class="slider-input" type="range" min="60" max="180" step="5" />
+            </label>
+          </div>
+
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.group.visuals">Visuals</h3>
+            </div>
+
+            <div class="settings-grid appearance-grid">
+              <label>
+                <span data-i18n="settings.style">Style</span>
+                <select id="styleSelect" class="page-input">
+                  <option value="main" data-i18n="settings.style.main">Main</option>
+                  <option value="glass" data-i18n="settings.style.glass">Frosted glass</option>
+                  <option value="minimal" data-i18n="settings.style.minimal">Minimalist</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="settings.theme">Theme</span>
+                <select id="themeSelect" class="page-input">
+                  <option value="main" data-i18n="settings.theme.main">Main</option>
+                  <option value="dark" data-i18n="settings.theme.dark">Dark</option>
+                  <option value="bright" data-i18n="settings.theme.bright">Bright</option>
+                  <option value="meadow" data-i18n="settings.theme.meadow">Yellow-green</option>
+                </select>
+              </label>
+
+              <label>
+                <span data-i18n="settings.textColor">Text color</span>
+                <input id="textColorInput" class="page-input color-input" type="color" />
+              </label>
+            </div>
+
+            <div class="group-grid settings-subgroup-grid">
+              <label class="slider-field">
+                <span class="slider-header">
+                  <span data-i18n="settings.textTransparency">Text transparency</span>
+                  <span class="slider-value" id="textOpacityValue">88%</span>
+                </span>
+                <input id="textOpacityInput" class="slider-input" type="range" min="10" max="100" step="1" />
+              </label>
+
+              <label class="slider-field">
+                <span class="slider-header">
+                  <span data-i18n="settings.appTransparency">App transparency</span>
+                  <span class="slider-value" id="appOpacityValue">100%</span>
+                </span>
+                <input id="appOpacityInput" class="slider-input" type="range" min="15" max="100" step="1" />
+              </label>
+            </div>
+          </div>
         </div>
 
         <div class="settings-group">

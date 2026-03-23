@@ -121,19 +121,30 @@ src-tauri/target/release/bundle
 
 ### Voice & AI
 - Wake phrase: `Hey Flow`  
-- Voice commands (pause, resume, navigation)  
+- Voice commands for playback, navigation, window control, and quick app actions  
 - Optional Groq-powered drafting and rewriting  
 
 ### `Hey Flow` Commands
+- `Hey Flow about`
+- `Hey Flow settings`
+- `Hey Flow input`
+- `Hey Flow text editor`
+- `Hey Flow use groq`
+- `Hey Flow next theme`
+- `Hey Flow free drag`
+- `Hey Flow top center`
 - `Hey Flow play`
 - `Hey Flow pause`
 - `Hey Flow continue`
+- `Hey Flow minimize`
 - `Hey Flow stop`
 - `Hey Flow up`
 - `Hey Flow down`
 - `Hey Flow hide`
 - `Hey Flow show`
 - `Hey Flow expand`
+- `Hey Flow exit`
+- `Hey Flow restart`
 
 ### Remote Messaging
 - Cloud relay for external input  
@@ -227,15 +238,26 @@ src-tauri/target/release/bundle
 - İsteğe bağlı Groq destekli yazım ve yeniden yazım  
 
 ### `Hey Flow` Komutları
+- `Hey Flow about`
+- `Hey Flow settings`
+- `Hey Flow input`
+- `Hey Flow text editor`
+- `Hey Flow use groq`
+- `Hey Flow next theme`
+- `Hey Flow free drag`
+- `Hey Flow top center`
 - `Hey Flow play`
 - `Hey Flow pause`
 - `Hey Flow continue`
+- `Hey Flow minimize`
 - `Hey Flow stop`
 - `Hey Flow up`
 - `Hey Flow down`
 - `Hey Flow hide`
 - `Hey Flow show`
 - `Hey Flow expand`
+- `Hey Flow exit`
+- `Hey Flow restart`
 
 ### Uzak Mesajlaşma
 - Harici giriş için bulut aktarma sistemi  
@@ -329,15 +351,26 @@ src-tauri/target/release/bundle
 - كتابة وإعادة صياغة اختيارية عبر Groq  
 
 ### أوامر `Hey Flow`
+- `Hey Flow about`
+- `Hey Flow settings`
+- `Hey Flow input`
+- `Hey Flow text editor`
+- `Hey Flow use groq`
+- `Hey Flow next theme`
+- `Hey Flow free drag`
+- `Hey Flow top center`
 - `Hey Flow play`
 - `Hey Flow pause`
 - `Hey Flow continue`
+- `Hey Flow minimize`
 - `Hey Flow stop`
 - `Hey Flow up`
 - `Hey Flow down`
 - `Hey Flow hide`
 - `Hey Flow show`
 - `Hey Flow expand`
+- `Hey Flow exit`
+- `Hey Flow restart`
 
 ### الرسائل عن بُعد
 - ترحيل سحابي للإدخال الخارجي  
@@ -431,15 +464,26 @@ src-tauri/target/release/bundle
 - Rédaction et réécriture optionnelles avec Groq  
 
 ### Commandes `Hey Flow`
+- `Hey Flow about`
+- `Hey Flow settings`
+- `Hey Flow input`
+- `Hey Flow text editor`
+- `Hey Flow use groq`
+- `Hey Flow next theme`
+- `Hey Flow free drag`
+- `Hey Flow top center`
 - `Hey Flow play`
 - `Hey Flow pause`
 - `Hey Flow continue`
+- `Hey Flow minimize`
 - `Hey Flow stop`
 - `Hey Flow up`
 - `Hey Flow down`
 - `Hey Flow hide`
 - `Hey Flow show`
 - `Hey Flow expand`
+- `Hey Flow exit`
+- `Hey Flow restart`
 
 ### Messagerie à distance
 - Relais cloud pour les entrées externes  
@@ -533,15 +577,26 @@ src-tauri/target/release/bundle
 - Optionale Groq-gestützte Erstellung und Umschreibung  
 
 ### `Hey Flow` Befehle
+- `Hey Flow about`
+- `Hey Flow settings`
+- `Hey Flow input`
+- `Hey Flow text editor`
+- `Hey Flow use groq`
+- `Hey Flow next theme`
+- `Hey Flow free drag`
+- `Hey Flow top center`
 - `Hey Flow play`
 - `Hey Flow pause`
 - `Hey Flow continue`
+- `Hey Flow minimize`
 - `Hey Flow stop`
 - `Hey Flow up`
 - `Hey Flow down`
 - `Hey Flow hide`
 - `Hey Flow show`
 - `Hey Flow expand`
+- `Hey Flow exit`
+- `Hey Flow restart`
 
 ### Remote Messaging
 - Cloud-Relay für externe Eingaben  
@@ -635,15 +690,26 @@ src-tauri/target/release/bundle
 - Redacción y reescritura opcional con Groq  
 
 ### Comandos `Hey Flow`
+- `Hey Flow about`
+- `Hey Flow settings`
+- `Hey Flow input`
+- `Hey Flow text editor`
+- `Hey Flow use groq`
+- `Hey Flow next theme`
+- `Hey Flow free drag`
+- `Hey Flow top center`
 - `Hey Flow play`
 - `Hey Flow pause`
 - `Hey Flow continue`
+- `Hey Flow minimize`
 - `Hey Flow stop`
 - `Hey Flow up`
 - `Hey Flow down`
 - `Hey Flow hide`
 - `Hey Flow show`
 - `Hey Flow expand`
+- `Hey Flow exit`
+- `Hey Flow restart`
 
 ### Mensajería remota
 - Relay en la nube para entradas externas  

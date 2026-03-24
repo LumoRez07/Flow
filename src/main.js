@@ -2991,49 +2991,189 @@ function findVoiceMatchIndex(spokenTokens, options = {}) {
   return findVoicePartialMatchIndex(spokenTokens, { startIndex: searchStart, endIndex: searchEnd });
 }
 
-function findVoiceLineMatch(spokenTokens) {
-  if (spokenTokens.length === 0 || normalizedWordTokens.length === 0 || lineGroups.length === 0) {
+function getVoiceLineWindow(radius = 3) {
+  if (lineGroups.length === 0) {
     return null;
   }
 
   const activeLineIndex = clamp(lineIndexByWord[currentIndex] ?? 0, 0, Math.max(lineGroups.length - 1, 0));
-  const candidateLineIndices = [activeLineIndex, activeLineIndex + 1]
-    .filter((lineIndex, index, collection) => lineIndex >= 0 && lineIndex < lineGroups.length && collection.indexOf(lineIndex) === index);
+  return {
+    activeLineIndex,
+    startLineIndex: Math.max(activeLineIndex - radius, 0),
+    endLineIndex: Math.min(activeLineIndex + radius, lineGroups.length - 1)
+  };
+}
 
-  let bestMatch = null;
+function selectBestVoiceMatch(matches, activeLineIndex) {
+  if (!Array.isArray(matches) || matches.length === 0) {
+    return null;
+  }
 
-  for (const matcher of [findVoiceExactMatchIndex, findVoicePartialMatchIndex]) {
-    for (const lineIndex of candidateLineIndices) {
-      const tokenRange = getNormalizedTokenRangeForLine(lineIndex);
-      if (!tokenRange) {
+  return matches.reduce((bestMatch, candidate) => {
+    if (!bestMatch) {
+      return candidate;
+    }
+
+    if ((candidate.phraseLength || 0) !== (bestMatch.phraseLength || 0)) {
+      return (candidate.phraseLength || 0) > (bestMatch.phraseLength || 0) ? candidate : bestMatch;
+    }
+
+    const candidateLineDistance = Math.abs((candidate.lineIndex ?? activeLineIndex) - activeLineIndex);
+    const bestLineDistance = Math.abs((bestMatch.lineIndex ?? activeLineIndex) - activeLineIndex);
+    if (candidateLineDistance !== bestLineDistance) {
+      return candidateLineDistance < bestLineDistance ? candidate : bestMatch;
+    }
+
+    const candidateWordDistance = Math.abs((candidate.matchedWordIndex ?? currentIndex) - currentIndex);
+    const bestWordDistance = Math.abs((bestMatch.matchedWordIndex ?? currentIndex) - currentIndex);
+    if (candidateWordDistance !== bestWordDistance) {
+      return candidateWordDistance < bestWordDistance ? candidate : bestMatch;
+    }
+
+    return (candidate.matchedWordIndex ?? -1) >= (bestMatch.matchedWordIndex ?? -1) ? candidate : bestMatch;
+  }, null);
+}
+
+function findVoiceExactPhraseMatch(spokenTokens, options = {}) {
+  if (spokenTokens.length === 0 || normalizedWordTokens.length === 0) {
+    return null;
+  }
+
+  const recentSpoken = spokenTokens.slice(-8);
+  const maxIndex = normalizedWordTokens.length - 1;
+  const searchStart = clamp(options.startIndex ?? 0, 0, maxIndex);
+  const searchEnd = clamp(options.endIndex ?? maxIndex, searchStart, maxIndex);
+  const maxPhraseLength = Math.min(options.maxPhraseLength ?? 5, recentSpoken.length);
+  const minPhraseLength = Math.max(options.minPhraseLength ?? 1, 1);
+  const activeLineIndex = options.activeLineIndex ?? (lineIndexByWord[currentIndex] ?? 0);
+  const lineFilter = typeof options.lineFilter === "function" ? options.lineFilter : null;
+
+  for (let phraseLength = maxPhraseLength; phraseLength >= minPhraseLength; phraseLength -= 1) {
+    const spokenPhraseTokens = recentSpoken.slice(-phraseLength);
+    if (spokenPhraseTokens.length !== phraseLength) {
+      continue;
+    }
+
+    const spokenPhrase = spokenPhraseTokens.join(" ");
+    if (!spokenPhrase) {
+      continue;
+    }
+
+    if (phraseLength === 1 && spokenPhrase.length < 3) {
+      continue;
+    }
+
+    const matches = [];
+
+    for (let index = searchStart; index <= searchEnd - phraseLength + 1; index += 1) {
+      const candidateTokens = normalizedWordTokens.slice(index, index + phraseLength);
+      if (candidateTokens.some((token) => !token) || candidateTokens.join(" ") !== spokenPhrase) {
         continue;
       }
 
-      const matchedIndex = matcher(spokenTokens, {
-        startIndex: tokenRange.start,
-        endIndex: tokenRange.end
-      });
-
-      if (matchedIndex < 0) {
-        continue;
-      }
-
+      const matchedIndex = index + phraseLength - 1;
       const matchedWordIndex = getWordIndexForNormalizedToken(matchedIndex);
       if (matchedWordIndex < 0) {
         continue;
       }
 
-      if (!bestMatch || lineIndex > bestMatch.lineIndex || matchedIndex > bestMatch.matchedIndex) {
-        bestMatch = { matchedIndex, matchedWordIndex, lineIndex };
+      const lineIndex = lineIndexByWord[matchedWordIndex] ?? 0;
+      const candidate = {
+        matchedIndex,
+        matchedWordIndex,
+        lineIndex,
+        phraseLength
+      };
+
+      if (lineFilter && !lineFilter(candidate)) {
+        continue;
       }
+
+      matches.push(candidate);
     }
 
-    if (bestMatch) {
-      return bestMatch;
+    if (matches.length > 0) {
+      if (phraseLength === 1 && matches.length > 1) {
+        const sameLineMatches = matches.filter(({ lineIndex }) => lineIndex === activeLineIndex);
+        if (sameLineMatches.length === 1) {
+          return sameLineMatches[0];
+        }
+
+        continue;
+      }
+
+      return selectBestVoiceMatch(matches, activeLineIndex);
     }
   }
 
   return null;
+}
+
+function findVoiceDistantPhraseMatch(spokenTokens) {
+  const lineWindow = getVoiceLineWindow(3);
+  if (!lineWindow) {
+    return null;
+  }
+
+  return findVoiceExactPhraseMatch(spokenTokens, {
+    minPhraseLength: 3,
+    maxPhraseLength: 5,
+    activeLineIndex: lineWindow.activeLineIndex,
+    lineFilter: ({ lineIndex }) => lineIndex < lineWindow.startLineIndex || lineIndex > lineWindow.endLineIndex
+  });
+}
+
+function findVoiceLineMatch(spokenTokens) {
+  if (spokenTokens.length === 0 || normalizedWordTokens.length === 0 || lineGroups.length === 0) {
+    return null;
+  }
+
+  const lineWindow = getVoiceLineWindow(3);
+  if (!lineWindow) {
+    return null;
+  }
+
+  const candidateLineIndices = [];
+  for (let lineIndex = lineWindow.startLineIndex; lineIndex <= lineWindow.endLineIndex; lineIndex += 1) {
+    candidateLineIndices.push(lineIndex);
+  }
+
+  const exactMatch = findVoiceExactPhraseMatch(spokenTokens, {
+    minPhraseLength: 1,
+    maxPhraseLength: 5,
+    activeLineIndex: lineWindow.activeLineIndex,
+    lineFilter: ({ lineIndex }) => lineIndex >= lineWindow.startLineIndex && lineIndex <= lineWindow.endLineIndex
+  });
+
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const activeTokenRange = getNormalizedTokenRangeForLine(lineWindow.activeLineIndex);
+  if (!activeTokenRange) {
+    return null;
+  }
+
+  const partialMatchIndex = findVoicePartialMatchIndex(spokenTokens, {
+    startIndex: activeTokenRange.start,
+    endIndex: activeTokenRange.end
+  });
+
+  if (partialMatchIndex < 0) {
+    return null;
+  }
+
+  const matchedWordIndex = getWordIndexForNormalizedToken(partialMatchIndex);
+  if (matchedWordIndex < 0) {
+    return null;
+  }
+
+  return {
+    matchedIndex: partialMatchIndex,
+    matchedWordIndex,
+    lineIndex: lineWindow.activeLineIndex,
+    phraseLength: 1
+  };
 }
 
 function getVoiceNextIndex(matchedIndex) {
@@ -3136,10 +3276,10 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
   }
 
   const spokenTokens = tokenizeNormalizedText(combinedTranscript);
-  const bestLineMatch = findVoiceLineMatch(spokenTokens);
+  const bestLineMatch = (isFinal ? findVoiceDistantPhraseMatch(spokenTokens) : null) || findVoiceLineMatch(spokenTokens);
   const bestMatchIndex = bestLineMatch?.matchedWordIndex ?? -1;
 
-  if (bestMatchIndex >= currentIndex) {
+  if (bestMatchIndex >= 0 && bestMatchIndex !== currentIndex) {
     const previousLineIndex = lineIndexByWord[currentIndex] ?? 0;
     const nextLineIndex = bestLineMatch?.lineIndex ?? previousLineIndex;
     currentIndex = bestMatchIndex;

@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{HashMap, HashSet, VecDeque},
     fs,
     net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
     path::PathBuf,
@@ -14,6 +14,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{
     image::Image,
@@ -23,6 +24,7 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_prevent_default::Flags;
+use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 
 #[cfg(windows)]
@@ -45,6 +47,61 @@ const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(20);
 const RATE_LIMIT_MAX_MESSAGES: usize = 3;
 #[allow(dead_code)]
 const MAX_PENDING_MESSAGES: usize = 24;
+const VOICE_MODEL_DOWNLOAD_EVENT: &str = "flow-voice-model-download";
+
+#[derive(Clone, Copy, Debug)]
+struct VoiceModelSpec {
+    language: &'static str,
+    label: &'static str,
+    archive_name: &'static str,
+    download_url: &'static str,
+    download_size_mb: u64,
+}
+
+const VOICE_MODEL_SPECS: [VoiceModelSpec; 6] = [
+    VoiceModelSpec {
+        language: "en-US",
+        label: "English",
+        archive_name: "vosk-model-small-en-us-0.15.zip",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
+        download_size_mb: 40,
+    },
+    VoiceModelSpec {
+        language: "tr-TR",
+        label: "Turkish",
+        archive_name: "vosk-model-small-tr-0.3.zip",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-tr-0.3.zip",
+        download_size_mb: 35,
+    },
+    VoiceModelSpec {
+        language: "ar-SA",
+        label: "Arabic",
+        archive_name: "vosk-model-ar-mgb2-0.4.zip",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-ar-mgb2-0.4.zip",
+        download_size_mb: 318,
+    },
+    VoiceModelSpec {
+        language: "de-DE",
+        label: "German",
+        archive_name: "vosk-model-small-de-0.15.zip",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip",
+        download_size_mb: 45,
+    },
+    VoiceModelSpec {
+        language: "fr-FR",
+        label: "French",
+        archive_name: "vosk-model-small-fr-0.22.zip",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip",
+        download_size_mb: 41,
+    },
+    VoiceModelSpec {
+        language: "es-ES",
+        label: "Spanish",
+        archive_name: "vosk-model-small-es-0.42.zip",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip",
+        download_size_mb: 39,
+    },
+];
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -73,6 +130,31 @@ struct RemoteReceiverStatus {
 struct ImportedFilePayload {
     name: String,
     bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceModelStatus {
+    language: String,
+    label: String,
+    download_size_mb: u64,
+    installed: bool,
+    path: Option<String>,
+    size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VoiceModelDownloadEvent {
+    language: String,
+    stage: String,
+    label: String,
+    downloaded_bytes: u64,
+    total_bytes: Option<u64>,
+    remaining_bytes: Option<u64>,
+    speed_bytes_per_second: Option<f64>,
+    path: Option<String>,
+    message: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -144,6 +226,11 @@ impl Default for DesktopPreferences {
 struct DesktopState {
     preferences: Mutex<DesktopPreferences>,
     clickthrough_active: Mutex<bool>,
+}
+
+#[derive(Debug, Default)]
+struct VoiceModelDownloads {
+    active_languages: Mutex<HashSet<String>>,
 }
 
 #[allow(dead_code)]
@@ -906,6 +993,184 @@ fn resolve_remote_message(
 }
 
 #[tauri::command]
+fn list_voice_models(app: tauri::AppHandle) -> Result<Vec<VoiceModelStatus>, String> {
+    VOICE_MODEL_SPECS
+        .iter()
+        .map(|spec| build_voice_model_status(&app, spec))
+        .collect()
+}
+
+#[tauri::command]
+fn get_voice_model_status(app: tauri::AppHandle, language: String) -> Result<VoiceModelStatus, String> {
+    let spec = get_voice_model_spec(&language).ok_or_else(|| "Unsupported voice language".to_string())?;
+    build_voice_model_status(&app, spec)
+}
+
+#[tauri::command]
+async fn download_voice_model(
+    app: tauri::AppHandle,
+    window: tauri::WebviewWindow,
+    downloads: tauri::State<'_, VoiceModelDownloads>,
+    language: String,
+) -> Result<VoiceModelStatus, String> {
+    let spec = get_voice_model_spec(&language).ok_or_else(|| "Unsupported voice language".to_string())?;
+    let language_key = spec.language.to_string();
+
+    {
+        let mut active = downloads
+            .active_languages
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        if active.contains(&language_key) {
+            return Err("That voice model is already downloading".into());
+        }
+
+        active.insert(language_key.clone());
+    }
+
+    let result: Result<VoiceModelStatus, String> = async {
+        let final_path = voice_model_archive_path(&app, spec)?;
+        if final_path.exists() {
+            let status = build_voice_model_status(&app, spec)?;
+            emit_voice_model_download_event(
+                &window,
+                VoiceModelDownloadEvent {
+                    language: spec.language.to_string(),
+                    stage: "completed".into(),
+                    label: spec.label.to_string(),
+                    downloaded_bytes: status.size_bytes,
+                    total_bytes: Some(status.size_bytes),
+                    remaining_bytes: Some(0),
+                    speed_bytes_per_second: None,
+                    path: status.path.clone(),
+                    message: Some("Voice model already installed".into()),
+                },
+            );
+            return Ok(status);
+        }
+
+        let temp_path = final_path.with_extension("download");
+        if temp_path.exists() {
+            fs::remove_file(&temp_path).map_err(|error| error.to_string())?;
+        }
+
+        let client = reqwest::Client::new();
+        let response = client
+            .get(spec.download_url)
+            .send()
+            .await
+            .map_err(|error| error.to_string())?
+            .error_for_status()
+            .map_err(|error| error.to_string())?;
+
+        let total_bytes = response.content_length();
+        let mut stream = response.bytes_stream();
+        let mut file = tokio::fs::File::create(&temp_path)
+            .await
+            .map_err(|error| error.to_string())?;
+        let started_at = Instant::now();
+        let mut downloaded_bytes = 0u64;
+        let mut last_emit_at = Instant::now() - Duration::from_secs(1);
+
+        emit_voice_model_download_event(
+            &window,
+            VoiceModelDownloadEvent {
+                language: spec.language.to_string(),
+                stage: "started".into(),
+                label: spec.label.to_string(),
+                downloaded_bytes: 0,
+                total_bytes,
+                remaining_bytes: total_bytes,
+                speed_bytes_per_second: None,
+                path: None,
+                message: Some("Downloading voice model".into()),
+            },
+        );
+
+        while let Some(chunk) = stream.next().await {
+            let bytes = chunk.map_err(|error| error.to_string())?;
+            file.write_all(&bytes).await.map_err(|error| error.to_string())?;
+            downloaded_bytes += bytes.len() as u64;
+
+            if last_emit_at.elapsed() >= Duration::from_millis(150) {
+                let elapsed = started_at.elapsed().as_secs_f64().max(0.001);
+                let speed = downloaded_bytes as f64 / elapsed;
+                emit_voice_model_download_event(
+                    &window,
+                    VoiceModelDownloadEvent {
+                        language: spec.language.to_string(),
+                        stage: "progress".into(),
+                        label: spec.label.to_string(),
+                        downloaded_bytes,
+                        total_bytes,
+                        remaining_bytes: total_bytes.map(|total| total.saturating_sub(downloaded_bytes)),
+                        speed_bytes_per_second: Some(speed),
+                        path: None,
+                        message: None,
+                    },
+                );
+                last_emit_at = Instant::now();
+            }
+        }
+
+        file.flush().await.map_err(|error| error.to_string())?;
+        drop(file);
+
+        if final_path.exists() {
+            fs::remove_file(&final_path).map_err(|error| error.to_string())?;
+        }
+        fs::rename(&temp_path, &final_path).map_err(|error| error.to_string())?;
+
+        let status = build_voice_model_status(&app, spec)?;
+        emit_voice_model_download_event(
+            &window,
+            VoiceModelDownloadEvent {
+                language: spec.language.to_string(),
+                stage: "completed".into(),
+                label: spec.label.to_string(),
+                downloaded_bytes: status.size_bytes,
+                total_bytes: Some(status.size_bytes),
+                remaining_bytes: Some(0),
+                speed_bytes_per_second: Some(status.size_bytes as f64 / started_at.elapsed().as_secs_f64().max(0.001)),
+                path: status.path.clone(),
+                message: Some("Voice model download completed".into()),
+            },
+        );
+
+        Ok(status)
+    }
+    .await;
+
+    if let Err(error) = &result {
+        emit_voice_model_download_event(
+            &window,
+            VoiceModelDownloadEvent {
+                language: spec.language.to_string(),
+                stage: "error".into(),
+                label: spec.label.to_string(),
+                downloaded_bytes: 0,
+                total_bytes: None,
+                remaining_bytes: None,
+                speed_bytes_per_second: None,
+                path: None,
+                message: Some(error.clone()),
+            },
+        );
+    }
+
+    {
+        let mut active = downloads
+            .active_languages
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        active.remove(&language_key);
+    }
+
+    result
+}
+
+#[tauri::command]
 fn read_import_file(path: String) -> Result<ImportedFilePayload, String> {
     let path = PathBuf::from(path);
     let name = path
@@ -1242,6 +1507,62 @@ fn now_unix_ms() -> u64 {
         .as_millis() as u64
 }
 
+fn normalize_voice_language(language: &str) -> &'static str {
+    match language.trim().to_ascii_lowercase().as_str() {
+        "en" | "en-gb" | "en-us" => "en-US",
+        "tr" | "tr-tr" => "tr-TR",
+        "ar" | "ar-sa" => "ar-SA",
+        "de" | "de-de" => "de-DE",
+        "fr" | "fr-fr" => "fr-FR",
+        "es" | "es-es" => "es-ES",
+        _ => "en-US",
+    }
+}
+
+fn get_voice_model_spec(language: &str) -> Option<&'static VoiceModelSpec> {
+    let normalized = normalize_voice_language(language);
+    VOICE_MODEL_SPECS
+        .iter()
+        .find(|spec| spec.language == normalized)
+}
+
+fn voice_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?
+        .join("voice-models");
+
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
+fn voice_model_archive_path(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+    let dir = voice_models_dir(app)?.join(spec.language);
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir.join(spec.archive_name))
+}
+
+fn build_voice_model_status(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<VoiceModelStatus, String> {
+    let archive_path = voice_model_archive_path(app, spec)?;
+    let metadata = fs::metadata(&archive_path).ok();
+    let size_bytes = metadata.as_ref().map(|value| value.len()).unwrap_or(0);
+    let installed = metadata.map(|value| value.is_file() && value.len() > 0).unwrap_or(false);
+
+    Ok(VoiceModelStatus {
+        language: spec.language.to_string(),
+        label: spec.label.to_string(),
+        download_size_mb: spec.download_size_mb,
+        installed,
+        path: installed.then(|| archive_path.to_string_lossy().to_string()),
+        size_bytes,
+    })
+}
+
+fn emit_voice_model_download_event(window: &tauri::WebviewWindow, payload: VoiceModelDownloadEvent) {
+    let _ = window.emit(VOICE_MODEL_DOWNLOAD_EVENT, payload);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let prevent = tauri_plugin_prevent_default::Builder::new()
@@ -1249,10 +1570,12 @@ pub fn run() {
         .build();
     let relay = RemoteRelay::new();
     let desktop_state = DesktopState::default();
+    let voice_model_downloads = VoiceModelDownloads::default();
 
     tauri::Builder::default()
         .manage(relay.clone())
         .manage(desktop_state)
+        .manage(voice_model_downloads)
         .plugin(prevent)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -1274,6 +1597,9 @@ pub fn run() {
             remote_receiver_heartbeat,
             list_remote_messages,
             resolve_remote_message,
+            list_voice_models,
+            get_voice_model_status,
+            download_voice_model,
             read_import_file
         ])
         .setup(move |app| {

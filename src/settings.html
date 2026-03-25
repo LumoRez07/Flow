@@ -143,14 +143,31 @@
               <label class="field-label" for="voiceLanguageSelect" data-i18n="settings.voiceLanguage">Voice Language</label>
               <span class="helper-text" data-i18n="settings.voiceModeHelp">Matches spoken words to the script to advance automatically.</span>
               <select id="voiceLanguageSelect" class="page-input">
-                <option value="en-US">English (US)</option>
-                <option value="en-GB">English (UK)</option>
-                <option value="ar-SA">Arabic</option>
+                <option value="en-US">English</option>
                 <option value="tr-TR">Turkish</option>
+                <option value="ar-SA">Arabic</option>
                 <option value="de-DE">German</option>
                 <option value="fr-FR">French</option>
                 <option value="es-ES">Spanish</option>
               </select>
+              <div class="voice-model-card" id="voiceModelCard">
+                <div class="voice-model-header">
+                  <span class="voice-model-badge" id="voiceModelBadge" data-state="checking" data-i18n="settings.voiceModelChecking">Checking model…</span>
+                  <span class="voice-model-label" id="voiceModelSelectedLabel">English</span>
+                </div>
+                <p class="helper-text voice-model-copy" id="voiceModelHint" data-i18n="settings.voiceModelCheckingHelp">Flow checks whether the selected Vosk model is already stored locally.</p>
+                <p class="voice-model-path" id="voiceModelPath" data-i18n="settings.voiceModelPathPending">Checking local model path…</p>
+                <div class="voice-model-progress hidden" id="voiceModelProgress" aria-live="polite">
+                  <div class="voice-model-progress-bar" aria-hidden="true">
+                    <span id="voiceModelProgressFill"></span>
+                  </div>
+                  <div class="voice-model-progress-meta">
+                    <span id="voiceModelProgressLabel">0%</span>
+                    <span id="voiceModelProgressStats">0 MB left · 0 MB/s</span>
+                  </div>
+                </div>
+                <button class="secondary-action compact-action" id="voiceModelDownloadButton" type="button" data-i18n="settings.voiceModelDownloadAction">Download Vosk model</button>
+              </div>
             </div>
 
             <div class="settings-subgroup hidden" id="voiceStyleGroup">
@@ -166,7 +183,7 @@
             <label class="toggle-field" for="appWideVoiceCommandsInput">
               <span>
                 <strong data-i18n="settings.appWideVoiceCommands">App-wide Flow voice commands</strong>
-                <small class="toggle-help" data-i18n="settings.appWideVoiceCommandsHelp">Lets English Flow commands like 'Hey flow pause' or 'Hey flow down' work outside voice tracking too.</small>
+                <small class="toggle-help" data-i18n="settings.appWideVoiceCommandsHelp">Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too.</small>
               </span>
               <input id="appWideVoiceCommandsInput" class="toggle-input" type="checkbox" />
             </label>

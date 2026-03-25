@@ -37,12 +37,6 @@
           <div class="teleprompter-copy" id="promptText"></div>
         </div>
 
-        <div class="voice-wake-overlay hidden" id="voiceWakeOverlay" aria-hidden="true">
-          <div class="voice-wake-loader" aria-hidden="true">
-            <div class="voice-wake-core"></div>
-          </div>
-        </div>
-
         <div class="drag-overlay hidden" id="dragOverlay">
           <div class="drag-handle" data-tauri-drag-region>
             <svg viewBox="0 0 60 18" class="drag-icon" aria-hidden="true" focusable="false" style="pointer-events: none;">
@@ -74,6 +68,9 @@
           <div class="footer-meta" id="footerMeta">
             <span id="progressLabel">Word 0 / 0</span>
             <span id="statusLabel" data-i18n="tele.status.ready">Ready</span>
+            <span class="voice-command-indicator hidden" id="voiceCommandIndicator" aria-label="Voice commands off" title="Voice commands off">
+              <span class="voice-command-indicator-dot" aria-hidden="true"></span>
+            </span>
           </div>
           <div class="footer-actions" style="display: flex; gap: 8px; align-items: center;">
             <button class="icon-button pin-button-active hidden" id="pinButton" data-i18n-title="common.unpinWindow" data-i18n-aria-label="common.unpinWindow" title="Unpin window" aria-label="Unpin window">📌</button>

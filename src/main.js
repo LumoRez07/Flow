@@ -9,11 +9,13 @@ import {
   generateRemoteAccessPassword,
   generateWithGroq,
   loadState,
+  normalizeVoiceLanguage,
   parseFormattedScript,
   resolveFontStack,
   saveState,
   splitWords,
-  translate
+  translate,
+  VOICE_LANGUAGE_OPTIONS
 } from "./shared.js";
 
 
@@ -27,55 +29,54 @@ const VOICE_WORD_VIEWPORT_OFFSET = 0.42;
 const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
 const VOICE_SCROLL_EASING = 0.1;
 const VOICE_SCROLL_MAX_STEP = 10;
-const VOICE_COMMAND_PREFIX = "hey flow";
+const VOICE_TRACKING_PARTIAL_MIN_INTERVAL_MS = 180;
 const VOICE_COMMAND_SOUND_URL = new URL("./assets/voice-command-recognized.mp3", import.meta.url).href;
 const VOICE_COMMAND_SOUND_REPEAT_GUARD_MS = 700;
 const VOICE_COMMAND_RESTART_DELAY_MS = 0;
 const VOICE_COMMAND_COOLDOWN_MS = 40;
 const VOICE_COMMAND_REPEAT_GUARD_MS = 450;
 const VOICE_COMMAND_ACTION_REPEAT_GUARD_MS = 520;
-const VOICE_COMMAND_MIN_CONFIDENCE = 0.45;
+const VOICE_COMMAND_MIN_CONFIDENCE = 0.35;
 const VOICE_COMMAND_BUFFER_TOKEN_LIMIT = 12;
 const VOICE_COMMAND_LOOKBACK_TOKENS = 10;
 const VOSK_COMMAND_BUFFER_SIZE = 4096;
+const VOSK_SCRIPT_PROCESSOR_FALLBACK_BUFFER_SIZE = 1024;
 const VOSK_COMMAND_MODEL_URL = new URL("./assets/vosk-model-small-en-us-0.15.tar.gz", import.meta.url).href;
+const VOICE_CAPTURE_WORKLET_URL = new URL("./assets/vendor/voice-capture-worklet.js", import.meta.url).href;
 const VOICE_WAKE_VISUAL_MS = 2400;
 const VOICE_WAKE_COMMAND_WINDOW_MS = 3200;
 const VOICE_WAKE_COOLDOWN_MS = 2000;
 const VOICE_WAKE_REPEAT_GUARD_MS = 900;
-const VOICE_WAKE_MIN_CONFIDENCE = 0.82;
-const VOICE_COMMAND_GRAMMAR = "#JSGF V1.0; grammar flow; public <command> = hey flow ((free drag) | (top center) | play | start | hide | show | minimize | minimise | expand | exit | quit | restart | reset | replay | stop | pause | continue | resume | up | down);";
-const VOICE_COMMAND_GREETING_ALIASES = new Set(["hey", "hi"]);
-const VOICE_COMMAND_WAKE_ALIASES = new Set(["flow", "flo", "flor", "flown"]);
-const VOICE_COMMAND_FILLER_TOKENS = new Set(["please", "the", "a", "an", "to", "for", "now", "okay", "ok", "hey", "just"]);
-const VOICE_COMMAND_ACTION_ALIASES = [
-  ["open-about", ["about", "about flow", "info"]],
-  ["open-settings", ["settings", "setting", "preferences", "open settings"]],
-  ["open-input", ["text editor", "text page", "input", "editor", "open text editor"]],
-  ["use-groq", ["use groq", "groq", "ask groq", "generate with groq"]],
-  ["next-theme", ["next theme", "change theme", "switch theme"]],
-  ["open-receiver", ["open receiver", "receiver", "receiver inbox", "open inbox", "remote inbox"]],
-  ["free-drag", ["free drag", "free-drag", "freedrag", "drag free"]],
-  ["top-center", ["top center", "top centre", "top-center", "topcentre", "center top", "centre top"]],
-  ["play", ["play", "start", "begin"]],
-  ["hide", ["hide", "hyde", "high", "hides", "conceal", "disappear", "vanish"]],
-  ["show", ["show", "unhide", "display", "reveal", "appear"]],
-  ["minimize", ["minimize", "minimise", "minimized", "minimised", "mini", "minimum", "collapse", "collapsed"]],
-  ["expand", ["expand", "restore", "open"]],
-  ["exit", ["exit", "exist", "eggsit", "eggzit", "close", "quit"]],
-  ["restart", ["restart", "reset", "replay"]],
-  ["stop", ["stop", "end"]],
-  ["pause", ["pause", "halt", "hold", "wait"]],
-  ["continue", ["continue", "resume", "continue on"]],
-  ["up", ["up", "previous", "back"]],
-  ["down", ["down", "next", "forward"]]
-];
-const VOSK_COMMAND_GRAMMAR_PHRASES = Array.from(new Set([
-  VOICE_COMMAND_PREFIX,
-  ...VOICE_COMMAND_ACTION_ALIASES.flatMap(([, aliases]) => aliases.map((alias) => `${VOICE_COMMAND_PREFIX} ${alias}`))
-]));
+const VOICE_WAKE_MIN_CONFIDENCE = 0.35;
+const BASE_VOICE_COMMAND_FILLER_TOKENS = ["please", "the", "a", "an", "to", "for", "now", "okay", "ok", "hey", "just"];
+const BASE_VOICE_ACTION_ALIASES = {
+  "open-about": ["about", "about flow", "info"],
+  "open-settings": ["settings", "setting", "preferences", "open settings"],
+  "open-input": ["text editor", "text page", "input", "editor", "open text editor"],
+  "use-groq": ["use groq", "groq", "ask groq", "generate with groq"],
+  "next-theme": ["next theme", "change theme", "switch theme"],
+  "open-receiver": ["open receiver", "receiver", "receiver inbox", "open inbox", "remote inbox"],
+  "free-drag": ["free drag", "free-drag", "freedrag", "drag free"],
+  "top-center": ["top center", "top centre", "top-center", "topcentre", "center top", "centre top"],
+  "play": ["play", "start", "begin"],
+  "hide": ["hide", "hyde", "high", "hides", "conceal", "disappear", "vanish"],
+  "show": ["show", "unhide", "display", "reveal", "appear"],
+  "minimize": ["minimize", "minimise", "minimized", "minimised", "mini", "minimum", "collapse", "collapsed"],
+  "expand": ["expand", "restore", "open"],
+  "exit": ["exit", "exist", "eggsit", "eggzit", "close", "quit"],
+  "restart": ["restart", "reset", "replay"],
+  "stop": ["stop", "end"],
+  "pause": ["pause", "halt", "hold", "wait"],
+  "continue": ["continue", "resume", "continue on"],
+  "up": ["up", "previous", "back"],
+  "down": ["down", "next", "forward"]
+};
+const VOICE_LANGUAGE_CONFIGS = createVoiceLanguageConfigs();
+const ENGLISH_VOICE_LANGUAGE = "en-US";
 
-const invoke = window.__TAURI__?.core?.invoke;
+const tauriCore = window.__TAURI__?.core;
+const invoke = tauriCore?.invoke;
+const convertFileSrc = tauriCore?.convertFileSrc;
 const tauriWindow = window.__TAURI__?.window;
 const tauriDpi = window.__TAURI__?.dpi;
 const tauriEvent = window.__TAURI__?.event;
@@ -138,8 +139,9 @@ let isVoiceCommandRecognitionBlocked = false;
 let voiceCommandTranscript = "";
 let voiceCommandCooldownUntil = 0;
 let voiceCommandRestartTimer = null;
-let voiceCommandModel = null;
-let voiceCommandModelPromise = null;
+const voiceModels = new Map();
+const voiceModelPromises = new Map();
+let lastVoiceCommandError = "";
 let voiceCommandMediaStream = null;
 let voiceCommandAudioContext = null;
 let voiceCommandSourceNode = null;
@@ -152,6 +154,8 @@ let voiceTrackingProcessorNode = null;
 let voiceTrackingSilenceNode = null;
 let voiceTrackingSession = 0;
 let lastVoiceTrackingAudioProcessAt = 0;
+let lastVoiceTrackingPartialHandledAt = 0;
+let lastVoiceTrackingPartialKey = "";
 let voiceCommandListenerSession = 0;
 let voiceCommandResumeListenersInstalled = false;
 let voiceCommandSyncPromise = Promise.resolve();
@@ -170,6 +174,8 @@ let lastAppliedViewportTop = null;
 let lastResponsiveFontSize = 0;
 let lastResponsiveViewportWidth = 0;
 let lastResponsiveViewportHeight = 0;
+const voiceModelStatusCache = new Map();
+const voiceCaptureWorkletModulePromises = new WeakMap();
 
 const VOICE_COMMAND_ACTION_DEDUPE_ACTIONS = new Set([
   "up",
@@ -181,6 +187,206 @@ const VOICE_COMMAND_ACTION_DEDUPE_ACTIONS = new Set([
   "free-drag",
   "top-center"
 ]);
+
+function mergeVoiceActionAliases(baseAliases, localizedAliases = {}) {
+  return Object.fromEntries(
+    Object.entries(baseAliases).map(([action, aliases]) => {
+      const localized = Array.isArray(localizedAliases[action]) ? localizedAliases[action] : [];
+      return [action, Array.from(new Set([...aliases, ...localized]))];
+    })
+  );
+}
+
+function createVoiceLanguageConfigs() {
+  return {
+    "en-US": {
+      language: "en-US",
+      wakeDisplay: "Hey Flow",
+      greetings: ["hey", "hi"],
+      wake: ["flow", "flo", "flor", "flown"],
+      filler: [...BASE_VOICE_COMMAND_FILLER_TOKENS],
+      actions: mergeVoiceActionAliases(BASE_VOICE_ACTION_ALIASES)
+    },
+    "tr-TR": {
+      language: "tr-TR",
+      wakeDisplay: "Selam Flow",
+      greetings: ["hey", "selam", "merhaba"],
+      wake: ["flow", "flo", "flov"],
+      filler: [...BASE_VOICE_COMMAND_FILLER_TOKENS, "lütfen", "bir", "bu", "şimdi", "tamam"],
+      actions: mergeVoiceActionAliases(BASE_VOICE_ACTION_ALIASES, {
+        "open-about": ["hakkında", "flow hakkında", "bilgi"],
+        "open-settings": ["ayarlar", "ayarları aç", "tercihler"],
+        "open-input": ["metin editörü", "metin sayfası", "girdi", "editör"],
+        "use-groq": ["groq kullan", "groq sor", "groq ile oluştur"],
+        "next-theme": ["sonraki tema", "tema değiştir", "temayı değiştir"],
+        "open-receiver": ["alıcıyı aç", "alıcı", "gelen kutusu", "uzak gelen kutusu"],
+        "free-drag": ["serbest sürükle", "özgür sürükle", "serbest mod"],
+        "top-center": ["üst orta", "üste ortala", "üst merkeze al"],
+        "play": ["başlat", "oynat"],
+        "hide": ["gizle", "sakla"],
+        "show": ["göster", "açığa çıkar"],
+        "minimize": ["küçült", "daralt"],
+        "expand": ["genişlet", "geri aç", "eski boyut"],
+        "exit": ["çık", "kapat"],
+        "restart": ["yeniden başlat", "baştan başlat", "sıfırla"],
+        "stop": ["durdur", "bitir"],
+        "pause": ["duraklat", "bekle"],
+        "continue": ["devam et", "sürdür"],
+        "up": ["yukarı", "önceki", "geri"],
+        "down": ["aşağı", "sonraki", "ileri"]
+      })
+    },
+    "ar-SA": {
+      language: "ar-SA",
+      wakeDisplay: "مرحبا فلو",
+      greetings: ["مرحبا", "اهلا", "يا", "هاي"],
+      wake: ["فلو", "فلوو", "flow", "flo"],
+      filler: [...BASE_VOICE_COMMAND_FILLER_TOKENS, "من", "إلى", "الآن", "من فضلك", "حسنا"],
+      actions: mergeVoiceActionAliases(BASE_VOICE_ACTION_ALIASES, {
+        "open-about": ["حول", "حول فلو", "معلومات"],
+        "open-settings": ["الإعدادات", "افتح الإعدادات", "التفضيلات"],
+        "open-input": ["محرر النص", "صفحة النص", "الإدخال", "المحرر"],
+        "use-groq": ["استخدم groq", "اسأل groq", "أنشئ عبر groq"],
+        "next-theme": ["السمة التالية", "غيّر السمة", "بدل السمة"],
+        "open-receiver": ["افتح المستقبِل", "المستقبِل", "صندوق الوارد", "الوارد البعيد"],
+        "free-drag": ["سحب حر", "حرّك بحرية"],
+        "top-center": ["أعلى الوسط", "توسيط علوي"],
+        "play": ["ابدأ", "شغّل"],
+        "hide": ["أخف", "اخفاء"],
+        "show": ["أظهر", "اظهر"],
+        "minimize": ["صغّر", "قلّص"],
+        "expand": ["وسّع", "استعد الحجم"],
+        "exit": ["اخرج", "اغلق", "إنهاء"],
+        "restart": ["أعد التشغيل", "ابدأ من جديد", "إعادة ضبط"],
+        "stop": ["توقف", "انه"],
+        "pause": ["أوقف مؤقتا", "انتظر"],
+        "continue": ["تابع", "استأنف"],
+        "up": ["أعلى", "السابق", "ارجع"],
+        "down": ["أسفل", "التالي", "تقدم"]
+      })
+    },
+    "de-DE": {
+      language: "de-DE",
+      wakeDisplay: "Hallo Flow",
+      greetings: ["hey", "hallo", "hi"],
+      wake: ["flow", "flo", "flou"],
+      filler: [...BASE_VOICE_COMMAND_FILLER_TOKENS, "bitte", "jetzt", "okay", "mal"],
+      actions: mergeVoiceActionAliases(BASE_VOICE_ACTION_ALIASES, {
+        "open-about": ["über", "über flow", "info"],
+        "open-settings": ["einstellungen", "einstellung", "öffne einstellungen"],
+        "open-input": ["texteditor", "textseite", "eingabe", "editor"],
+        "use-groq": ["nutze groq", "frage groq", "mit groq erzeugen"],
+        "next-theme": ["nächstes thema", "thema wechseln", "thema ändern"],
+        "open-receiver": ["empfänger öffnen", "empfänger", "posteingang", "remote posteingang"],
+        "free-drag": ["frei ziehen", "freies ziehen", "freier modus"],
+        "top-center": ["oben mitte", "oben zentriert"],
+        "play": ["start", "abspielen"],
+        "hide": ["verstecken", "ausblenden"],
+        "show": ["zeigen", "einblenden"],
+        "minimize": ["minimieren", "verkleinern"],
+        "expand": ["erweitern", "wiederherstellen"],
+        "exit": ["beenden", "schließen"],
+        "restart": ["neu starten", "zurücksetzen", "von vorn"],
+        "stop": ["stopp", "anhalten"],
+        "pause": ["pause", "warte"],
+        "continue": ["weiter", "fortsetzen"],
+        "up": ["hoch", "zurück", "vorherige"],
+        "down": ["runter", "weiter", "nächste"]
+      })
+    },
+    "fr-FR": {
+      language: "fr-FR",
+      wakeDisplay: "Salut Flow",
+      greetings: ["salut", "bonjour", "hey"],
+      wake: ["flow", "flo", "flot"],
+      filler: [...BASE_VOICE_COMMAND_FILLER_TOKENS, "s'il", "te", "plaît", "maintenant", "ok"],
+      actions: mergeVoiceActionAliases(BASE_VOICE_ACTION_ALIASES, {
+        "open-about": ["à propos", "à propos de flow", "infos"],
+        "open-settings": ["paramètres", "ouvrir paramètres", "préférences"],
+        "open-input": ["éditeur de texte", "page texte", "entrée", "éditeur"],
+        "use-groq": ["utilise groq", "demande groq", "génère avec groq"],
+        "next-theme": ["thème suivant", "changer thème", "theme suivant"],
+        "open-receiver": ["ouvrir récepteur", "récepteur", "boîte de réception", "boite de réception"],
+        "free-drag": ["glisser librement", "déplacement libre", "drag libre"],
+        "top-center": ["haut centre", "centre en haut"],
+        "play": ["lecture", "démarrer", "jouer"],
+        "hide": ["masquer", "cache"],
+        "show": ["afficher", "montre"],
+        "minimize": ["réduire", "minimiser"],
+        "expand": ["agrandir", "restaurer"],
+        "exit": ["quitter", "fermer"],
+        "restart": ["redémarrer", "recommencer", "réinitialiser"],
+        "stop": ["arrête", "stop"],
+        "pause": ["pause", "attends"],
+        "continue": ["continuer", "reprendre"],
+        "up": ["haut", "précédent", "retour"],
+        "down": ["bas", "suivant", "avance"]
+      })
+    },
+    "es-ES": {
+      language: "es-ES",
+      wakeDisplay: "Hola Flow",
+      greetings: ["hola", "hey", "oye"],
+      wake: ["flow", "flo", "flou"],
+      filler: [...BASE_VOICE_COMMAND_FILLER_TOKENS, "por", "favor", "ahora", "vale", "ok"],
+      actions: mergeVoiceActionAliases(BASE_VOICE_ACTION_ALIASES, {
+        "open-about": ["acerca de", "sobre flow", "información"],
+        "open-settings": ["ajustes", "configuración", "abrir ajustes"],
+        "open-input": ["editor de texto", "página de texto", "entrada", "editor"],
+        "use-groq": ["usar groq", "pregunta a groq", "genera con groq"],
+        "next-theme": ["siguiente tema", "cambiar tema"],
+        "open-receiver": ["abrir receptor", "receptor", "bandeja", "bandeja remota"],
+        "free-drag": ["arrastre libre", "mover libremente"],
+        "top-center": ["arriba centro", "centro superior"],
+        "play": ["reproducir", "iniciar", "empezar"],
+        "hide": ["ocultar", "esconder"],
+        "show": ["mostrar", "enseñar"],
+        "minimize": ["minimizar", "reducir"],
+        "expand": ["expandir", "restaurar"],
+        "exit": ["salir", "cerrar"],
+        "restart": ["reiniciar", "empezar de nuevo", "restablecer"],
+        "stop": ["detener", "para"],
+        "pause": ["pausa", "espera"],
+        "continue": ["continuar", "reanudar"],
+        "up": ["arriba", "anterior", "atrás"],
+        "down": ["abajo", "siguiente", "adelante"]
+      })
+    }
+  };
+}
+
+function getVoiceLanguageTag() {
+  return normalizeVoiceLanguage(
+    state.appearance?.voiceLanguage
+      || ({ ar: "ar-SA", tr: "tr-TR", de: "de-DE", fr: "fr-FR", es: "es-ES", en: "en-US" }[state.language] || state.language || ENGLISH_VOICE_LANGUAGE),
+    ENGLISH_VOICE_LANGUAGE
+  );
+}
+
+function getVoiceCommandLanguageTag() {
+  return ENGLISH_VOICE_LANGUAGE;
+}
+
+function getVoiceLanguageLabel(languageTag = getVoiceLanguageTag()) {
+  return VOICE_LANGUAGE_OPTIONS.find((option) => option.value === normalizeVoiceLanguage(languageTag))?.label
+    || VOICE_LANGUAGE_OPTIONS[0].label;
+}
+
+function getActiveVoiceConfig(languageTag = getVoiceLanguageTag()) {
+  return VOICE_LANGUAGE_CONFIGS[normalizeVoiceLanguage(languageTag)] || VOICE_LANGUAGE_CONFIGS["en-US"];
+}
+
+function getVoiceActionEntries(languageTag = getVoiceLanguageTag()) {
+  return Object.entries(getActiveVoiceConfig(languageTag).actions);
+}
+
+function getVoiceWakePhrase(languageTag = getVoiceLanguageTag()) {
+  return getActiveVoiceConfig(languageTag).wakeDisplay;
+}
+
+function getVoiceCommandFillerTokens(languageTag = getVoiceLanguageTag()) {
+  return new Set(getActiveVoiceConfig(languageTag).filler);
+}
 
 function syncStateFromStorage() {
   const latest = loadState();
@@ -248,7 +454,7 @@ function cacheUi() {
   ui.collapseButton = document.querySelector("#collapseButton");
   ui.pinButton = document.querySelector("#pinButton");
   ui.dragOverlay = document.querySelector("#dragOverlay");
-  ui.voiceWakeOverlay = document.querySelector("#voiceWakeOverlay");
+  ui.voiceCommandIndicator = document.querySelector("#voiceCommandIndicator");
 }
 
 
@@ -896,9 +1102,6 @@ function renderScript() {
   wordNodes = [];
   lineGroups = [];
   lineIndexByWord = [];
-  normalizedWordTokens = [];
-  wordIndexByNormalizedToken = [];
-  normalizedTokenRangeByWord = [];
   lastRenderedMode = null;
   lastRenderedWordIndex = -1;
   lastRenderedLineIndex = -1;
@@ -912,21 +1115,7 @@ function renderScript() {
     return;
   }
 
-  allWords.forEach((token, index) => {
-    const normalizedTokens = tokenizeNormalizedText(token.text);
-    if (normalizedTokens.length === 0) {
-      normalizedTokenRangeByWord[index] = null;
-      return;
-    }
-
-    const start = normalizedWordTokens.length;
-    normalizedWordTokens.push(...normalizedTokens);
-    wordIndexByNormalizedToken.push(...normalizedTokens.map(() => index));
-    normalizedTokenRangeByWord[index] = {
-      start,
-      end: normalizedWordTokens.length - 1
-    };
-  });
+  rebuildNormalizedScriptTokenMap(getVoiceLanguageTag(), allWords.map((token) => token.text));
 
   let wordIndex = 0;
   let currentDecorationGroup = null;
@@ -992,6 +1181,28 @@ function renderScript() {
   ui.promptText.appendChild(fragment);
   refreshPromptViewportMetrics();
   scheduleLineMapRebuild();
+}
+
+function rebuildNormalizedScriptTokenMap(languageTag = getVoiceLanguageTag(), sourceWords = words()) {
+  normalizedWordTokens = [];
+  wordIndexByNormalizedToken = [];
+  normalizedTokenRangeByWord = [];
+
+  sourceWords.forEach((word, index) => {
+    const normalizedTokens = tokenizeNormalizedText(word, languageTag);
+    if (normalizedTokens.length === 0) {
+      normalizedTokenRangeByWord[index] = null;
+      return;
+    }
+
+    const start = normalizedWordTokens.length;
+    normalizedWordTokens.push(...normalizedTokens);
+    wordIndexByNormalizedToken.push(...normalizedTokens.map(() => index));
+    normalizedTokenRangeByWord[index] = {
+      start,
+      end: normalizedWordTokens.length - 1
+    };
+  });
 }
 
 function findPreservedWordIndex(previousScript, nextScript, previousIndex) {
@@ -1631,14 +1842,6 @@ function beginArrowMode() {
   updateWordState(true);
 }
 
-
-function getVoiceLanguageTag() {
-  return String(
-    state.appearance?.voiceLanguage
-      || ({ ar: "ar-SA", tr: "tr-TR", de: "de-DE", en: "en-US" }[state.language] || state.language || "en-US")
-  ).trim() || "en-US";
-}
-
 function applyLocaleVoiceNormalization(text, locale) {
   let normalized = String(text || "");
 
@@ -1675,9 +1878,12 @@ function clearVoiceWakeState(options = {}) {
   voiceWakeActiveUntil = 0;
   voiceWakeAwaitingFollowup = false;
 
-  if (hideOverlay) {
-    hideVoiceWakeOverlay();
+  if (voiceWakeOverlayTimer) {
+    clearTimeout(voiceWakeOverlayTimer);
+    voiceWakeOverlayTimer = null;
   }
+
+  updateVoiceCommandIndicator();
 }
 
 function hideVoiceWakeOverlay() {
@@ -1685,49 +1891,39 @@ function hideVoiceWakeOverlay() {
     clearTimeout(voiceWakeOverlayTimer);
     voiceWakeOverlayTimer = null;
   }
-
-  if (ui.voiceWakeOverlay) {
-    ui.voiceWakeOverlay.classList.remove("is-animating");
-    ui.voiceWakeOverlay.classList.add("hidden");
-    ui.voiceWakeOverlay.setAttribute("aria-hidden", "true");
-  }
 }
 
 function showVoiceWakeOverlay(durationMs = VOICE_WAKE_VISUAL_MS) {
-  if (!ui.voiceWakeOverlay) {
-    return;
-  }
-
-  ui.voiceWakeOverlay.classList.remove("is-animating");
-  ui.voiceWakeOverlay.classList.remove("hidden");
-  ui.voiceWakeOverlay.setAttribute("aria-hidden", "false");
-  void ui.voiceWakeOverlay.offsetWidth;
-  ui.voiceWakeOverlay.classList.add("is-animating");
-
   if (voiceWakeOverlayTimer) {
     clearTimeout(voiceWakeOverlayTimer);
   }
 
   voiceWakeOverlayTimer = window.setTimeout(() => {
     voiceWakeOverlayTimer = null;
-    hideVoiceWakeOverlay();
-  }, durationMs);
+    if (!isVoiceWakeActive()) {
+      updateVoiceCommandIndicator();
+    }
+  }, Math.max(durationMs, voiceWakeActiveUntil - performance.now(), 0));
 }
 
 function activateVoiceWake(options = {}) {
   const { awaitFollowup = true } = options;
   const now = performance.now();
+  const nextWakeDeadline = now + VOICE_WAKE_COMMAND_WINDOW_MS;
 
   if (now - lastVoiceWakeAt < VOICE_WAKE_COOLDOWN_MS) {
-    voiceWakeActiveUntil = now + VOICE_WAKE_COMMAND_WINDOW_MS;
+    voiceWakeActiveUntil = nextWakeDeadline;
     voiceWakeAwaitingFollowup = awaitFollowup;
+    showVoiceWakeOverlay(VOICE_WAKE_COMMAND_WINDOW_MS);
+    updateVoiceCommandIndicator();
     return;
   }
 
-  voiceWakeActiveUntil = now + VOICE_WAKE_COMMAND_WINDOW_MS;
+  voiceWakeActiveUntil = nextWakeDeadline;
   voiceWakeAwaitingFollowup = awaitFollowup;
   lastVoiceWakeAt = now;
-  showVoiceWakeOverlay();
+  showVoiceWakeOverlay(VOICE_WAKE_COMMAND_WINDOW_MS);
+  updateVoiceCommandIndicator();
 }
 
 function isVoiceWakeActive() {
@@ -1738,8 +1934,8 @@ function isVoiceWakeActive() {
   return active;
 }
 
-function appendVoiceCommandTranscript(text) {
-  const nextTokens = tokenizeNormalizedText(`${voiceCommandTranscript} ${text}`, "en-US");
+function appendVoiceCommandTranscript(text, languageTag = getVoiceCommandLanguageTag()) {
+  const nextTokens = tokenizeNormalizedText(`${voiceCommandTranscript} ${text}`, languageTag);
   voiceCommandTranscript = nextTokens.slice(-VOICE_COMMAND_BUFFER_TOKEN_LIMIT).join(" ");
 }
 
@@ -1799,8 +1995,8 @@ function findVoiceCommandInResultWindow(results, resultStart = 0, transcriptPref
     || (transcriptPrefix ? extractVoiceCommand(`${transcriptPrefix} ${mergedTranscript}`.trim()) : null);
 }
 
-function getVoiceCommandAction(phrase) {
-  for (const [action, aliases] of VOICE_COMMAND_ACTION_ALIASES) {
+function getVoiceCommandAction(phrase, languageTag = getVoiceCommandLanguageTag()) {
+  for (const [action, aliases] of getVoiceActionEntries(languageTag)) {
     if (aliases.includes(phrase)) {
       return action;
     }
@@ -1809,39 +2005,55 @@ function getVoiceCommandAction(phrase) {
   return null;
 }
 
-function isVoiceWakeToken(token) {
+function isVoiceGreetingToken(token, languageTag = getVoiceCommandLanguageTag()) {
   if (!token) {
     return false;
   }
 
-  if (VOICE_COMMAND_WAKE_ALIASES.has(token)) {
+  const config = getActiveVoiceConfig(languageTag);
+  return config.greetings.some((greeting) => isVoiceAliasTokenFuzzyMatch(token, greeting));
+}
+
+function isVoiceWakeToken(token, languageTag = getVoiceCommandLanguageTag()) {
+  if (!token) {
+    return false;
+  }
+
+  const config = getActiveVoiceConfig(languageTag);
+
+  if (config.wake.includes(token)) {
     return true;
   }
 
   return token.startsWith("flo");
 }
 
-function isVoiceWakeSequence(tokens, index) {
-  return VOICE_COMMAND_GREETING_ALIASES.has(tokens[index]) && isVoiceWakeToken(tokens[index + 1]);
+function isVoiceWakeSequence(tokens, index, languageTag = getVoiceCommandLanguageTag()) {
+  return isVoiceGreetingToken(tokens[index], languageTag) && isVoiceWakeToken(tokens[index + 1], languageTag);
 }
 
-function hasVoiceWakePhrase(text) {
-  const tokens = tokenizeNormalizedText(text, "en-US");
-  if (tokens.length < 2) {
-    return false;
+function findVoiceWakeIndex(tokens, languageTag = getVoiceCommandLanguageTag()) {
+  if (!Array.isArray(tokens) || tokens.length < 2) {
+    return -1;
   }
 
-  for (let index = Math.max(tokens.length - VOICE_COMMAND_LOOKBACK_TOKENS, 0); index < tokens.length - 1; index += 1) {
-    if (isVoiceWakeSequence(tokens, index)) {
-      return true;
+  const startIndex = Math.max(tokens.length - VOICE_COMMAND_LOOKBACK_TOKENS, 0);
+  for (let index = startIndex; index < tokens.length - 1; index += 1) {
+    if (isVoiceWakeSequence(tokens, index, languageTag)) {
+      return index;
     }
   }
 
-  return false;
+  return -1;
 }
 
-function getVoiceCommandActionFuzzy(phrase) {
-  for (const [action, aliases] of VOICE_COMMAND_ACTION_ALIASES) {
+function hasVoiceWakePhrase(text, languageTag = getVoiceCommandLanguageTag()) {
+  const tokens = tokenizeNormalizedText(text, languageTag);
+  return findVoiceWakeIndex(tokens, languageTag) >= 0;
+}
+
+function getVoiceCommandActionFuzzy(phrase, languageTag = getVoiceCommandLanguageTag()) {
+  for (const [action, aliases] of getVoiceActionEntries(languageTag)) {
     if (aliases.some((alias) => phrase === alias || phrase.startsWith(alias) || alias.startsWith(phrase))) {
       return action;
     }
@@ -1917,8 +2129,8 @@ function isVoiceAliasTokenFuzzyMatch(spokenToken, aliasToken) {
   return distance <= (maxLength >= 8 ? 2 : 1);
 }
 
-function getVoiceCommandActionFromTokens(candidateTokens) {
-  for (const [action, aliases] of VOICE_COMMAND_ACTION_ALIASES) {
+function getVoiceCommandActionFromTokens(candidateTokens, languageTag = getVoiceCommandLanguageTag()) {
+  for (const [action, aliases] of getVoiceActionEntries(languageTag)) {
     for (const alias of aliases) {
       const aliasTokens = alias.split(" ");
       if (aliasTokens.length > candidateTokens.length) {
@@ -1937,7 +2149,7 @@ function getVoiceCommandActionFromTokens(candidateTokens) {
     }
   }
 
-  const singleTokenAction = getVoiceCommandAction(candidateTokens[0]) || getVoiceCommandActionFuzzy(candidateTokens[0]);
+  const singleTokenAction = getVoiceCommandAction(candidateTokens[0], languageTag) || getVoiceCommandActionFuzzy(candidateTokens[0], languageTag);
   if (singleTokenAction) {
     return {
       action: singleTokenAction,
@@ -1948,12 +2160,13 @@ function getVoiceCommandActionFromTokens(candidateTokens) {
   return null;
 }
 
-function collectVoiceCommandCandidateTokens(tokens, startIndex) {
+function collectVoiceCommandCandidateTokens(tokens, startIndex, languageTag = getVoiceCommandLanguageTag()) {
   const collected = [];
+  const fillerTokens = getVoiceCommandFillerTokens(languageTag);
 
   for (let index = startIndex; index < tokens.length && collected.length < 4; index += 1) {
     const token = tokens[index];
-    if (!token || VOICE_COMMAND_FILLER_TOKENS.has(token)) {
+    if (!token || fillerTokens.has(token)) {
       continue;
     }
 
@@ -1963,21 +2176,21 @@ function collectVoiceCommandCandidateTokens(tokens, startIndex) {
   return collected;
 }
 
-function extractVoiceCommandWithoutWake(text) {
-  const tokens = tokenizeNormalizedText(text, "en-US");
+function extractVoiceCommandWithoutWake(text, languageTag = getVoiceCommandLanguageTag()) {
+  const tokens = tokenizeNormalizedText(text, languageTag);
   if (tokens.length === 0) {
     return null;
   }
 
-  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, 0);
-  const match = getVoiceCommandActionFromTokens(candidateTokens);
+  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, 0, languageTag);
+  const match = getVoiceCommandActionFromTokens(candidateTokens, languageTag);
   if (!match) {
     return null;
   }
 
   return {
     action: match.action,
-    phrase: `${VOICE_COMMAND_PREFIX} ${match.matchedPhrase}`
+    phrase: `${getVoiceWakePhrase(languageTag)} ${match.matchedPhrase}`
   };
 }
 
@@ -2005,33 +2218,25 @@ function getAverageVoskWordConfidence(words = []) {
   return validConfidences.reduce((sum, confidence) => sum + confidence, 0) / validConfidences.length;
 }
 
-function getWakePhraseConfidence(message) {
+function getWakePhraseConfidence(message, languageTag = getVoiceCommandLanguageTag()) {
   const words = getVoskResultWords(message);
   if (words.length < 2) {
     return 0;
   }
 
-  const wakeTokens = tokenizeNormalizedText(VOICE_COMMAND_PREFIX, "en-US");
-  if (wakeTokens.length === 0) {
-    return 0;
-  }
-
   const normalizedWords = words.map((word) => ({
-    token: tokenizeNormalizedText(word?.word || "", "en-US")[0] || "",
+    token: tokenizeNormalizedText(word?.word || "", languageTag)[0] || "",
     conf: Number(word?.conf)
   }));
 
-  for (let index = 0; index <= normalizedWords.length - wakeTokens.length; index += 1) {
-    const candidateWords = normalizedWords.slice(index, index + wakeTokens.length);
-    const matchesWakePhrase = wakeTokens.every((wakeToken, tokenIndex) => {
-      return isVoiceAliasTokenFuzzyMatch(candidateWords[tokenIndex]?.token, wakeToken);
-    });
-
-    if (!matchesWakePhrase) {
-      continue;
+  for (let index = 0; index < normalizedWords.length; index += 1) {
+    if (isVoiceWakeToken(normalizedWords[index]?.token, languageTag)) {
+      const previousWord = normalizedWords[index - 1];
+      if (previousWord && isVoiceGreetingToken(previousWord.token, languageTag)) {
+        const relevantWords = [previousWord, normalizedWords[index]];
+        return getAverageVoskWordConfidence(relevantWords);
+      }
     }
-
-    return getAverageVoskWordConfidence(candidateWords);
   }
 
   return 0;
@@ -2045,37 +2250,106 @@ function hasOfflineVoiceCommandSupport() {
   );
 }
 
-function getOfflineVoiceCommandGrammar() {
-  return JSON.stringify([...VOSK_COMMAND_GRAMMAR_PHRASES, "[unk]"]);
+function getOfflineVoiceCommandGrammar(languageTag = getVoiceCommandLanguageTag()) {
+  const wakePhrase = getVoiceWakePhrase(languageTag);
+  const wakeTokens = getActiveVoiceConfig(languageTag).wake || [];
+  const grammarPhrases = Array.from(new Set([
+    wakePhrase,
+    ...wakeTokens,
+    ...getVoiceActionEntries(languageTag).flatMap(([, aliases]) => aliases.map((alias) => `${wakePhrase} ${alias}`))
+    ,...getVoiceActionEntries(languageTag).flatMap(([, aliases]) => wakeTokens.map((wakeToken) => `${wakeToken} ${alias}`))
+  ]));
+
+  return JSON.stringify([...grammarPhrases, "[unk]"]);
 }
 
-async function ensureOfflineVoiceCommandModel() {
-  if (voiceCommandModel) {
-    return voiceCommandModel;
+async function resolveVoiceModelStatus(languageTag = getVoiceLanguageTag(), options = {}) {
+  const normalizedLanguage = normalizeVoiceLanguage(languageTag);
+  if (!options.force && voiceModelStatusCache.has(normalizedLanguage)) {
+    return voiceModelStatusCache.get(normalizedLanguage);
   }
 
-  if (voiceCommandModelPromise) {
-    return voiceCommandModelPromise;
+  if (!invoke) {
+    return null;
+  }
+
+  try {
+    const status = await invoke("get_voice_model_status", { language: normalizedLanguage });
+    const normalizedStatus = status ? {
+      ...status,
+      language: normalizeVoiceLanguage(status.language || normalizedLanguage)
+    } : null;
+    voiceModelStatusCache.set(normalizedLanguage, normalizedStatus);
+    return normalizedStatus;
+  } catch (error) {
+    console.error("Voice model status lookup failed", error);
+    return null;
+  }
+}
+
+async function getVoiceModelSourceUrl(languageTag = getVoiceLanguageTag(), options = {}) {
+  const normalizedLanguage = normalizeVoiceLanguage(languageTag);
+  const { preferBundledEnglish = false } = options;
+
+  if (preferBundledEnglish && normalizedLanguage === ENGLISH_VOICE_LANGUAGE) {
+    return VOSK_COMMAND_MODEL_URL;
+  }
+
+  if (invoke && convertFileSrc) {
+    const status = await resolveVoiceModelStatus(normalizedLanguage, { force: true });
+    if (status?.installed && status.path) {
+      return convertFileSrc(status.path);
+    }
+
+    if (normalizedLanguage === ENGLISH_VOICE_LANGUAGE) {
+      return VOSK_COMMAND_MODEL_URL;
+    }
+
+    return null;
+  }
+
+  return normalizedLanguage === "en-US" ? VOSK_COMMAND_MODEL_URL : null;
+}
+
+async function ensureOfflineVoiceCommandModel(languageTag = getVoiceLanguageTag()) {
+  const normalizedLanguage = normalizeVoiceLanguage(languageTag);
+
+  if (voiceModels.has(normalizedLanguage)) {
+    return voiceModels.get(normalizedLanguage);
+  }
+
+  if (voiceModelPromises.has(normalizedLanguage)) {
+    return voiceModelPromises.get(normalizedLanguage);
   }
 
   if (!hasOfflineVoiceCommandSupport()) {
     return null;
   }
 
-  voiceCommandModelPromise = window.Vosk.createModel(VOSK_COMMAND_MODEL_URL, -1)
+  const modelUrl = await getVoiceModelSourceUrl(normalizedLanguage, {
+    preferBundledEnglish: normalizedLanguage === ENGLISH_VOICE_LANGUAGE
+  });
+  if (!modelUrl) {
+    return null;
+  }
+
+  const modelPromise = window.Vosk.createModel(modelUrl, -1)
     .then((model) => {
-      voiceCommandModel = model;
+      voiceModels.set(normalizedLanguage, model);
+      voiceModelPromises.delete(normalizedLanguage);
       isVoiceCommandRecognitionBlocked = false;
       return model;
     })
     .catch((error) => {
       console.error("Offline voice command model failed to load", error);
       isVoiceCommandRecognitionBlocked = true;
-      voiceCommandModelPromise = null;
+      voiceModels.delete(normalizedLanguage);
+      voiceModelPromises.delete(normalizedLanguage);
       throw error;
     });
 
-  return voiceCommandModelPromise;
+  voiceModelPromises.set(normalizedLanguage, modelPromise);
+  return modelPromise;
 }
 
 async function resumeOfflineVoiceCommandAudioContext() {
@@ -2088,6 +2362,87 @@ async function resumeOfflineVoiceCommandAudioContext() {
   } catch (error) {
     // Resume may require a user gesture in some webviews.
   }
+}
+
+async function ensureVoiceCaptureWorklet(audioContext) {
+  if (!audioContext?.audioWorklet?.addModule) {
+    return false;
+  }
+
+  if (!voiceCaptureWorkletModulePromises.has(audioContext)) {
+    const modulePromise = audioContext.audioWorklet.addModule(VOICE_CAPTURE_WORKLET_URL)
+      .then(() => true)
+      .catch((error) => {
+        console.error("Voice capture worklet failed to load", error);
+        voiceCaptureWorkletModulePromises.delete(audioContext);
+        return false;
+      });
+
+    voiceCaptureWorkletModulePromises.set(audioContext, modulePromise);
+  }
+
+  return voiceCaptureWorkletModulePromises.get(audioContext);
+}
+
+async function createVoiceCaptureNode(audioContext, mediaStream, onSamples) {
+  const sourceNode = audioContext.createMediaStreamSource(mediaStream);
+  const silenceNode = audioContext.createGain();
+  silenceNode.gain.value = 0;
+
+  const workletReady = await ensureVoiceCaptureWorklet(audioContext);
+  if (workletReady && typeof AudioWorkletNode !== "undefined") {
+    const processorNode = new AudioWorkletNode(audioContext, "flow-voice-capture", {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+      channelCount: 1,
+      channelCountMode: "explicit",
+      channelInterpretation: "speakers"
+    });
+
+    processorNode.port.onmessage = (event) => {
+      const samples = event.data;
+      if (!samples || !onSamples) {
+        return;
+      }
+
+      onSamples(samples, audioContext.sampleRate);
+    };
+
+    sourceNode.connect(processorNode);
+    processorNode.connect(silenceNode);
+    silenceNode.connect(audioContext.destination);
+
+    return {
+      sourceNode,
+      processorNode,
+      silenceNode,
+      usingWorklet: true
+    };
+  }
+
+  const processorNode = audioContext.createScriptProcessor(VOSK_SCRIPT_PROCESSOR_FALLBACK_BUFFER_SIZE, 1, 1);
+  processorNode.onaudioprocess = (event) => {
+    const samples = event.inputBuffer?.getChannelData?.(0);
+    if (!samples || !onSamples) {
+      return;
+    }
+
+    const copy = new Float32Array(samples.length);
+    copy.set(samples);
+    onSamples(copy, event.inputBuffer.sampleRate);
+  };
+
+  sourceNode.connect(processorNode);
+  processorNode.connect(silenceNode);
+  silenceNode.connect(audioContext.destination);
+
+  return {
+    sourceNode,
+    processorNode,
+    silenceNode,
+    usingWorklet: false
+  };
 }
 
 function installOfflineVoiceCommandResumeListeners() {
@@ -2118,53 +2473,52 @@ function handleOfflineVoiceCommandTranscript(text, options = {}) {
     return { handled: false, consumed: false };
   }
 
+  const languageTag = getVoiceCommandLanguageTag();
+
   const {
     isFinal = false,
     confidence = 0,
     wakeConfidence = 0
   } = options;
-  const wakeInTranscript = hasVoiceWakePhrase(transcript) && wakeConfidence >= VOICE_WAKE_MIN_CONFIDENCE;
-  const wakeDetected = wakeInTranscript;
+  const wakeInTranscript = hasVoiceWakePhrase(transcript, languageTag) && wakeConfidence >= VOICE_WAKE_MIN_CONFIDENCE;
+  const wakeActive = isVoiceWakeActive();
+  const command = extractVoiceCommand(transcript, languageTag);
+  const followupCommand = wakeActive && voiceWakeAwaitingFollowup
+    ? extractVoiceCommandWithoutWake(transcript, languageTag)
+    : null;
 
   if (!isFinal) {
+    if (wakeInTranscript && !command) {
+      activateVoiceWake({ awaitFollowup: true });
+      return { handled: false, consumed: true };
+    }
+
+    if (wakeInTranscript && command && processVoiceCommand(command)) {
+      clearVoiceWakeState();
+      return { handled: true, consumed: true };
+    }
+
+    if (followupCommand && processVoiceCommand(followupCommand)) {
+      clearVoiceWakeState();
+      return { handled: true, consumed: true };
+    }
+
     return { handled: false, consumed: false };
   }
 
-  if (wakeDetected) {
-    resetVoiceCommandTranscript();
-  }
-
-  const transcriptContainsWakePhrase = hasVoiceWakePhrase(transcript);
-  const command = extractVoiceCommand(transcript);
-
-  const canUseTranscriptCommand = !transcriptContainsWakePhrase || wakeInTranscript || (voiceWakeAwaitingFollowup && isVoiceWakeActive());
-
-  if (command && canUseTranscriptCommand && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(command)) {
-    clearVoiceWakeState();
-    return { handled: true, consumed: true };
-  }
-
-  if (wakeDetected) {
+  if (wakeInTranscript && !command) {
     activateVoiceWake({ awaitFollowup: true });
     return { handled: false, consumed: true };
   }
 
-  const followupCommand = voiceWakeAwaitingFollowup && isVoiceWakeActive() && isFinal
-    ? extractVoiceCommandWithoutWake(transcript)
-    : null;
-
-  if (followupCommand && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(followupCommand)) {
+  if (command && wakeInTranscript && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(command)) {
     clearVoiceWakeState();
     return { handled: true, consumed: true };
   }
 
-  if (isFinal) {
-    if (voiceWakeAwaitingFollowup) {
-      resetVoiceCommandTranscript();
-      return { handled: false, consumed: true };
-    } else {
-      appendVoiceCommandTranscript(transcript);
-    }
+  if (followupCommand && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(followupCommand)) {
+    clearVoiceWakeState();
+    return { handled: true, consumed: true };
   }
 
   return { handled: false, consumed: false };
@@ -2185,6 +2539,9 @@ function disconnectOfflineVoiceCommandAudioGraph() {
       voiceCommandProcessorNode.disconnect();
     } catch (error) {
       // Node already disconnected.
+    }
+    if (voiceCommandProcessorNode.port) {
+      voiceCommandProcessorNode.port.onmessage = null;
     }
     voiceCommandProcessorNode.onaudioprocess = null;
     voiceCommandProcessorNode = null;
@@ -2217,28 +2574,90 @@ async function disposeOfflineVoiceCommandAudioContext() {
 }
 
 function shouldEnableVoiceCommandListener() {
-  return Boolean(state.appearance?.appWideVoiceCommands) && !(isPlaying && getActiveMode() === "voice");
+  return Boolean(state.appearance?.appWideVoiceCommands);
 }
 
-function extractVoiceCommand(text) {
-  const tokens = tokenizeNormalizedText(text, "en-US");
+function getVoiceCommandErrorMessage(error) {
+  const message = String(error?.message || error || "").trim();
+  if (!message) {
+    return "Voice commands unavailable";
+  }
+
+  if (/permission|denied|notallowederror/i.test(message)) {
+    return "Voice commands blocked: microphone permission denied";
+  }
+
+  if (/missing vosk model/i.test(message)) {
+    return message;
+  }
+
+  if (/offline voice command model failed to load|failed to fetch|networkerror|asset/i.test(message)) {
+    return "Voice commands blocked: English model failed to load";
+  }
+
+  return `Voice commands blocked: ${message}`;
+}
+
+function updateVoiceCommandStatusLabel() {
+  if (!ui.statusLabel || isPlaying) {
+    return;
+  }
+
+  if (!shouldEnableVoiceCommandListener()) {
+    return;
+  }
+
+  if (isVoiceCommandRecognitionBlocked && lastVoiceCommandError) {
+    ui.statusLabel.textContent = lastVoiceCommandError;
+  }
+}
+
+function updateVoiceCommandIndicator() {
+  if (!ui.voiceCommandIndicator) {
+    return;
+  }
+
+  const enabled = shouldEnableVoiceCommandListener();
+  const active = Boolean(voiceCommandRecognition && voiceCommandMediaStream && voiceCommandAudioContext);
+  const wakeActive = isVoiceWakeActive();
+  const stateLabel = !enabled
+    ? "off"
+    : isVoiceCommandRecognitionBlocked
+      ? "blocked"
+      : wakeActive
+        ? "wake"
+        : active
+          ? "listening"
+          : "starting";
+
+  ui.voiceCommandIndicator.classList.toggle("hidden", !enabled);
+  ui.voiceCommandIndicator.dataset.state = stateLabel;
+  const description = stateLabel === "blocked" && lastVoiceCommandError
+    ? lastVoiceCommandError
+    : `Voice commands: ${stateLabel}`;
+  ui.voiceCommandIndicator.title = description;
+  ui.voiceCommandIndicator.setAttribute("aria-label", description);
+  updateVoiceCommandStatusLabel();
+}
+
+function extractVoiceCommand(text, languageTag = getVoiceCommandLanguageTag()) {
+  const tokens = tokenizeNormalizedText(text, languageTag);
   if (tokens.length < 3) {
     return null;
   }
 
-  for (let index = Math.max(tokens.length - VOICE_COMMAND_LOOKBACK_TOKENS, 0); index < tokens.length - 2; index += 1) {
-    if (!isVoiceWakeSequence(tokens, index)) {
-      continue;
-    }
+  const wakeIndex = findVoiceWakeIndex(tokens, languageTag);
+  if (wakeIndex < 0) {
+    return null;
+  }
 
-    const candidateTokens = collectVoiceCommandCandidateTokens(tokens, index + 2);
-    const match = getVoiceCommandActionFromTokens(candidateTokens);
-    if (match) {
-      return {
-        action: match.action,
-        phrase: `${VOICE_COMMAND_PREFIX} ${match.matchedPhrase}`
-      };
-    }
+  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, wakeIndex + 2, languageTag);
+  const match = getVoiceCommandActionFromTokens(candidateTokens, languageTag);
+  if (match) {
+    return {
+      action: match.action,
+      phrase: `${getVoiceWakePhrase(languageTag)} ${match.matchedPhrase}`
+    };
   }
 
   return null;
@@ -2547,13 +2966,17 @@ function ensureVoiceCommandRecognition() {
   return voiceCommandRecognition;
 }
 
-async function stopVoiceCommandListener() {
+async function stopVoiceCommandListener(options = {}) {
+  const { preserveError = false } = options;
   voiceCommandListenerSession += 1;
   isVoiceCommandRecognitionStarting = false;
   resetVoiceCommandTranscript();
   clearVoiceCommandRestartTimer();
   lastVoiceCommandAudioProcessAt = 0;
   clearVoiceWakeState();
+  if (!preserveError) {
+    lastVoiceCommandError = "";
+  }
 
   disconnectOfflineVoiceCommandAudioGraph();
 
@@ -2566,6 +2989,7 @@ async function stopVoiceCommandListener() {
   }
 
   voiceCommandRecognition = null;
+  updateVoiceCommandIndicator();
 
   if (voiceCommandMediaStream) {
     voiceCommandMediaStream.getTracks().forEach((track) => {
@@ -2576,12 +3000,16 @@ async function stopVoiceCommandListener() {
   }
 
   await disposeOfflineVoiceCommandAudioContext();
+  updateVoiceCommandIndicator();
 }
 
 async function startVoiceCommandListener() {
   if (!shouldEnableVoiceCommandListener() || isVoiceCommandRecognitionStarting || isVoiceCommandRecognitionBlocked || performance.now() < voiceCommandCooldownUntil) {
     return;
   }
+
+  lastVoiceCommandError = "";
+  updateVoiceCommandIndicator();
 
   clearVoiceCommandRestartTimer();
 
@@ -2598,7 +3026,8 @@ async function startVoiceCommandListener() {
   isVoiceCommandRecognitionStarting = true;
 
   try {
-    const model = await ensureOfflineVoiceCommandModel();
+    const languageTag = getVoiceCommandLanguageTag();
+    const model = await ensureOfflineVoiceCommandModel(languageTag);
     if (!model || !shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
       return;
     }
@@ -2626,43 +3055,43 @@ async function startVoiceCommandListener() {
     await resumeOfflineVoiceCommandAudioContext();
     installOfflineVoiceCommandResumeListeners();
 
-    const recognizer = new model.KaldiRecognizer(
-      voiceCommandAudioContext.sampleRate,
-      getOfflineVoiceCommandGrammar()
-    );
+    const recognizer = new model.KaldiRecognizer(voiceCommandAudioContext.sampleRate);
     recognizer.setWords(true);
+    recognizer.on("partialresult", (message) => {
+      handleOfflineVoiceCommandTranscript(message?.result?.partial, {
+        isFinal: false,
+        confidence: 1,
+        wakeConfidence: 1,
+      });
+    });
     recognizer.on("result", (message) => {
       handleOfflineVoiceCommandTranscript(getVoskResultText(message), {
         isFinal: true,
         confidence: getAverageVoskWordConfidence(getVoskResultWords(message)),
-        wakeConfidence: getWakePhraseConfidence(message)
+        wakeConfidence: getWakePhraseConfidence(message, languageTag)
       });
     });
 
     voiceCommandRecognition = recognizer;
-    voiceCommandSourceNode = voiceCommandAudioContext.createMediaStreamSource(mediaStream);
-    voiceCommandProcessorNode = voiceCommandAudioContext.createScriptProcessor(VOSK_COMMAND_BUFFER_SIZE, 1, 1);
-    voiceCommandSilenceNode = voiceCommandAudioContext.createGain();
-    voiceCommandSilenceNode.gain.value = 0;
     lastVoiceCommandAudioProcessAt = performance.now();
 
-    voiceCommandProcessorNode.onaudioprocess = (event) => {
-      if (!voiceCommandRecognition?.acceptWaveform) {
+    const captureNodes = await createVoiceCaptureNode(voiceCommandAudioContext, mediaStream, (samples, sampleRate) => {
+      if (!voiceCommandRecognition?.acceptWaveformFloat) {
         return;
       }
 
       lastVoiceCommandAudioProcessAt = performance.now();
 
       try {
-        voiceCommandRecognition.acceptWaveform(event.inputBuffer);
+        voiceCommandRecognition.acceptWaveformFloat(samples, sampleRate);
       } catch (error) {
         console.error("Offline voice command audio processing failed", error);
       }
-    };
+    });
 
-    voiceCommandSourceNode.connect(voiceCommandProcessorNode);
-    voiceCommandProcessorNode.connect(voiceCommandSilenceNode);
-    voiceCommandSilenceNode.connect(voiceCommandAudioContext.destination);
+    voiceCommandSourceNode = captureNodes.sourceNode;
+    voiceCommandProcessorNode = captureNodes.processorNode;
+    voiceCommandSilenceNode = captureNodes.silenceNode;
 
     if (listenerSession !== voiceCommandListenerSession || !shouldEnableVoiceCommandListener()) {
       await stopVoiceCommandListener();
@@ -2670,12 +3099,17 @@ async function startVoiceCommandListener() {
     }
 
     isVoiceCommandRecognitionBlocked = false;
+    updateVoiceCommandIndicator();
   } catch (error) {
     console.error("Offline voice command listener failed to start", error);
-    await stopVoiceCommandListener();
+    lastVoiceCommandError = getVoiceCommandErrorMessage(error);
+    isVoiceCommandRecognitionBlocked = true;
+    await stopVoiceCommandListener({ preserveError: true });
+    isVoiceCommandRecognitionBlocked = true;
     scheduleVoiceCommandListenerRestart(VOICE_COMMAND_RESTART_DELAY_MS + 120);
   } finally {
     isVoiceCommandRecognitionStarting = false;
+    updateVoiceCommandIndicator();
   }
 }
 
@@ -2789,6 +3223,11 @@ function installVoiceCommandDebugHelpers() {
     },
     getState() {
       return {
+        appWideVoiceCommands: shouldEnableVoiceCommandListener(),
+        voiceCommandListening: Boolean(voiceCommandRecognition && voiceCommandMediaStream && voiceCommandAudioContext),
+        voiceCommandStarting: isVoiceCommandRecognitionStarting,
+        voiceCommandBlocked: isVoiceCommandRecognitionBlocked,
+        lastVoiceCommandError,
         voiceCommandCooldownUntil,
         lastVoiceCommandKey,
         lastVoiceCommandAt,
@@ -3004,6 +3443,32 @@ function getVoiceLineWindow(radius = 3) {
   };
 }
 
+function clampVoiceTrackingMatchToAdjacentLine(match) {
+  if (!match || lineGroups.length === 0) {
+    return match;
+  }
+
+  const activeLineIndex = clamp(lineIndexByWord[currentIndex] ?? 0, 0, Math.max(lineGroups.length - 1, 0));
+  const matchedLineIndex = clamp(match.lineIndex ?? activeLineIndex, 0, Math.max(lineGroups.length - 1, 0));
+  const lineDelta = matchedLineIndex - activeLineIndex;
+
+  if (Math.abs(lineDelta) <= 1) {
+    return match;
+  }
+
+  const clampedLineIndex = clamp(activeLineIndex + Math.sign(lineDelta), 0, Math.max(lineGroups.length - 1, 0));
+  const clampedLine = lineGroups[clampedLineIndex];
+  if (!clampedLine) {
+    return match;
+  }
+
+  return {
+    ...match,
+    lineIndex: clampedLineIndex,
+    matchedWordIndex: clampedLine.firstIndex
+  };
+}
+
 function selectBestVoiceMatch(matches, activeLineIndex) {
   if (!Array.isArray(matches) || matches.length === 0) {
     return null;
@@ -3123,12 +3588,14 @@ function findVoiceDistantPhraseMatch(spokenTokens) {
   });
 }
 
-function findVoiceLineMatch(spokenTokens) {
+function findVoiceLineMatch(spokenTokens, options = {}) {
   if (spokenTokens.length === 0 || normalizedWordTokens.length === 0 || lineGroups.length === 0) {
     return null;
   }
 
-  const lineWindow = getVoiceLineWindow(3);
+  const radius = Math.max(Number(options.radius) || 0, 0);
+  const allowExact = options.allowExact !== false;
+  const lineWindow = getVoiceLineWindow(radius);
   if (!lineWindow) {
     return null;
   }
@@ -3138,42 +3605,50 @@ function findVoiceLineMatch(spokenTokens) {
     candidateLineIndices.push(lineIndex);
   }
 
-  const exactMatch = findVoiceExactPhraseMatch(spokenTokens, {
-    minPhraseLength: 1,
-    maxPhraseLength: 5,
-    activeLineIndex: lineWindow.activeLineIndex,
-    lineFilter: ({ lineIndex }) => lineIndex >= lineWindow.startLineIndex && lineIndex <= lineWindow.endLineIndex
-  });
+  if (allowExact) {
+    const exactMatch = findVoiceExactPhraseMatch(spokenTokens, {
+      minPhraseLength: 1,
+      maxPhraseLength: 5,
+      activeLineIndex: lineWindow.activeLineIndex,
+      lineFilter: ({ lineIndex }) => lineIndex >= lineWindow.startLineIndex && lineIndex <= lineWindow.endLineIndex
+    });
 
-  if (exactMatch) {
-    return exactMatch;
+    if (exactMatch) {
+      return exactMatch;
+    }
   }
 
-  const activeTokenRange = getNormalizedTokenRangeForLine(lineWindow.activeLineIndex);
-  if (!activeTokenRange) {
-    return null;
+  const partialMatches = [];
+
+  for (const lineIndex of candidateLineIndices) {
+    const tokenRange = getNormalizedTokenRangeForLine(lineIndex);
+    if (!tokenRange) {
+      continue;
+    }
+
+    const partialMatchIndex = findVoicePartialMatchIndex(spokenTokens, {
+      startIndex: tokenRange.start,
+      endIndex: tokenRange.end
+    });
+
+    if (partialMatchIndex < 0) {
+      continue;
+    }
+
+    const matchedWordIndex = getWordIndexForNormalizedToken(partialMatchIndex);
+    if (matchedWordIndex < 0) {
+      continue;
+    }
+
+    partialMatches.push({
+      matchedIndex: partialMatchIndex,
+      matchedWordIndex,
+      lineIndex,
+      phraseLength: 1
+    });
   }
 
-  const partialMatchIndex = findVoicePartialMatchIndex(spokenTokens, {
-    startIndex: activeTokenRange.start,
-    endIndex: activeTokenRange.end
-  });
-
-  if (partialMatchIndex < 0) {
-    return null;
-  }
-
-  const matchedWordIndex = getWordIndexForNormalizedToken(partialMatchIndex);
-  if (matchedWordIndex < 0) {
-    return null;
-  }
-
-  return {
-    matchedIndex: partialMatchIndex,
-    matchedWordIndex,
-    lineIndex: lineWindow.activeLineIndex,
-    phraseLength: 1
-  };
+  return selectBestVoiceMatch(partialMatches, lineWindow.activeLineIndex);
 }
 
 function getVoiceNextIndex(matchedIndex) {
@@ -3199,6 +3674,9 @@ function disconnectVoiceTrackingAudioGraph() {
       voiceTrackingProcessorNode.disconnect();
     } catch (error) {
       // Node already disconnected.
+    }
+    if (voiceTrackingProcessorNode.port) {
+      voiceTrackingProcessorNode.port.onmessage = null;
     }
     voiceTrackingProcessorNode.onaudioprocess = null;
     voiceTrackingProcessorNode = null;
@@ -3231,6 +3709,8 @@ async function disposeVoiceTrackingAudioContext() {
 async function stopVoiceTracking() {
   voiceTrackingSession += 1;
   lastVoiceTrackingAudioProcessAt = 0;
+  lastVoiceTrackingPartialHandledAt = 0;
+  lastVoiceTrackingPartialKey = "";
 
   disconnectVoiceTrackingAudioGraph();
 
@@ -3261,10 +3741,33 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
     return;
   }
 
-  const { isFinal = false, confidence = 0, wakeConfidence = 0 } = options;
-  const commandOutcome = handleOfflineVoiceCommandTranscript(text, { isFinal, confidence, wakeConfidence });
-  if (commandOutcome.handled || commandOutcome.consumed || isPaused) {
+  const { isFinal = false } = options;
+  if (isPaused) {
     return;
+  }
+
+  if (!isFinal) {
+    const now = performance.now();
+    const partialTokens = tokenizeNormalizedText(text);
+    const partialKey = partialTokens.slice(-3).join(" ");
+
+    if (!partialKey) {
+      return;
+    }
+
+    if (partialKey === lastVoiceTrackingPartialKey && now - lastVoiceTrackingPartialHandledAt < 400) {
+      return;
+    }
+
+    if (now - lastVoiceTrackingPartialHandledAt < VOICE_TRACKING_PARTIAL_MIN_INTERVAL_MS) {
+      return;
+    }
+
+    lastVoiceTrackingPartialHandledAt = now;
+    lastVoiceTrackingPartialKey = partialKey;
+  } else {
+    lastVoiceTrackingPartialHandledAt = performance.now();
+    lastVoiceTrackingPartialKey = "";
   }
 
   const combinedTranscript = isFinal
@@ -3275,8 +3778,11 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
     voiceTranscript = combinedTranscript;
   }
 
-  const spokenTokens = tokenizeNormalizedText(combinedTranscript);
-  const bestLineMatch = (isFinal ? findVoiceDistantPhraseMatch(spokenTokens) : null) || findVoiceLineMatch(spokenTokens);
+  const spokenTokens = tokenizeNormalizedText(isFinal ? combinedTranscript : text);
+  const bestLineMatch = clampVoiceTrackingMatchToAdjacentLine(
+    (isFinal ? findVoiceDistantPhraseMatch(spokenTokens) : null)
+      || findVoiceLineMatch(spokenTokens, isFinal ? { radius: 1, allowExact: true } : { radius: 1, allowExact: false })
+  );
   const bestMatchIndex = bestLineMatch?.matchedWordIndex ?? -1;
 
   if (bestMatchIndex >= 0 && bestMatchIndex !== currentIndex) {
@@ -3301,9 +3807,12 @@ async function startVoiceTracking() {
     return;
   }
 
-  const model = await ensureOfflineVoiceCommandModel();
+  syncStateFromStorage();
+  const languageTag = getVoiceLanguageTag();
+  rebuildNormalizedScriptTokenMap(languageTag);
+  const model = await ensureOfflineVoiceCommandModel(languageTag);
   if (!model) {
-    throw new Error("Vosk model could not be loaded");
+    throw new Error(`Missing Vosk model for ${getVoiceLanguageLabel(languageTag)}`);
   }
 
   const session = ++voiceTrackingSession;
@@ -3338,7 +3847,6 @@ async function startVoiceTracking() {
   }
 
   const recognizer = new model.KaldiRecognizer(voiceTrackingAudioContext.sampleRate);
-  recognizer.setWords(true);
   recognizer.on("partialresult", (message) => {
     applyVoiceTrackingTranscript(message?.result?.partial, { isFinal: false });
   });
@@ -3346,34 +3854,30 @@ async function startVoiceTracking() {
     applyVoiceTrackingTranscript(getVoskResultText(message), {
       isFinal: true,
       confidence: getAverageVoskWordConfidence(getVoskResultWords(message)),
-      wakeConfidence: getWakePhraseConfidence(message)
+      wakeConfidence: getWakePhraseConfidence(message, languageTag)
     });
   });
 
   voiceRecognition = recognizer;
-  voiceTrackingSourceNode = voiceTrackingAudioContext.createMediaStreamSource(mediaStream);
-  voiceTrackingProcessorNode = voiceTrackingAudioContext.createScriptProcessor(VOSK_COMMAND_BUFFER_SIZE, 1, 1);
-  voiceTrackingSilenceNode = voiceTrackingAudioContext.createGain();
-  voiceTrackingSilenceNode.gain.value = 0;
   lastVoiceTrackingAudioProcessAt = performance.now();
 
-  voiceTrackingProcessorNode.onaudioprocess = (event) => {
-    if (!voiceRecognition?.acceptWaveform) {
+  const captureNodes = await createVoiceCaptureNode(voiceTrackingAudioContext, mediaStream, (samples, sampleRate) => {
+    if (!voiceRecognition?.acceptWaveformFloat) {
       return;
     }
 
     lastVoiceTrackingAudioProcessAt = performance.now();
 
     try {
-      voiceRecognition.acceptWaveform(event.inputBuffer);
+      voiceRecognition.acceptWaveformFloat(samples, sampleRate);
     } catch (error) {
       console.error("Vosk voice tracking audio processing failed", error);
     }
-  };
+  });
 
-  voiceTrackingSourceNode.connect(voiceTrackingProcessorNode);
-  voiceTrackingProcessorNode.connect(voiceTrackingSilenceNode);
-  voiceTrackingSilenceNode.connect(voiceTrackingAudioContext.destination);
+  voiceTrackingSourceNode = captureNodes.sourceNode;
+  voiceTrackingProcessorNode = captureNodes.processorNode;
+  voiceTrackingSilenceNode = captureNodes.silenceNode;
 }
 
 function playVoiceMode() {
@@ -3382,17 +3886,15 @@ function playVoiceMode() {
   updateWordState(true);
   if (ui.statusLabel) ui.statusLabel.textContent = "\u{1F3A4} Listening...";
 
-  stopVoiceCommandListener()
-    .catch(console.error)
-    .finally(() => {
-      startVoiceTracking().catch((error) => {
-        console.error("Vosk voice tracking failed to start", error);
-        if (ui.statusLabel) {
-          ui.statusLabel.textContent = "\u{1F3A4} Mic Request Failed";
-        }
-        stopPlayback();
-      });
-    });
+  startVoiceTracking().catch((error) => {
+    console.error("Vosk voice tracking failed to start", error);
+    if (ui.statusLabel) {
+      ui.statusLabel.textContent = /Missing Vosk model/i.test(String(error?.message || error))
+        ? `\u{1F3A4} Download ${getVoiceLanguageLabel()} model first`
+        : "\u{1F3A4} Mic Request Failed";
+    }
+    stopPlayback();
+  });
 }
 
 function play() {
@@ -3960,6 +4462,8 @@ function handlePlaybackHotkeys(event) {
 }
 
 function refreshFromStorage() {
+  const previousVoiceLanguage = getVoiceLanguageTag();
+  const previousAppWideVoiceCommands = Boolean(state.appearance?.appWideVoiceCommands);
   const previousState = {
     script: state.script,
     speed: state.speed,
@@ -3972,7 +4476,10 @@ function refreshFromStorage() {
 
   syncStateFromStorage();
   state.desktop = state.desktop || structuredClone(defaultState.desktop);
-  syncVoiceCommandListener();
+  const nextVoiceLanguage = getVoiceLanguageTag();
+  const voiceLanguageChanged = previousVoiceLanguage !== nextVoiceLanguage;
+  const appWideVoiceCommandsChanged = previousAppWideVoiceCommands !== Boolean(state.appearance?.appWideVoiceCommands);
+  syncVoiceCommandListener({ forceReset: voiceLanguageChanged || appWideVoiceCommandsChanged });
 
   if (previousState.speed !== state.speed) {
     updateSpeedLabel();
@@ -3988,6 +4495,16 @@ function refreshFromStorage() {
 
   if (previousState.appearance !== JSON.stringify(state.appearance)) {
     applyAppearanceSettings();
+
+    if (voiceLanguageChanged && isPlaying && getActiveMode() === "voice") {
+      stopVoiceTracking()
+        .catch(console.error)
+        .finally(() => {
+          if (isPlaying && getActiveMode() === "voice") {
+            playVoiceMode();
+          }
+        });
+    }
   }
 
   if (previousState.desktop !== JSON.stringify(state.desktop)) {

@@ -42,12 +42,22 @@ export const defaultState = {
 };
 
 const STORAGE_KEY = "flow.teleprompter.state.v2";
+const VOICE_MODEL_REGISTRY_KEY = "flow.voice.models.v1";
 
 export const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
   { value: "tr", label: "Türkçe" },
   { value: "ar", label: "العربية" },
   { value: "de", label: "Deutsch" }
+];
+
+export const VOICE_LANGUAGE_OPTIONS = [
+  { value: "en-US", label: "English" },
+  { value: "tr-TR", label: "Turkish" },
+  { value: "ar-SA", label: "Arabic" },
+  { value: "de-DE", label: "German" },
+  { value: "fr-FR", label: "French" },
+  { value: "es-ES", label: "Spanish" }
 ];
 
 export const FONT_OPTIONS = [
@@ -191,7 +201,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "Line highlight",
     "settings.voiceStyle.plain": "Plain text",
     "settings.appWideVoiceCommands": "App-wide Flow voice commands",
-    "settings.appWideVoiceCommandsHelp": "Lets English Flow commands like 'Hey flow pause' or 'Hey flow down' work outside voice tracking too.",
+    "settings.appWideVoiceCommandsHelp": "Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too.",
     "settings.font": "Font",
     "settings.textSize": "Text size",
     "settings.style": "Style",
@@ -204,7 +214,25 @@ const UI_STRINGS = {
     "settings.theme.bright": "Bright",
     "settings.theme.meadow": "Yellow-green",
     "settings.voiceLanguage": "Voice Language",
-    "settings.voiceModeHelp": "Matches spoken words to the script.",
+    "settings.voiceModeHelp": "Uses the selected language for voice tracking and app-wide Flow commands.",
+    "settings.voiceModelChecking": "Checking model…",
+    "settings.voiceModelCheckingHelp": "Flow checks whether the selected Vosk model is already stored locally.",
+    "settings.voiceModelPathPending": "Checking local model path…",
+    "settings.voiceModelProgressIdle": "Waiting to download",
+    "settings.voiceModelProgressStats": "{remaining} left · {speed}",
+    "settings.voiceModelInstalled": "Installed ✓",
+    "settings.voiceModelInstalledHelp": "This Vosk model is ready. Flow will use it for voice tracking and app-wide commands.",
+    "settings.voiceModelMissing": "Model required",
+    "settings.voiceModelMissingHelp": "This language is not installed yet. Download the Vosk model before using it for commands or voice tracking.",
+    "settings.voiceModelDownloading": "Downloading…",
+    "settings.voiceModelDownloadingHelp": "Downloading the selected Vosk model now. Keep this window open until it finishes.",
+    "settings.voiceModelPathValue": "Saved model: {path}",
+    "settings.voiceModelPathMissing": "No local Vosk model has been saved for this language yet.",
+    "settings.voiceModelDownloadAction": "Download Vosk model",
+    "settings.voiceModelDownloadingAction": "Downloading model…",
+    "settings.voiceModelInstalledAction": "Model downloaded",
+    "settings.voiceModelDownloadComplete": "{language} Vosk model is ready.",
+    "settings.voiceModelDownloadFailed": "Could not download the selected Vosk model.",
     "settings.performance": "Performance mode",
     "settings.performanceHelp": "Disables UI animations and forces normal scrolling for smoother performance.",
     "settings.textColor": "Text color",
@@ -336,7 +364,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "Satır vurgusu",
     "settings.voiceStyle.plain": "Düz metin",
     "settings.appWideVoiceCommands": "Uygulama genelinde Flow ses komutları",
-    "settings.appWideVoiceCommandsHelp": "'Hey flow pause' veya 'Hey flow down' gibi İngilizce Flow komutlarının ses takibi dışında da çalışmasını sağlar.",
+    "settings.appWideVoiceCommandsHelp": "'Hey Flow duraklat' veya 'Hey Flow aşağı' gibi İngilizce Flow komutlarının ses takibi dışında da çalışmasını sağlar.",
     "settings.font": "Yazı tipi",
     "settings.textSize": "Metin boyutu",
     "settings.style": "Stil",
@@ -349,7 +377,25 @@ const UI_STRINGS = {
     "settings.theme.bright": "Parlak",
     "settings.theme.meadow": "Sarı-yeşil",
     "settings.voiceLanguage": "Ses dili",
-    "settings.voiceModeHelp": "Konuşulan kelimeleri metinle eşleştirir.",
+    "settings.voiceModeHelp": "Ses takibi ve uygulama geneli Flow komutları için seçili dili kullanır.",
+    "settings.voiceModelChecking": "Model kontrol ediliyor…",
+    "settings.voiceModelCheckingHelp": "Flow seçili Vosk modelinin yerel olarak kayıtlı olup olmadığını kontrol eder.",
+    "settings.voiceModelPathPending": "Yerel model yolu kontrol ediliyor…",
+    "settings.voiceModelProgressIdle": "İndirme bekleniyor",
+    "settings.voiceModelProgressStats": "{remaining} kaldı · {speed}",
+    "settings.voiceModelInstalled": "Yüklü ✓",
+    "settings.voiceModelInstalledHelp": "Bu Vosk modeli hazır. Flow bunu ses takibi ve uygulama geneli komutlar için kullanacak.",
+    "settings.voiceModelMissing": "Model gerekli",
+    "settings.voiceModelMissingHelp": "Bu dil henüz yüklü değil. Komutlarda veya ses takibinde kullanmadan önce Vosk modelini indirin.",
+    "settings.voiceModelDownloading": "İndiriliyor…",
+    "settings.voiceModelDownloadingHelp": "Seçili Vosk modeli indiriliyor. Bitene kadar bu pencereyi açık tutun.",
+    "settings.voiceModelPathValue": "Kayıtlı model: {path}",
+    "settings.voiceModelPathMissing": "Bu dil için henüz yerel bir Vosk modeli kaydedilmedi.",
+    "settings.voiceModelDownloadAction": "Vosk modelini indir",
+    "settings.voiceModelDownloadingAction": "Model indiriliyor…",
+    "settings.voiceModelInstalledAction": "Model indirildi",
+    "settings.voiceModelDownloadComplete": "{language} Vosk modeli hazır.",
+    "settings.voiceModelDownloadFailed": "Seçilen Vosk modeli indirilemedi.",
     "settings.performance": "Performans modu",
     "settings.performanceHelp": "Daha akıcı performans için arayüz animasyonlarını kapatır ve normal kaydırmayı zorlar.",
     "settings.textColor": "Metin rengi",
@@ -475,7 +521,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "تمييز السطر",
     "settings.voiceStyle.plain": "نص عادي",
     "settings.appWideVoiceCommands": "أوامر Flow الصوتية على مستوى التطبيق",
-    "settings.appWideVoiceCommandsHelp": "يسمح لأوامر Flow الإنجليزية مثل 'Hey flow pause' أو 'Hey flow down' بالعمل حتى خارج وضع تتبع الصوت.",
+    "settings.appWideVoiceCommandsHelp": "يسمح لأوامر Flow الإنجليزية مثل 'Hey Flow pause' أو 'Hey Flow down' بالعمل حتى خارج تتبع الصوت.",
     "settings.font": "الخط",
     "settings.textSize": "حجم النص",
     "settings.style": "الأسلوب",
@@ -488,7 +534,25 @@ const UI_STRINGS = {
     "settings.theme.bright": "فاتح",
     "settings.theme.meadow": "أصفر-أخضر",
     "settings.voiceLanguage": "لغة الصوت",
-    "settings.voiceModeHelp": "يطابق الكلمات المنطوقة مع النص.",
+    "settings.voiceModeHelp": "يستخدم اللغة المحددة لتتبع الصوت وأوامر Flow على مستوى التطبيق.",
+    "settings.voiceModelChecking": "جارٍ فحص النموذج…",
+    "settings.voiceModelCheckingHelp": "يتحقق Flow مما إذا كان نموذج Vosk المحدد محفوظًا محليًا بالفعل.",
+    "settings.voiceModelPathPending": "جارٍ فحص مسار النموذج المحلي…",
+    "settings.voiceModelProgressIdle": "بانتظار التنزيل",
+    "settings.voiceModelProgressStats": "المتبقي {remaining} · {speed}",
+    "settings.voiceModelInstalled": "مثبت ✓",
+    "settings.voiceModelInstalledHelp": "نموذج Vosk هذا جاهز. سيستخدمه Flow لتتبع الصوت والأوامر على مستوى التطبيق.",
+    "settings.voiceModelMissing": "النموذج مطلوب",
+    "settings.voiceModelMissingHelp": "هذه اللغة غير مثبتة بعد. نزّل نموذج Vosk قبل استخدامها في الأوامر أو تتبع الصوت.",
+    "settings.voiceModelDownloading": "جارٍ التنزيل…",
+    "settings.voiceModelDownloadingHelp": "يتم الآن تنزيل نموذج Vosk المحدد. أبقِ هذه النافذة مفتوحة حتى يكتمل التنزيل.",
+    "settings.voiceModelPathValue": "المسار المحفوظ: {path}",
+    "settings.voiceModelPathMissing": "لم يتم حفظ أي نموذج Vosk محلي لهذه اللغة بعد.",
+    "settings.voiceModelDownloadAction": "نزّل نموذج Vosk",
+    "settings.voiceModelDownloadingAction": "جارٍ تنزيل النموذج…",
+    "settings.voiceModelInstalledAction": "تم تنزيل النموذج",
+    "settings.voiceModelDownloadComplete": "أصبح نموذج Vosk للغة {language} جاهزًا.",
+    "settings.voiceModelDownloadFailed": "تعذر تنزيل نموذج Vosk المحدد.",
     "settings.performance": "وضع الأداء",
     "settings.performanceHelp": "يعطّل حركات الواجهة ويفرض التمرير العادي لأداء أكثر سلاسة.",
     "settings.textColor": "لون النص",
@@ -614,7 +678,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "Zeilenhervorhebung",
     "settings.voiceStyle.plain": "Klartext",
     "settings.appWideVoiceCommands": "App-weite Flow-Sprachbefehle",
-    "settings.appWideVoiceCommandsHelp": "Erlaubt englische Flow-Befehle wie 'Hey flow pause' oder 'Hey flow down' auch außerhalb der Sprachverfolgung.",
+    "settings.appWideVoiceCommandsHelp": "Erlaubt englische Flow-Befehle wie 'Hey Flow pause' oder 'Hey Flow down' auch außerhalb der Sprachverfolgung.",
     "settings.font": "Schriftart",
     "settings.textSize": "Textgröße",
     "settings.style": "Stil",
@@ -627,7 +691,25 @@ const UI_STRINGS = {
     "settings.theme.bright": "Hell",
     "settings.theme.meadow": "Gelbgrün",
     "settings.voiceLanguage": "Spracheingabe",
-    "settings.voiceModeHelp": "Gleicht gesprochene Wörter mit dem Skript ab.",
+    "settings.voiceModeHelp": "Verwendet die gewählte Sprache für Sprachverfolgung und app-weite Flow-Befehle.",
+    "settings.voiceModelChecking": "Modell wird geprüft…",
+    "settings.voiceModelCheckingHelp": "Flow prüft, ob das ausgewählte Vosk-Modell bereits lokal gespeichert ist.",
+    "settings.voiceModelPathPending": "Lokaler Modellpfad wird geprüft…",
+    "settings.voiceModelProgressIdle": "Wartet auf Download",
+    "settings.voiceModelProgressStats": "{remaining} übrig · {speed}",
+    "settings.voiceModelInstalled": "Installiert ✓",
+    "settings.voiceModelInstalledHelp": "Dieses Vosk-Modell ist bereit. Flow verwendet es für Sprachverfolgung und app-weite Befehle.",
+    "settings.voiceModelMissing": "Modell erforderlich",
+    "settings.voiceModelMissingHelp": "Diese Sprache ist noch nicht installiert. Lade zuerst das Vosk-Modell herunter.",
+    "settings.voiceModelDownloading": "Wird heruntergeladen…",
+    "settings.voiceModelDownloadingHelp": "Das ausgewählte Vosk-Modell wird jetzt geladen. Lass dieses Fenster geöffnet, bis es fertig ist.",
+    "settings.voiceModelPathValue": "Gespeichertes Modell: {path}",
+    "settings.voiceModelPathMissing": "Für diese Sprache wurde noch kein lokales Vosk-Modell gespeichert.",
+    "settings.voiceModelDownloadAction": "Vosk-Modell herunterladen",
+    "settings.voiceModelDownloadingAction": "Modell wird geladen…",
+    "settings.voiceModelInstalledAction": "Modell geladen",
+    "settings.voiceModelDownloadComplete": "Das {language}-Vosk-Modell ist bereit.",
+    "settings.voiceModelDownloadFailed": "Das ausgewählte Vosk-Modell konnte nicht heruntergeladen werden.",
     "settings.performance": "Performance-Modus",
     "settings.performanceHelp": "Deaktiviert UI-Animationen und erzwingt normales Scrollen für flüssigere Leistung.",
     "settings.textColor": "Textfarbe",
@@ -1065,6 +1147,20 @@ function normalizeLanguage(value, fallback) {
   return LANGUAGE_OPTIONS.some((option) => option.value === value) ? value : fallback;
 }
 
+export function normalizeVoiceLanguage(value, fallback = defaultState.appearance.voiceLanguage) {
+  const normalized = String(value || "").trim();
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (/^en\b/i.test(normalized)) {
+    return "en-US";
+  }
+
+  const match = VOICE_LANGUAGE_OPTIONS.find((option) => option.value.toLowerCase() === normalized.toLowerCase());
+  return match?.value || fallback;
+}
+
 function normalizeRemoteCredential(value, fallback, maxLength = 128) {
   if (typeof value !== "string") {
     return fallback;
@@ -1220,6 +1316,10 @@ export function normalizeState(rawState = {}) {
     getThemeTeleprompterTextColor(normalized.appearance.theme)
   );
   normalized.appearance.textOpacity = normalizeOpacity(normalized.appearance.textOpacity, defaults.appearance.textOpacity);
+  normalized.appearance.voiceLanguage = normalizeVoiceLanguage(
+    normalized.appearance.voiceLanguage,
+    defaults.appearance.voiceLanguage
+  );
   normalized.appearance.voiceScrollStyle = ["highlight", "line", "plain"].includes(normalized.appearance.voiceScrollStyle)
     ? normalized.appearance.voiceScrollStyle
     : defaults.appearance.voiceScrollStyle;
@@ -1470,6 +1570,42 @@ export function saveState(nextState) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedState));
   window.dispatchEvent(new CustomEvent("flow-state-updated", { detail: mergedState }));
   return mergedState;
+}
+
+export function loadVoiceModelRegistry() {
+  try {
+    const raw = localStorage.getItem(VOICE_MODEL_REGISTRY_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveVoiceModelRegistry(nextRegistry = {}) {
+  const registry = nextRegistry && typeof nextRegistry === "object" ? nextRegistry : {};
+  localStorage.setItem(VOICE_MODEL_REGISTRY_KEY, JSON.stringify(registry));
+  window.dispatchEvent(new CustomEvent("flow-voice-models-updated", { detail: registry }));
+  return registry;
+}
+
+export function updateVoiceModelRegistry(language, patch = {}) {
+  const normalizedLanguage = normalizeVoiceLanguage(language);
+  const registry = loadVoiceModelRegistry();
+  const nextRegistry = {
+    ...registry,
+    [normalizedLanguage]: {
+      ...(registry[normalizedLanguage] || {}),
+      ...patch,
+      language: normalizedLanguage
+    }
+  };
+
+  return saveVoiceModelRegistry(nextRegistry);
 }
 
 export function applyThemeToDocument(theme, target = document) {

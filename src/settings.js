@@ -1,5 +1,17 @@
 import { CLOUD_RELAY_URL } from "./remote-config.js";
-import { applyAppearanceToDocument, applyTranslationsToDocument, defaultState, getThemeTeleprompterTextColor, loadState, saveState, translate } from "./shared.js";
+import {
+  applyAppearanceToDocument,
+  applyTranslationsToDocument,
+  defaultState,
+  getThemeTeleprompterTextColor,
+  loadVoiceModelRegistry,
+  loadState,
+  normalizeVoiceLanguage,
+  saveState,
+  saveVoiceModelRegistry,
+  translate,
+  VOICE_LANGUAGE_OPTIONS
+} from "./shared.js";
 
 const MIN_WIDTH = 400;
 const MIN_HEIGHT = 200;
@@ -10,9 +22,11 @@ const APPLY_DELAY = 70;
 const TOP_CENTER_X_OFFSET = 32;
 const REMOTE_STATUS_REFRESH_MS = 20_000;
 
-const invoke = window.__TAURI__?.core?.invoke;
+const tauriCore = window.__TAURI__?.core;
+const invoke = tauriCore?.invoke;
 const tauriWindow = window.__TAURI__?.window;
 const tauriDpi = window.__TAURI__?.dpi;
+const tauriEvent = window.__TAURI__?.event;
 
 const state = loadState();
 state.window = state.window || structuredClone(defaultState.window);
@@ -32,6 +46,16 @@ const ui = {
   modeSelect: document.querySelector("#modeSelect"),
   voiceLanguageGroup: document.querySelector("#voiceLanguageGroup"),
   voiceLanguageSelect: document.querySelector("#voiceLanguageSelect"),
+  voiceModelCard: document.querySelector("#voiceModelCard"),
+  voiceModelBadge: document.querySelector("#voiceModelBadge"),
+  voiceModelSelectedLabel: document.querySelector("#voiceModelSelectedLabel"),
+  voiceModelHint: document.querySelector("#voiceModelHint"),
+  voiceModelPath: document.querySelector("#voiceModelPath"),
+  voiceModelProgress: document.querySelector("#voiceModelProgress"),
+  voiceModelProgressFill: document.querySelector("#voiceModelProgressFill"),
+  voiceModelProgressLabel: document.querySelector("#voiceModelProgressLabel"),
+  voiceModelProgressStats: document.querySelector("#voiceModelProgressStats"),
+  voiceModelDownloadButton: document.querySelector("#voiceModelDownloadButton"),
   voiceStyleGroup: document.querySelector("#voiceStyleGroup"),
   voiceStyleSelect: document.querySelector("#voiceStyleSelect"),
   fontSelect: document.querySelector("#fontSelect"),
@@ -75,9 +99,201 @@ let applyTimer = null;
 let isSyncingForm = false;
 let isApplying = false;
 let remoteStatusTimer = null;
+let unlistenVoiceModelDownloads = null;
+let voiceModelStatuses = new Map();
+let activeVoiceModelDownload = null;
 
 function t(key, params = {}) {
   return translate(key, state.language, params);
+}
+
+function getVoiceLanguageLabel(language) {
+  return VOICE_LANGUAGE_OPTIONS.find((option) => option.value === normalizeVoiceLanguage(language))?.label
+    || VOICE_LANGUAGE_OPTIONS[0].label;
+}
+
+function formatMegabytes(bytes) {
+  return `${(Math.max(Number(bytes) || 0, 0) / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDownloadSpeed(bytesPerSecond) {
+  return `${(Math.max(Number(bytesPerSecond) || 0, 0) / (1024 * 1024)).toFixed(1)} MB/s`;
+}
+
+function setVoiceModelProgress(progress = null) {
+  if (!progress) {
+    ui.voiceModelProgress.classList.add("hidden");
+    ui.voiceModelProgressFill.style.width = "0%";
+    ui.voiceModelProgressLabel.textContent = "0%";
+    ui.voiceModelProgressStats.textContent = t("settings.voiceModelProgressIdle");
+    return;
+  }
+
+  const totalBytes = Number(progress.totalBytes) || 0;
+  const downloadedBytes = Math.max(Number(progress.downloadedBytes) || 0, 0);
+  const ratio = totalBytes > 0 ? Math.min(downloadedBytes / totalBytes, 1) : 0;
+  const percent = Math.round(ratio * 100);
+  const remainingBytes = Number.isFinite(progress.remainingBytes)
+    ? Math.max(Number(progress.remainingBytes), 0)
+    : Math.max(totalBytes - downloadedBytes, 0);
+  const speed = Number(progress.speedBytesPerSecond) || 0;
+
+  ui.voiceModelProgress.classList.remove("hidden");
+  ui.voiceModelProgressFill.style.width = `${percent}%`;
+  ui.voiceModelProgressLabel.textContent = totalBytes > 0
+    ? `${percent}%`
+    : formatMegabytes(downloadedBytes);
+  ui.voiceModelProgressStats.textContent = t("settings.voiceModelProgressStats", {
+    remaining: formatMegabytes(remainingBytes),
+    speed: formatDownloadSpeed(speed)
+  });
+}
+
+function syncVoiceModelRegistry() {
+  const previousRegistry = loadVoiceModelRegistry();
+  const nextRegistry = { ...previousRegistry };
+
+  voiceModelStatuses.forEach((status, language) => {
+    nextRegistry[language] = {
+      ...(previousRegistry[language] || {}),
+      language,
+      label: status.label,
+      installed: Boolean(status.installed),
+      path: status.path || "",
+      sizeBytes: Number(status.sizeBytes) || 0,
+      updatedAt: Date.now()
+    };
+  });
+
+  saveVoiceModelRegistry(nextRegistry);
+}
+
+function renderVoiceLanguageOptions() {
+  Array.from(ui.voiceLanguageSelect.options).forEach((option) => {
+    const language = normalizeVoiceLanguage(option.value);
+    const status = voiceModelStatuses.get(language);
+    const baseLabel = option.dataset.baseLabel || option.textContent.trim();
+    option.dataset.baseLabel = baseLabel;
+    option.textContent = status?.installed ? `✓ ${baseLabel}` : baseLabel;
+  });
+}
+
+function renderVoiceModelStatus(language = ui.voiceLanguageSelect.value) {
+  const normalizedLanguage = normalizeVoiceLanguage(language);
+  const status = voiceModelStatuses.get(normalizedLanguage);
+  const downloadState = activeVoiceModelDownload?.language === normalizedLanguage ? activeVoiceModelDownload : null;
+  const isDownloading = downloadState?.stage === "started" || downloadState?.stage === "progress";
+  const isInstalled = Boolean(status?.installed);
+
+  ui.voiceModelSelectedLabel.textContent = getVoiceLanguageLabel(normalizedLanguage);
+  ui.voiceModelBadge.dataset.state = isDownloading ? "downloading" : (isInstalled ? "installed" : "missing");
+  ui.voiceModelBadge.textContent = isDownloading
+    ? t("settings.voiceModelDownloading")
+    : (isInstalled ? t("settings.voiceModelInstalled") : t("settings.voiceModelMissing"));
+  ui.voiceModelHint.textContent = isDownloading
+    ? t("settings.voiceModelDownloadingHelp")
+    : (isInstalled ? t("settings.voiceModelInstalledHelp") : t("settings.voiceModelMissingHelp"));
+  ui.voiceModelPath.textContent = status?.path
+    ? t("settings.voiceModelPathValue", { path: status.path })
+    : t("settings.voiceModelPathMissing");
+  ui.voiceModelDownloadButton.disabled = isDownloading || isInstalled || !invoke;
+  ui.voiceModelDownloadButton.textContent = isInstalled
+    ? t("settings.voiceModelInstalledAction")
+    : (isDownloading ? t("settings.voiceModelDownloadingAction") : t("settings.voiceModelDownloadAction"));
+
+  if (downloadState) {
+    setVoiceModelProgress(downloadState);
+  } else {
+    setVoiceModelProgress(null);
+  }
+}
+
+async function refreshVoiceModelStatuses() {
+  if (!invoke) {
+    renderVoiceModelStatus(ui.voiceLanguageSelect.value);
+    return;
+  }
+
+  const statuses = await invoke("list_voice_models").catch((error) => {
+    console.error(error);
+    return [];
+  });
+
+  voiceModelStatuses = new Map(
+    (Array.isArray(statuses) ? statuses : []).map((status) => [normalizeVoiceLanguage(status.language), {
+      ...status,
+      language: normalizeVoiceLanguage(status.language)
+    }])
+  );
+  syncVoiceModelRegistry();
+  renderVoiceLanguageOptions();
+  renderVoiceModelStatus(ui.voiceLanguageSelect.value);
+}
+
+function handleVoiceModelDownloadEvent(payload) {
+  if (!payload?.language) {
+    return;
+  }
+
+  activeVoiceModelDownload = {
+    ...payload,
+    language: normalizeVoiceLanguage(payload.language)
+  };
+
+  if (payload.stage === "completed") {
+    voiceModelStatuses.set(activeVoiceModelDownload.language, {
+      ...(voiceModelStatuses.get(activeVoiceModelDownload.language) || {}),
+      language: activeVoiceModelDownload.language,
+      label: payload.label || getVoiceLanguageLabel(activeVoiceModelDownload.language),
+      installed: true,
+      path: payload.path || "",
+      sizeBytes: Number(payload.totalBytes || payload.downloadedBytes) || 0
+    });
+    syncVoiceModelRegistry();
+    renderVoiceLanguageOptions();
+  }
+
+  if (payload.stage === "error") {
+    ui.windowStatus.textContent = payload.message || t("settings.voiceModelDownloadFailed");
+  }
+
+  renderVoiceModelStatus(activeVoiceModelDownload.language);
+}
+
+async function downloadSelectedVoiceModel() {
+  const language = normalizeVoiceLanguage(ui.voiceLanguageSelect.value);
+  activeVoiceModelDownload = {
+    language,
+    stage: "started",
+    downloadedBytes: 0,
+    totalBytes: 0,
+    remainingBytes: 0,
+    speedBytesPerSecond: 0
+  };
+  renderVoiceModelStatus(language);
+
+  try {
+    const status = await invoke("download_voice_model", { language });
+    voiceModelStatuses.set(language, {
+      ...status,
+      language
+    });
+    syncVoiceModelRegistry();
+    renderVoiceLanguageOptions();
+    ui.windowStatus.textContent = t("settings.voiceModelDownloadComplete", {
+      language: getVoiceLanguageLabel(language)
+    });
+  } catch (error) {
+    console.error(error);
+    activeVoiceModelDownload = {
+      language,
+      stage: "error",
+      message: error?.message || String(error)
+    };
+    ui.windowStatus.textContent = t("settings.voiceModelDownloadFailed");
+  }
+
+  renderVoiceModelStatus(language);
 }
 
 function closeLanguageMenu() {
@@ -140,6 +356,10 @@ function updateAppearanceAvailability() {
   ui.voiceStyleGroup.classList.toggle("hidden", !isVoiceMode);
   ui.voiceStyleSelect.disabled = !isVoiceMode;
   ui.textColorInput.disabled = false;
+
+  if (isVoiceMode) {
+    renderVoiceModelStatus(ui.voiceLanguageSelect.value);
+  }
 }
 
 function updateRemoteModeUi() {
@@ -223,7 +443,7 @@ function fillForm() {
   ui.styleSelect.value = state.appearance?.style || defaultState.appearance.style;
   ui.themeSelect.value = state.appearance?.theme || defaultState.appearance.theme;
   
-  ui.voiceLanguageSelect.value = state.appearance?.voiceLanguage || "en-US";
+  ui.voiceLanguageSelect.value = normalizeVoiceLanguage(state.appearance?.voiceLanguage || "en-US");
   ui.voiceStyleSelect.value = state.appearance?.voiceScrollStyle || defaultState.appearance.voiceScrollStyle;
   ui.appWideVoiceCommandsInput.checked = Boolean(state.appearance?.appWideVoiceCommands);
   
@@ -246,6 +466,10 @@ function fillForm() {
   });
   applyTranslationsToDocument(ui.languageSelect.value);
   renderLanguagePicker(ui.languageSelect.value, ui.languageSelect.value);
+  renderVoiceLanguageOptions();
+  if (ui.modeSelect.value === "voice") {
+    renderVoiceModelStatus(ui.voiceLanguageSelect.value);
+  }
   isSyncingForm = false;
 }
 
@@ -469,6 +693,13 @@ window.addEventListener("DOMContentLoaded", async () => {
   fillForm();
   await applyDesktopSettings().catch(console.error);
   await refreshRemoteStatus();
+  await refreshVoiceModelStatuses();
+
+  if (tauriEvent?.listen) {
+    unlistenVoiceModelDownloads = await tauriEvent.listen("flow-voice-model-download", (event) => {
+      handleVoiceModelDownloadEvent(event.payload);
+    });
+  }
 
   [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
@@ -477,6 +708,13 @@ window.addEventListener("DOMContentLoaded", async () => {
   [ui.presetSelect, ui.modeSelect, ui.voiceLanguageSelect, ui.voiceStyleSelect, ui.fontSelect, ui.languageSelect, ui.themeSelect, ui.styleSelect, ui.textColorInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
+  });
+
+  ui.voiceLanguageSelect.addEventListener("change", () => {
+    renderVoiceModelStatus(ui.voiceLanguageSelect.value);
+  });
+  ui.voiceModelDownloadButton.addEventListener("click", () => {
+    downloadSelectedVoiceModel().catch(console.error);
   });
 
   ui.languageTrigger.addEventListener("click", () => {
@@ -546,23 +784,27 @@ window.addEventListener("DOMContentLoaded", async () => {
     await applyDesktopSettings().catch(console.error);
     await readCurrentWindow().catch(console.error);
     fillForm();
+    await refreshVoiceModelStatuses();
     await refreshRemoteStatus().catch(console.error);
   });
   window.addEventListener("storage", () => {
     Object.assign(state, loadState());
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
+    refreshVoiceModelStatuses().catch(console.error);
     applyDesktopSettings().catch(console.error);
   });
   window.addEventListener("flow-state-updated", () => {
     Object.assign(state, loadState());
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
+    refreshVoiceModelStatuses().catch(console.error);
     applyDesktopSettings().catch(console.error);
   });
   window.addEventListener("beforeunload", () => {
     if (remoteStatusTimer) {
       clearInterval(remoteStatusTimer);
     }
+    unlistenVoiceModelDownloads?.();
   });
 });

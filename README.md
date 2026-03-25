@@ -5,15 +5,15 @@
 <h1 align="center">Flow</h1>
 
 <p align="center">
-  A modern, high-performance teleprompter for Windows - built for clarity, control, and minimal overhead.
+  A Windows-first Tauri teleprompter built for clean reading, fast control, and low-overhead voice-assisted prompting.
 </p>
 
 <p align="center">
-  <strong>v1.0.2</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.1.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.2-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -22,8 +22,10 @@
 
 <p align="center">
   <img alt="Voice Commands" src="https://img.shields.io/badge/Voice-Hey%20Flow-7c3aed?style=for-the-badge" />
+  <img alt="Voice Tracking" src="https://img.shields.io/badge/Voice%20Tracking-6%20Languages-16a34a?style=for-the-badge" />
   <img alt="AI Drafting" src="https://img.shields.io/badge/AI-Groq-0ea5e9?style=for-the-badge" />
   <img alt="Remote Messaging" src="https://img.shields.io/badge/Remote-Messaging-10b981?style=for-the-badge" />
+  <img alt="Updater" src="https://img.shields.io/badge/Updates-Built%20In-f59e0b?style=for-the-badge" />
   <img alt="Status" src="https://img.shields.io/badge/status-active-22c55e?style=for-the-badge" />
 </p>
 
@@ -37,6 +39,17 @@
 - [Français](#français)
 - [Deutsch](#deutsch)
 - [Español](#español)
+
+---
+
+## New in v1.1.0
+
+- Multilingual Vosk voice tracking with on-demand model downloads for English, Turkish, Arabic, German, French, and Spanish
+- Settings model management with install state, progress, remaining download size, and transfer speed
+- Lower-latency voice capture and faster follow behavior during voice tracking
+- English app-wide `Hey Flow` commands that work outside voice-tracking mode
+- Clearer listening indicator and more stable wake-word flow
+- Persisted voice model locations and release-ready version metadata
 
 ---
 
@@ -64,13 +77,14 @@
 ## 🚀 Why Flow?
 
 Most teleprompters are either bloated or too minimal.  
-Flow is designed to stay fast, focused, and out of your way.
+Flow is designed to stay fast, focused, and out of your way while still covering live prompting, voice control, remote input, and quick script editing.
 
 - ⚡ Lightweight and responsive  
 - 🎯 Distraction-free reading  
-- 🎤 Voice-driven control (`Hey Flow`)  
+- 🎤 Voice-driven control and voice tracking  
 - 🧠 Optional AI-assisted scripting  
 - 📡 Remote message injection  
+- 🪟 Always-on-top Windows overlay built for real prompting sessions  
 
 ---
 
@@ -113,6 +127,7 @@ src-tauri/target/release/bundle
 - Highlight, scroll, line, arrow, and voice tracking modes  
 - Adjustable speed (WPM-based)  
 - Keyboard shortcuts and floating controls  
+- Single-line voice tracking movement for steadier follow behavior  
 
 ### Writing & Editing
 - Dedicated script editor  
@@ -121,7 +136,10 @@ src-tauri/target/release/bundle
 
 ### Voice & AI
 - Wake phrase: `Hey Flow`  
-- Voice commands for playback, navigation, window control, and quick app actions  
+- English app-wide voice commands for playback, navigation, window control, and quick app actions  
+- Voice tracking in English, Turkish, Arabic, German, French, and Spanish  
+- Downloadable Vosk models with install checks and live progress in Settings  
+- Faster voice follow behavior with lower recognition latency  
 - Optional Groq-powered drafting and rewriting  
 
 ### `Hey Flow` Commands
@@ -155,6 +173,7 @@ src-tauri/target/release/bundle
 - Click-through support  
 - Capture protection  
 - Theme, typography, and transparency controls  
+- Built-in installer update checks for published Windows releases  
 
 ---
 
@@ -169,6 +188,8 @@ Heavy usage may lead to temporary limits until the infrastructure is expanded.
 
 - Optimized for Windows  
 - AI features require a Groq API key  
+- Voice tracking uses bundled English plus downloadable Vosk models for other supported languages  
+- App-wide `Hey Flow` commands are currently English-only in v1.1.0  
 - API keys are stored locally  
 
 ---

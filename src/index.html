@@ -11,54 +11,39 @@
 
   <body data-page="teleprompter">
     <main class="teleprompter-app">
+      <div class="teleprompter-hover-trigger top-hover-trigger" aria-hidden="true"></div>
       <div class="teleprompter-toolbar">
-        <button class="icon-button" id="speedDownButton" data-i18n-title="common.slower" data-i18n-aria-label="common.slower" title="Slower" aria-label="Slower">−</button>
+        <button class="icon-button" id="speedDownButton" data-i18n-title="common.slower" data-i18n-aria-label="common.slower" title="Slower" aria-label="Slower"><i class="ph ph-minus" aria-hidden="true"></i></button>
         <label class="speed-pill speed-pill-label" for="speedLabel">
           <input class="speed-pill-input" id="speedLabel" type="number" min="60" max="360" step="10" value="120" readonly data-i18n-aria-label="common.speedAria" aria-label="Speed in words per minute" />
           <span class="speed-pill-unit" data-i18n="common.wpm">wpm</span>
         </label>
-        <button class="icon-button" id="speedUpButton" data-i18n-title="common.faster" data-i18n-aria-label="common.faster" title="Faster" aria-label="Faster">+</button>
+        <button class="icon-button" id="speedUpButton" data-i18n-title="common.faster" data-i18n-aria-label="common.faster" title="Faster" aria-label="Faster"><i class="ph ph-plus" aria-hidden="true"></i></button>
         <button class="icon-button wide-button" id="generateButton" data-i18n-title="common.generatePrompt" data-i18n-aria-label="common.generatePrompt" title="Generate prompt" aria-label="Generate prompt" data-i18n="common.ai">AI</button>
-        <button class="icon-button" id="playButton" data-i18n-title="common.play" data-i18n-aria-label="common.play" title="Play" aria-label="Play">▶</button>
-        <button class="icon-button" id="inputButton" data-i18n-title="common.openTextPage" data-i18n-aria-label="common.openTextPage" title="Open text page" aria-label="Open text page">✎</button>
-        <button class="icon-button" id="settingsButton" data-i18n-title="common.openSettings" data-i18n-aria-label="common.openSettings" title="Open settings" aria-label="Open settings">⚙</button>
-        <button class="icon-button" id="closeAppButton" data-i18n-title="common.closeApp" data-i18n-aria-label="common.closeApp" title="Close app" aria-label="Close app">✕</button>
+        <button class="icon-button" id="playButton" data-i18n-title="common.play" data-i18n-aria-label="common.play" title="Play" aria-label="Play"><i class="ph ph-play" aria-hidden="true"></i></button>
+        <button class="icon-button" id="inputButton" data-i18n-title="common.openTextPage" data-i18n-aria-label="common.openTextPage" title="Open text page" aria-label="Open text page"><i class="ph ph-note-pencil" aria-hidden="true"></i></button>
+        <button class="icon-button" id="settingsButton" data-i18n-title="common.openSettings" data-i18n-aria-label="common.openSettings" title="Open settings" aria-label="Open settings"><i class="ph ph-gear-six" aria-hidden="true"></i></button>
+        <button class="icon-button" id="closeAppButton" data-i18n-title="common.closeApp" data-i18n-aria-label="common.closeApp" title="Close app" aria-label="Close app"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
 
       <div class="floating-controls hidden" id="floatingControls">
-        <button class="floating-action hidden" id="floatingReplayButton" data-i18n-title="common.replayStart" data-i18n-aria-label="common.replayStart" title="Replay from start" aria-label="Replay from start">↺</button>
+        <button class="floating-action floating-pause" id="floatingPauseButton" data-i18n-title="common.pause" data-i18n-aria-label="common.pause" title="Pause" aria-label="Pause"><i class="ph ph-pause-circle" aria-hidden="true"></i></button>
         <span class="floating-playback-meta hidden" id="floatingPlaybackMeta" aria-live="polite">0 left · 0 min left</span>
-        <button class="floating-action floating-pause" id="floatingPauseButton" data-i18n-title="common.pause" data-i18n-aria-label="common.pause" title="Pause" aria-label="Pause">⏸</button>
-        <button class="floating-action floating-stop" id="floatingStopButton" data-i18n-title="common.stopKeep" data-i18n-aria-label="common.stopKeep" title="Stop and keep position" aria-label="Stop and keep position">■</button>
+        <button class="floating-action floating-stop" id="floatingStopButton" data-i18n-title="common.stopKeep" data-i18n-aria-label="common.stopKeep" title="Stop and keep position" aria-label="Stop and keep position"><i class="ph ph-stop-circle" aria-hidden="true"></i></button>
+        <button class="floating-action hidden" id="floatingReplayButton" data-i18n-title="common.replayStart" data-i18n-aria-label="common.replayStart" title="Replay from start" aria-label="Replay from start"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
       </div>
 
       <div class="teleprompter-stage">
         <div class="teleprompter-viewport" id="promptViewport">
           <div class="teleprompter-copy" id="promptText"></div>
         </div>
+        <div class="playback-countdown" id="playbackCountdown" aria-hidden="true">
+          <span class="playback-countdown-label" id="playbackCountdownLabel">3</span>
+        </div>
 
         <div class="drag-overlay hidden" id="dragOverlay">
           <div class="drag-handle" data-tauri-drag-region>
-            <svg viewBox="0 0 60 18" class="drag-icon" aria-hidden="true" focusable="false" style="pointer-events: none;">
-              <circle cx="6" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="12" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="18" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="24" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="30" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="36" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="42" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="48" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="54" cy="6" r="1.2" fill="currentColor"></circle>
-              <circle cx="6" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="12" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="18" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="24" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="30" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="36" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="42" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="48" cy="12" r="1.2" fill="currentColor"></circle>
-              <circle cx="54" cy="12" r="1.2" fill="currentColor"></circle>
-            </svg>
+            <i class="ph ph-dots-six drag-icon" aria-hidden="true"></i>
           </div>
         </div>
       </div>
@@ -73,11 +58,9 @@
             </span>
           </div>
           <div class="footer-actions" style="display: flex; gap: 8px; align-items: center;">
-            <button class="icon-button pin-button-active hidden" id="pinButton" data-i18n-title="common.unpinWindow" data-i18n-aria-label="common.unpinWindow" title="Unpin window" aria-label="Unpin window">📌</button>
+            <button class="icon-button pin-button-active hidden" id="pinButton" data-i18n-title="common.unpinWindow" data-i18n-aria-label="common.unpinWindow" title="Unpin window" aria-label="Unpin window"><i class="ph ph-push-pin" aria-hidden="true"></i></button>
             <button class="collapse-toggle" id="collapseButton" data-i18n-title="common.collapse" data-i18n-aria-label="common.collapse" title="Collapse teleprompter" aria-label="Collapse teleprompter">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M6 9.5 12 15.5 18 9.5" />
-              </svg>
+              <i class="ph ph-caret-down" aria-hidden="true"></i>
             </button>
           </div>
         </div>

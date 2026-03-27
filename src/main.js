@@ -18,12 +18,28 @@ import {
   VOICE_LANGUAGE_OPTIONS
 } from "./shared.js";
 
+function setButtonIcon(element, iconClassName) {
+  const icon = element?.querySelector(".ph");
+  if (!icon) {
+    return;
+  }
+
+  icon.className = `ph ${iconClassName}`;
+  icon.setAttribute("aria-hidden", "true");
+}
+
 
 // Configuration constants
 const MIN_WIDTH = 400;
 const MIN_HEIGHT = 200;
 const COLLAPSED_HEIGHT = 56;
 const COLLAPSE_DURATION = 420;
+const PLAYBACK_COUNTDOWN_STEPS = ["3", "2", "1"];
+const PLAYBACK_COUNTDOWN_BASE_STEP_MS = 860;
+const PLAYBACK_COUNTDOWN_FASTEST_STEP_MS = 620;
+const PLAYBACK_COUNTDOWN_SPEED_MIN = 60;
+const PLAYBACK_COUNTDOWN_SPEED_MAX = 360;
+const PLAYBACK_COUNTDOWN_SETTLE_MS = 500;
 const TOP_CENTER_X_OFFSET = 32;
 const VOICE_WORD_VIEWPORT_OFFSET = 0.42;
 const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
@@ -134,6 +150,8 @@ let lastVoiceCommandKey = "";
 let lastVoiceCommandAt = 0;
 let lastVoiceCommandAction = "";
 let lastVoiceCommandActionAt = 0;
+let playbackCountdownToken = 0;
+let isPlaybackCountdownActive = false;
 let isVoiceCommandRecognitionStarting = false;
 let isVoiceCommandRecognitionBlocked = false;
 let voiceCommandTranscript = "";
@@ -174,6 +192,8 @@ let lastAppliedViewportTop = null;
 let lastResponsiveFontSize = 0;
 let lastResponsiveViewportWidth = 0;
 let lastResponsiveViewportHeight = 0;
+let frozenReadingViewportWidth = 0;
+let frozenReadingViewportHeight = 0;
 const voiceModelStatusCache = new Map();
 const voiceCaptureWorkletModulePromises = new WeakMap();
 
@@ -432,8 +452,13 @@ function t(key, params = {}) {
 }
 
 function cacheUi() {
+  ui.teleprompterApp = document.querySelector(".teleprompter-app");
+  ui.teleprompterToolbar = document.querySelector(".teleprompter-toolbar");
+  ui.teleprompterFooter = document.querySelector("#teleprompterFooter");
   ui.promptViewport = document.querySelector("#promptViewport");
   ui.promptText = document.querySelector("#promptText");
+  ui.playbackCountdown = document.querySelector("#playbackCountdown");
+  ui.playbackCountdownLabel = document.querySelector("#playbackCountdownLabel");
   ui.progressLabel = document.querySelector("#progressLabel");
   ui.statusLabel = document.querySelector("#statusLabel");
   ui.footerMeta = document.querySelector("#footerMeta");
@@ -473,7 +498,7 @@ function updateDragControls() {
 
   if (ui.pinButton) {
     ui.pinButton.classList.toggle("hidden", !isFreeDrag);
-    ui.pinButton.textContent = isPinned ? "📌" : "📍";
+    setButtonIcon(ui.pinButton, isPinned ? "ph-push-pin" : "ph-map-pin");
     ui.pinButton.title = pinLabel;
     ui.pinButton.setAttribute("aria-label", pinLabel);
   }
@@ -766,6 +791,11 @@ function refreshPromptViewportMetrics() {
   return cachedPromptScrollableHeight;
 }
 
+function syncPromptLayout() {
+  refreshPromptViewportMetrics();
+  rebuildLineMap();
+}
+
 function getCachedPromptScrollableHeight() {
   if (!cachedPromptViewportHeight && ui.promptViewport) {
     return refreshPromptViewportMetrics();
@@ -781,12 +811,97 @@ function updateCollapseButton() {
 }
 
 function setReadingMode(enabled) {
+  if (enabled) {
+    refreshPromptViewportMetrics();
+    frozenReadingViewportWidth = cachedPromptViewportWidth;
+    frozenReadingViewportHeight = cachedPromptViewportHeight;
+  } else {
+    frozenReadingViewportWidth = 0;
+    frozenReadingViewportHeight = 0;
+  }
+
   document.body.classList.toggle("reading-mode", enabled);
   ui.floatingControls.classList.toggle("hidden", !enabled);
 
   if (!enabled) {
     ui.floatingPlaybackMeta?.classList.add("hidden");
   }
+}
+
+function setPlaybackCountdownVisible(visible, label = "") {
+  if (!ui.playbackCountdown || !ui.playbackCountdownLabel) {
+    return;
+  }
+
+  document.body.classList.toggle("playback-countdown-active", visible);
+  ui.playbackCountdown.dataset.visible = visible ? "true" : "false";
+  ui.playbackCountdown.setAttribute("aria-hidden", visible ? "false" : "true");
+
+  if (!visible) {
+    ui.playbackCountdownLabel.textContent = "";
+    ui.playbackCountdownLabel.classList.remove("is-animating");
+    return;
+  }
+
+  ui.playbackCountdownLabel.textContent = label;
+}
+
+function getPlaybackCountdownStepMs() {
+  const currentSpeed = clamp(
+    Number(state.speed) || defaultState.speed,
+    PLAYBACK_COUNTDOWN_SPEED_MIN,
+    PLAYBACK_COUNTDOWN_SPEED_MAX
+  );
+  const speedProgress =
+    (currentSpeed - PLAYBACK_COUNTDOWN_SPEED_MIN) /
+    (PLAYBACK_COUNTDOWN_SPEED_MAX - PLAYBACK_COUNTDOWN_SPEED_MIN);
+
+  return Math.round(
+    PLAYBACK_COUNTDOWN_BASE_STEP_MS -
+      speedProgress * (PLAYBACK_COUNTDOWN_BASE_STEP_MS - PLAYBACK_COUNTDOWN_FASTEST_STEP_MS)
+  );
+}
+
+async function runPlaybackCountdown() {
+  if (!ui.playbackCountdown || !ui.playbackCountdownLabel) {
+    return true;
+  }
+
+  const token = ++playbackCountdownToken;
+  const countdownStepMs = getPlaybackCountdownStepMs();
+  isPlaybackCountdownActive = true;
+  ui.playbackCountdownLabel.style.setProperty("--playback-countdown-step-duration", `${countdownStepMs}ms`);
+  setPlaybackCountdownVisible(true, PLAYBACK_COUNTDOWN_STEPS[0]);
+
+  for (const step of PLAYBACK_COUNTDOWN_STEPS) {
+    if (token !== playbackCountdownToken) {
+      setPlaybackCountdownVisible(false);
+      isPlaybackCountdownActive = false;
+      return false;
+    }
+
+    ui.playbackCountdownLabel.textContent = step;
+    ui.playbackCountdownLabel.classList.remove("is-animating");
+    void ui.playbackCountdownLabel.offsetWidth;
+    ui.playbackCountdownLabel.classList.add("is-animating");
+    await wait(countdownStepMs);
+  }
+
+  if (token !== playbackCountdownToken) {
+    setPlaybackCountdownVisible(false);
+    isPlaybackCountdownActive = false;
+    return false;
+  }
+
+  setPlaybackCountdownVisible(false);
+  isPlaybackCountdownActive = false;
+  return true;
+}
+
+async function waitForPlaybackCountdownSettle() {
+  const token = playbackCountdownToken;
+  await wait(PLAYBACK_COUNTDOWN_SETTLE_MS);
+  return token === playbackCountdownToken;
 }
 
 function formatMinutesLeft(wordCount, speed) {
@@ -822,20 +937,29 @@ function updateFloatingPlaybackMeta() {
   });
 }
 
+function getPlaybackViewportOffset(defaultOffset, voiceOffset) {
+  if (document.body.classList.contains("reading-mode")) {
+    return 0;
+  }
+
+  return getActiveMode() === "voice" ? voiceOffset : defaultOffset;
+}
+
 function updatePlayButtons() {
   const isResume = currentIndex > 0 && currentIndex < Math.max(wordNodes.length - 1, 0);
-  ui.playButton.textContent = isResume ? "⏵" : "▶";
+  setButtonIcon(ui.playButton, "ph-play");
   ui.playButton.title = isResume ? t("common.continue") : t("common.play");
   ui.playButton.setAttribute("aria-label", ui.playButton.title);
 
   const pauseLabel = isPaused ? t("common.continue") : t("common.pause");
-  ui.floatingPauseButton.textContent = isPaused ? "▶" : "⏸";
+  setButtonIcon(ui.floatingPauseButton, isPaused ? "ph-play-circle" : "ph-pause-circle");
   ui.floatingPauseButton.title = pauseLabel;
   ui.floatingPauseButton.setAttribute("aria-label", pauseLabel);
   ui.floatingPauseButton.disabled = !isPlaying && !isPaused;
 
   ui.floatingReplayButton.title = t("common.replayStart");
   ui.floatingReplayButton.setAttribute("aria-label", ui.floatingReplayButton.title);
+  setButtonIcon(ui.floatingStopButton, "ph-stop-circle");
   ui.floatingStopButton.title = t("common.stopKeep");
   ui.floatingStopButton.setAttribute("aria-label", ui.floatingStopButton.title);
 
@@ -960,6 +1084,7 @@ async function setCollapsed(nextValue) {
     document.body.classList.add("teleprompter-expanding");
     document.body.classList.remove("teleprompter-collapsed", "teleprompter-collapsing");
     await animateWindowHeight(expandedHeight);
+    await applyStoredWindowSettings();
     document.body.classList.remove("teleprompter-expanding");
   }
 
@@ -1016,14 +1141,29 @@ function scheduleLineMapRebuild() {
 function applyResponsiveText() {
   refreshPromptViewportMetrics();
 
-  const widthSize = cachedPromptViewportWidth * 0.11;
-  const heightSize = cachedPromptViewportHeight * 0.18;
+  const basisWidth = document.body.classList.contains("reading-mode") && frozenReadingViewportWidth
+    ? frozenReadingViewportWidth
+    : cachedPromptViewportWidth;
+  let basisHeight = document.body.classList.contains("reading-mode") && frozenReadingViewportHeight
+    ? frozenReadingViewportHeight
+    : cachedPromptViewportHeight;
+
+  if (!document.body.classList.contains("reading-mode") && state.appearance?.autoHideToolbar && ui.teleprompterApp) {
+    const appHeight = ui.teleprompterApp.clientHeight || cachedPromptViewportHeight;
+    const footerHeight = ui.teleprompterFooter?.offsetHeight || 0;
+    const reservedToolbarHeight = Math.max(ui.teleprompterToolbar?.offsetHeight || 0, 60);
+    const reservedGapHeight = 16;
+    basisHeight = Math.max(appHeight - footerHeight - reservedToolbarHeight - reservedGapHeight, 0);
+  }
+
+  const widthSize = basisWidth * 0.11;
+  const heightSize = basisHeight * 0.18;
   const baseSize = clamp(Math.min(widthSize, heightSize), 28, 120);
   const scale = (state.appearance?.textScale || defaultState.appearance.textScale) / 100;
   const computed = clamp(baseSize * scale, 20, 180);
 
-  const viewportChanged = cachedPromptViewportWidth !== lastResponsiveViewportWidth
-    || cachedPromptViewportHeight !== lastResponsiveViewportHeight;
+  const viewportChanged = basisWidth !== lastResponsiveViewportWidth
+    || basisHeight !== lastResponsiveViewportHeight;
 
   if (!viewportChanged && computed === lastResponsiveFontSize) {
     return;
@@ -1031,8 +1171,8 @@ function applyResponsiveText() {
 
   document.documentElement.style.setProperty("--teleprompter-font-size", `${computed}px`);
   lastResponsiveFontSize = computed;
-  lastResponsiveViewportWidth = cachedPromptViewportWidth;
-  lastResponsiveViewportHeight = cachedPromptViewportHeight;
+  lastResponsiveViewportWidth = basisWidth;
+  lastResponsiveViewportHeight = basisHeight;
   scheduleLineMapRebuild();
 }
 
@@ -1488,7 +1628,7 @@ function renderLineState(mode) {
 
 function scrollToNode(node) {
   if (!node) return;
-  const viewportOffset = getActiveMode() === "voice" ? VOICE_WORD_VIEWPORT_OFFSET : 0.32;
+  const viewportOffset = getPlaybackViewportOffset(0.32, VOICE_WORD_VIEWPORT_OFFSET);
   const top = node.offsetTop - ui.promptViewport.clientHeight * viewportOffset;
   const nextTop = Math.max(top, 0);
 
@@ -1577,7 +1717,7 @@ function setViewportPosition(top, behavior = "auto") {
 function scrollToLine(lineIndex) {
   const line = lineGroups[lineIndex];
   if (!line) return;
-  const viewportOffset = getActiveMode() === "voice" ? VOICE_LINE_VIEWPORT_OFFSET : 0.28;
+  const viewportOffset = getPlaybackViewportOffset(0.28, VOICE_LINE_VIEWPORT_OFFSET);
   const top = line.top - ui.promptViewport.clientHeight * viewportOffset;
   const nextTop = Math.max(top, 0);
 
@@ -1596,7 +1736,7 @@ function getLineTargetTop(lineIndex) {
   }
 
   const viewportHeight = cachedPromptViewportHeight || ui.promptViewport.clientHeight;
-  return Math.max(line.top - viewportHeight * 0.28, 0);
+  return Math.max(line.top - viewportHeight * getPlaybackViewportOffset(0.28, VOICE_LINE_VIEWPORT_OFFSET), 0);
 }
 
 function updateWordState(shouldScroll = true) {
@@ -1675,6 +1815,9 @@ function clearPlayback() {
 }
 
 function stopPlayback(reset = true) {
+  playbackCountdownToken += 1;
+  isPlaybackCountdownActive = false;
+  setPlaybackCountdownVisible(false);
   isPlaying = false;
   isPaused = false;
   setReadingMode(false);
@@ -1716,12 +1859,22 @@ function pausePlayback() {
   return true;
 }
 
-function resumePlayback() {
+async function resumePlayback() {
   if (!isPlaying || !isPaused) {
     return false;
   }
 
   const activeMode = getActiveMode();
+  const countdownCompleted = await runPlaybackCountdown();
+  if (!countdownCompleted) {
+    return false;
+  }
+
+  const settleCompleted = await waitForPlaybackCountdownSettle();
+  if (!settleCompleted) {
+    return false;
+  }
+
   isPaused = false;
 
   if (activeMode === "scroll") {
@@ -1839,6 +1992,7 @@ function beginArrowMode() {
   isPlaying = true;
   isPaused = false;
   setReadingMode(true);
+  syncPromptLayout();
   updateWordState(true);
 }
 
@@ -3883,6 +4037,7 @@ async function startVoiceTracking() {
 function playVoiceMode() {
   voiceTranscript = "";
   resetVoiceCommandTranscript();
+  syncPromptLayout();
   updateWordState(true);
   if (ui.statusLabel) ui.statusLabel.textContent = "\u{1F3A4} Listening...";
 
@@ -3897,7 +4052,7 @@ function playVoiceMode() {
   });
 }
 
-function play() {
+async function play() {
   if (wordNodes.length === 0) return;
   const activeMode = getActiveMode();
 
@@ -3911,8 +4066,19 @@ function play() {
   isPlaying = true;
   isPaused = false;
   setReadingMode(true);
+  syncPromptLayout();
   lastStatusUpdateAt = 0;
   updatePlayButtons();
+
+  const countdownCompleted = await runPlaybackCountdown();
+  if (!countdownCompleted) {
+    return;
+  }
+
+  const settleCompleted = await waitForPlaybackCountdownSettle();
+  if (!settleCompleted) {
+    return;
+  }
 
   if (activeMode === "arrow") {
     beginArrowMode();
@@ -4243,8 +4409,12 @@ function togglePause() {
     return;
   }
 
+  if (isPlaybackCountdownActive) {
+    return;
+  }
+
   if (isPaused) {
-    resumePlayback();
+    resumePlayback().catch(console.error);
   } else {
     pausePlayback();
   }
@@ -4664,6 +4834,11 @@ async function applyStoredWindowSettings() {
   const appWindow = tauriWindow.getCurrentWindow();
   state.window.width = Math.max(state.window.width || defaultState.window.width, MIN_WIDTH);
   state.window.height = Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT);
+
+  if (isCollapsed) {
+    return;
+  }
+
   await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width, state.window.height));
   currentWindowHeight = state.window.height;
 

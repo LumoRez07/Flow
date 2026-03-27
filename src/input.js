@@ -6,6 +6,8 @@ const tauriWindow = window.__TAURI__?.window;
 const state = loadState();
 
 const ui = {
+  inputSectionSelect: document.querySelector("#inputSectionSelect"),
+  inputSections: document.querySelectorAll("[data-input-section]"),
   scriptEditorCard: document.querySelector("#scriptEditorCard"),
   scriptInput: document.querySelector("#scriptInput"),
   scriptMeta: document.querySelector("#scriptMeta"),
@@ -66,6 +68,22 @@ function refreshMeta() {
 
 function setImportStatus(key, params = {}) {
   ui.importStatus.textContent = t(key, params);
+}
+
+function setActiveInputSection(section = ui.inputSectionSelect?.value || "editor") {
+  const activeSection = String(section || "editor");
+
+  if (ui.inputSectionSelect) {
+    ui.inputSectionSelect.value = activeSection;
+  }
+
+  ui.inputSections.forEach((element) => {
+    const selected = element.dataset.inputSection === activeSection;
+    element.classList.toggle("hidden", !selected);
+    element.setAttribute("aria-hidden", selected ? "false" : "true");
+  });
+
+  document.querySelector(".page-shell")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function persist() {
@@ -417,7 +435,15 @@ async function useGroq() {
 
 window.addEventListener("DOMContentLoaded", () => {
   syncFromStorage();
+  setActiveInputSection(ui.inputSectionSelect?.value || "editor");
   registerNativeFileDrop().catch(console.error);
+
+  ui.inputSectionSelect?.addEventListener("input", () => {
+    setActiveInputSection(ui.inputSectionSelect.value);
+  });
+  ui.inputSectionSelect?.addEventListener("change", () => {
+    setActiveInputSection(ui.inputSectionSelect.value);
+  });
 
   ui.formatButtons.forEach((button) => {
     button.addEventListener("click", () => {

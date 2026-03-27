@@ -16,12 +16,26 @@
             <h1 data-i18n="settings.title">Live controls</h1>
           </div>
           <div class="page-actions">
-            <button class="mini-link" id="openTextButton" type="button" data-i18n="common.text">Text</button>
-            <button class="mini-link" id="closeWindowButton" type="button" data-i18n="common.close">Close</button>
+            <button class="mini-link" id="openTextButton" type="button"><span class="button-label-content"><i class="ph ph-note-pencil" aria-hidden="true"></i><span data-i18n="common.text">Text</span></span></button>
+            <button class="mini-link" id="closeWindowButton" type="button"><span class="button-label-content"><i class="ph ph-x" aria-hidden="true"></i><span data-i18n="common.close">Close</span></span></button>
           </div>
         </div>
 
-        <div class="settings-group">
+        <div class="settings-section-picker">
+          <div class="settings-section-picker-copy">
+            <p class="page-kicker" data-i18n="settings.section">Section</p>
+            <h2 class="settings-section-picker-title" data-i18n="settings.sectionTitle">Browse settings</h2>
+          </div>
+          <select id="settingsSectionSelect" class="page-input settings-section-select">
+            <option value="remote" data-i18n="settings.section.remote">Remote</option>
+            <option value="positioning" data-i18n="settings.section.positioning">Positioning</option>
+            <option value="appearance" data-i18n="settings.section.appearance">Appearance</option>
+            <option value="privacy" data-i18n="settings.section.privacy">Privacy & system</option>
+            <option value="usability" data-i18n="settings.section.usability">Usability</option>
+          </select>
+        </div>
+
+        <div class="settings-group" data-settings-section="remote">
           <div>
             <p class="page-kicker" data-i18n="settings.remoteInjection">Remote injection</p>
             <h2 data-i18n="settings.remoteSession">Live receiver session</h2>
@@ -36,7 +50,7 @@
               <span class="remote-session-label" data-i18n="settings.remoteUuid">Active UUID</span>
               <div class="remote-session-row">
                 <span class="remote-session-value" id="remoteSessionId" data-i18n="common.loading">Loading…</span>
-                <button class="mini-link copy-chip" id="copySessionIdButton" type="button" data-i18n="common.copy">Copy</button>
+                <button class="mini-link copy-chip" id="copySessionIdButton" type="button"><span class="button-label-content"><i class="ph ph-copy-simple" aria-hidden="true"></i><span data-i18n="common.copy">Copy</span></span></button>
               </div>
             </div>
 
@@ -44,7 +58,7 @@
               <span class="remote-session-label" data-i18n="settings.remoteAccessPassword">Access password</span>
               <div class="remote-session-row remote-link-row remote-access-row">
                 <textarea id="remoteAccessPasswordInput" class="page-textarea small-textarea remote-access-box" readonly></textarea>
-                <button class="mini-link copy-chip" id="copyAccessPasswordButton" type="button" data-i18n="common.copy">Copy</button>
+                <button class="mini-link copy-chip" id="copyAccessPasswordButton" type="button"><span class="button-label-content"><i class="ph ph-copy-simple" aria-hidden="true"></i><span data-i18n="common.copy">Copy</span></span></button>
               </div>
             </div>
 
@@ -52,7 +66,7 @@
               <span class="remote-session-label" data-i18n="settings.remoteSenderPage">Sender page</span>
               <div class="remote-session-row remote-link-row">
                 <a class="remote-session-link" id="remoteSenderUrl" href="#" target="_blank" rel="noreferrer" data-i18n="common.loading">Loading…</a>
-                <button class="mini-link copy-chip" id="copySenderUrlButton" type="button" data-i18n="common.copyLink">Copy link</button>
+                <button class="mini-link copy-chip" id="copySenderUrlButton" type="button"><span class="button-label-content"><i class="ph ph-link-simple" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
               </div>
             </div>
           </div>
@@ -63,7 +77,7 @@
           </div>
         </div>
 
-        <div class="settings-group">
+        <div class="settings-group hidden" data-settings-section="positioning">
           <div>
             <p class="page-kicker" data-i18n="settings.positioning">Positioning</p>
             <h2 data-i18n="settings.windowPlacement">Window placement</h2>
@@ -96,7 +110,7 @@
           </div>
         </div>
 
-        <div class="settings-group">
+        <div class="settings-group hidden" data-settings-section="appearance">
           <div>
             <p class="page-kicker" data-i18n="settings.appearance">Appearance</p>
             <h2 data-i18n="settings.sizeAndPlayback">Size and playback style</h2>
@@ -180,21 +194,6 @@
               </select>
             </div>
 
-            <label class="toggle-field" for="appWideVoiceCommandsInput">
-              <span>
-                <strong data-i18n="settings.appWideVoiceCommands">App-wide Flow voice commands</strong>
-                <small class="toggle-help" data-i18n="settings.appWideVoiceCommandsHelp">Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too.</small>
-              </span>
-              <input id="appWideVoiceCommandsInput" class="toggle-input" type="checkbox" />
-            </label>
-
-            <label class="toggle-field" for="performanceModeInput">
-              <span>
-                <span class="field-label inline-label" data-i18n="settings.performance">Performance mode</span>
-                <span class="helper-text toggle-help" data-i18n="settings.performanceHelp">Disables UI animations and forces normal scrolling for smoother performance.</span>
-              </span>
-              <input id="performanceModeInput" class="toggle-input" type="checkbox" />
-            </label>
           </div>
 
           <div class="settings-subgroup">
@@ -205,13 +204,20 @@
             <label class="field-label" for="fontSelect" data-i18n="settings.font">Font</label>
             <select id="fontSelect" class="page-input">
               <option value="inter">Inter</option>
+              <option value="space-grotesk">Space Grotesk</option>
+              <option value="outfit">Outfit</option>
+              <option value="english-pro">English Pro</option>
+              <option value="dutch-pro">Dutch Pro</option>
               <option value="arabic-pro">Arabic Pro</option>
               <option value="turkish-pro">Turkish Pro</option>
               <option value="german-pro">German Pro</option>
               <option value="system">System UI</option>
+              <option value="merriweather">Merriweather</option>
+              <option value="source-serif">Source Serif 4</option>
               <option value="georgia">Georgia</option>
               <option value="garamond">Garamond</option>
               <option value="verdana">Verdana</option>
+              <option value="jetbrains-mono">JetBrains Mono</option>
               <option value="mono">Mono</option>
             </select>
 
@@ -226,7 +232,7 @@
               <button class="language-trigger" id="languageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
                 <span class="language-flag" id="languageTriggerFlag" data-flag="en" aria-hidden="true"></span>
                 <span class="language-trigger-label" id="languageTriggerLabel">English</span>
-                <span class="language-trigger-caret" aria-hidden="true">▾</span>
+                <i class="ph ph-caret-down language-trigger-caret" aria-hidden="true"></i>
               </button>
               <div class="language-menu hidden" id="languageMenu" role="listbox">
                 <button class="language-option" type="button" data-value="en" role="option">
@@ -288,6 +294,14 @@
               </label>
             </div>
 
+            <label class="toggle-field" for="autoHideToolbarInput">
+              <span>
+                <span class="field-label inline-label" data-i18n="settings.autoHideToolbar">Auto-hide top bar</span>
+                <span class="helper-text toggle-help" data-i18n="settings.autoHideToolbarHelp">Shows a small top handle and reveals the toolbar only while the teleprompter is hovered.</span>
+              </span>
+              <input id="autoHideToolbarInput" class="toggle-input" type="checkbox" />
+            </label>
+
             <div class="group-grid settings-subgroup-grid">
               <label class="slider-field">
                 <span class="slider-header">
@@ -308,11 +322,27 @@
           </div>
         </div>
 
-        <div class="settings-group">
+        <div class="settings-group hidden" data-settings-section="privacy">
           <div>
             <p class="page-kicker" data-i18n="settings.privacy">Privacy & system</p>
             <h2 data-i18n="settings.desktopBehavior">Desktop behavior</h2>
           </div>
+
+          <label class="toggle-field" for="appWideVoiceCommandsInput">
+            <span>
+              <strong data-i18n="settings.appWideVoiceCommands">App-wide Flow voice commands</strong>
+              <small class="toggle-help" data-i18n="settings.appWideVoiceCommandsHelp">Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too.</small>
+            </span>
+            <input id="appWideVoiceCommandsInput" class="toggle-input" type="checkbox" />
+          </label>
+
+          <label class="toggle-field" for="performanceModeInput">
+            <span>
+              <span class="field-label inline-label" data-i18n="settings.performance">Performance mode</span>
+              <span class="helper-text toggle-help" data-i18n="settings.performanceHelp">Disables UI animations and forces normal scrolling for smoother performance.</span>
+            </span>
+            <input id="performanceModeInput" class="toggle-input" type="checkbox" />
+          </label>
 
           <label class="toggle-field" for="hideFromCaptureInput">
             <span>
@@ -339,7 +369,7 @@
           </label>
         </div>
 
-        <div class="settings-group">
+        <div class="settings-group hidden" data-settings-section="usability">
           <div>
             <p class="page-kicker" data-i18n="settings.usability">Usability</p>
             <h2 data-i18n="settings.shortcuts">Keyboard shortcuts</h2>

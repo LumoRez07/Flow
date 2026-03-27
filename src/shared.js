@@ -30,6 +30,7 @@ export const defaultState = {
     fontFamily: "inter",
     theme: "main",
     style: "main",
+    autoHideToolbar: false,
     performanceMode: false,
     appOpacity: 100,
     textScale: 100,
@@ -62,13 +63,20 @@ export const VOICE_LANGUAGE_OPTIONS = [
 
 export const FONT_OPTIONS = [
   { value: "inter", label: "Inter" },
+  { value: "space-grotesk", label: "Space Grotesk" },
+  { value: "outfit", label: "Outfit" },
+  { value: "english-pro", label: "English Pro" },
+  { value: "dutch-pro", label: "Dutch Pro" },
   { value: "arabic-pro", label: "Arabic Pro" },
   { value: "turkish-pro", label: "Turkish Pro" },
   { value: "german-pro", label: "German Pro" },
   { value: "system", label: "System UI" },
+  { value: "merriweather", label: "Merriweather" },
+  { value: "source-serif", label: "Source Serif 4" },
   { value: "georgia", label: "Georgia" },
   { value: "garamond", label: "Garamond" },
   { value: "verdana", label: "Verdana" },
+  { value: "jetbrains-mono", label: "JetBrains Mono" },
   { value: "mono", label: "Mono" }
 ];
 
@@ -150,6 +158,13 @@ const UI_STRINGS = {
     "tele.failedCloseApp": "Failed to close app: {error}",
     "settings.kicker": "Settings",
     "settings.title": "Live controls",
+    "settings.section": "Section",
+    "settings.sectionTitle": "Browse settings",
+    "settings.section.remote": "Remote",
+    "settings.section.positioning": "Positioning",
+    "settings.section.appearance": "Appearance",
+    "settings.section.privacy": "Privacy & system",
+    "settings.section.usability": "Usability",
     "settings.positioning": "Positioning",
     "settings.windowPlacement": "Window placement",
     "settings.windowLocation": "Window location",
@@ -235,6 +250,8 @@ const UI_STRINGS = {
     "settings.voiceModelDownloadFailed": "Could not download the selected Vosk model.",
     "settings.performance": "Performance mode",
     "settings.performanceHelp": "Disables UI animations and forces normal scrolling for smoother performance.",
+    "settings.autoHideToolbar": "Auto-hide top bar",
+    "settings.autoHideToolbarHelp": "Shows a small top handle and reveals the toolbar only while the teleprompter is hovered.",
     "settings.textColor": "Text color",
     "settings.textTransparency": "Text transparency",
     "settings.appTransparency": "App transparency",
@@ -243,6 +260,10 @@ const UI_STRINGS = {
     "settings.autoApply": "Changes apply automatically as you move sliders or pick a setting.",
     "input.kicker": "New text",
     "input.title": "Script editor",
+    "input.section": "Section",
+    "input.sectionTitle": "Choose editor panel",
+    "input.section.editor": "Editor",
+    "input.section.assistant": "Groq assistant",
     "input.teleprompterText": "Teleprompter text",
     "input.toolbar": "Formatting toolbar",
     "input.scriptPlaceholder": "Paste or write your script here...",
@@ -335,6 +356,13 @@ const UI_STRINGS = {
     "tele.failedCloseApp": "Uygulama kapatılamadı: {error}",
     "settings.kicker": "Ayarlar",
     "settings.title": "Canlı kontroller",
+    "settings.section": "Bölüm",
+    "settings.sectionTitle": "Ayarlara göz at",
+    "settings.section.remote": "Uzak",
+    "settings.section.positioning": "Konum",
+    "settings.section.appearance": "Görünüm",
+    "settings.section.privacy": "Gizlilik ve sistem",
+    "settings.section.usability": "Kullanılabilirlik",
     "settings.positioning": "Konumlandırma",
     "settings.windowPlacement": "Pencere yerleşimi",
     "settings.windowLocation": "Pencere konumu",
@@ -398,6 +426,8 @@ const UI_STRINGS = {
     "settings.voiceModelDownloadFailed": "Seçilen Vosk modeli indirilemedi.",
     "settings.performance": "Performans modu",
     "settings.performanceHelp": "Daha akıcı performans için arayüz animasyonlarını kapatır ve normal kaydırmayı zorlar.",
+    "settings.autoHideToolbar": "Üst çubuğu otomatik gizle",
+    "settings.autoHideToolbarHelp": "Üstte küçük bir tutamak gösterir ve araç çubuğunu yalnızca teleprompter üzerine gelindiğinde açar.",
     "settings.textColor": "Metin rengi",
     "settings.textTransparency": "Metin şeffaflığı",
     "settings.appTransparency": "Uygulama şeffaflığı",
@@ -406,6 +436,10 @@ const UI_STRINGS = {
     "settings.autoApply": "Kaydırıcıları hareket ettirdiğinizde veya bir ayar seçtiğinizde değişiklikler otomatik uygulanır.",
     "input.kicker": "Yeni metin",
     "input.title": "Metin düzenleyici",
+    "input.section": "Bölüm",
+    "input.sectionTitle": "Düzenleyici panelini seç",
+    "input.section.editor": "Düzenleyici",
+    "input.section.assistant": "Groq yardımcısı",
     "input.teleprompterText": "Teleprompter metni",
     "input.toolbar": "Biçimlendirme araç çubuğu",
     "input.scriptPlaceholder": "Metninizi buraya yapıştırın veya yazın...",
@@ -492,6 +526,13 @@ const UI_STRINGS = {
     "tele.failedCloseApp": "تعذر إغلاق التطبيق: {error}",
     "settings.kicker": "الإعدادات",
     "settings.title": "عناصر تحكم مباشرة",
+    "settings.section": "القسم",
+    "settings.sectionTitle": "تصفح الإعدادات",
+    "settings.section.remote": "عن بُعد",
+    "settings.section.positioning": "الموضع",
+    "settings.section.appearance": "المظهر",
+    "settings.section.privacy": "الخصوصية والنظام",
+    "settings.section.usability": "سهولة الاستخدام",
     "settings.positioning": "الموضع",
     "settings.windowPlacement": "موضع النافذة",
     "settings.windowLocation": "مكان النافذة",
@@ -555,6 +596,8 @@ const UI_STRINGS = {
     "settings.voiceModelDownloadFailed": "تعذر تنزيل نموذج Vosk المحدد.",
     "settings.performance": "وضع الأداء",
     "settings.performanceHelp": "يعطّل حركات الواجهة ويفرض التمرير العادي لأداء أكثر سلاسة.",
+    "settings.autoHideToolbar": "إخفاء الشريط العلوي تلقائيًا",
+    "settings.autoHideToolbarHelp": "يعرض مقبضًا صغيرًا في الأعلى ويُظهر الشريط فقط عند تمرير المؤشر فوق شاشة التلقين.",
     "settings.textColor": "لون النص",
     "settings.textTransparency": "شفافية النص",
     "settings.appTransparency": "شفافية التطبيق",
@@ -563,6 +606,10 @@ const UI_STRINGS = {
     "settings.autoApply": "تُطبَّق التغييرات تلقائيًا عند تحريك الشرائط أو اختيار إعداد.",
     "input.kicker": "نص جديد",
     "input.title": "محرر النص",
+    "input.section": "القسم",
+    "input.sectionTitle": "اختر لوحة المحرر",
+    "input.section.editor": "المحرر",
+    "input.section.assistant": "مساعد Groq",
     "input.teleprompterText": "نص الملقن",
     "input.toolbar": "شريط التنسيق",
     "input.scriptPlaceholder": "الصق أو اكتب النص هنا...",
@@ -649,6 +696,13 @@ const UI_STRINGS = {
     "tele.failedCloseApp": "App konnte nicht geschlossen werden: {error}",
     "settings.kicker": "Einstellungen",
     "settings.title": "Live-Steuerung",
+    "settings.section": "Bereich",
+    "settings.sectionTitle": "Einstellungen durchsuchen",
+    "settings.section.remote": "Remote",
+    "settings.section.positioning": "Positionierung",
+    "settings.section.appearance": "Darstellung",
+    "settings.section.privacy": "Datenschutz und System",
+    "settings.section.usability": "Bedienung",
     "settings.positioning": "Positionierung",
     "settings.windowPlacement": "Fensterplatzierung",
     "settings.windowLocation": "Fensterposition",
@@ -712,6 +766,8 @@ const UI_STRINGS = {
     "settings.voiceModelDownloadFailed": "Das ausgewählte Vosk-Modell konnte nicht heruntergeladen werden.",
     "settings.performance": "Performance-Modus",
     "settings.performanceHelp": "Deaktiviert UI-Animationen und erzwingt normales Scrollen für flüssigere Leistung.",
+    "settings.autoHideToolbar": "Obere Leiste automatisch ausblenden",
+    "settings.autoHideToolbarHelp": "Zeigt oben einen kleinen Griff an und blendet die Leiste nur ein, wenn der Teleprompter mit der Maus berührt wird.",
     "settings.textColor": "Textfarbe",
     "settings.textTransparency": "Texttransparenz",
     "settings.appTransparency": "App-Transparenz",
@@ -720,6 +776,10 @@ const UI_STRINGS = {
     "settings.autoApply": "Änderungen werden automatisch übernommen, wenn du Regler bewegst oder eine Einstellung auswählst.",
     "input.kicker": "Neuer Text",
     "input.title": "Skript-Editor",
+    "input.section": "Bereich",
+    "input.sectionTitle": "Editor-Bereich wählen",
+    "input.section.editor": "Editor",
+    "input.section.assistant": "Groq-Assistent",
     "input.teleprompterText": "Teleprompter-Text",
     "input.toolbar": "Formatierungsleiste",
     "input.scriptPlaceholder": "Füge dein Skript hier ein oder schreibe es...",
@@ -1050,13 +1110,20 @@ Object.assign(UI_STRINGS.de, {
 
 const FONT_STACKS = {
   inter: 'Inter, "Segoe UI", Arial, sans-serif',
+  "space-grotesk": '"Space Grotesk", "Segoe UI", Arial, sans-serif',
+  outfit: '"Outfit", "Segoe UI", Arial, sans-serif',
+  "english-pro": 'Inter, "Segoe UI", "Arial Nova", Arial, sans-serif',
+  "dutch-pro": '"IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
   "arabic-pro": '"Cairo", "Noto Naskh Arabic", "Segoe UI", Tahoma, Arial, sans-serif',
   "turkish-pro": '"Manrope", "Segoe UI", "Arial Nova", Arial, sans-serif',
   "german-pro": '"IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
   system: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  merriweather: '"Merriweather", Georgia, "Times New Roman", serif',
+  "source-serif": '"Source Serif 4", Georgia, "Times New Roman", serif',
   georgia: 'Georgia, "Times New Roman", serif',
   garamond: 'Garamond, Baskerville, "Times New Roman", serif',
   verdana: 'Verdana, Geneva, sans-serif',
+  "jetbrains-mono": '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
   mono: '"Cascadia Code", "Fira Code", Consolas, monospace'
 };
 
@@ -1307,6 +1374,7 @@ export function normalizeState(rawState = {}) {
   normalized.remote.publicHost = normalizeRemoteHost(normalized.remote.publicHost, defaults.remote.publicHost);
   normalized.appearance.theme = normalizeTheme(normalized.appearance.theme, defaults.appearance.theme);
   normalized.appearance.style = normalizeStyle(normalized.appearance.style, defaults.appearance.style);
+  normalized.appearance.autoHideToolbar = Boolean(normalized.appearance.autoHideToolbar);
   normalized.appearance.performanceMode = Boolean(normalized.appearance.performanceMode);
   normalized.appearance.appWideVoiceCommands = Boolean(normalized.appearance.appWideVoiceCommands);
   normalized.appearance.appOpacity = normalizeAppOpacity(normalized.appearance.appOpacity, defaults.appearance.appOpacity);
@@ -1622,6 +1690,7 @@ export function applyAppearanceToDocument(appearance = {}, target = document) {
 
   applyThemeToDocument(merged.theme, target);
   target.body.dataset.style = merged.style || defaultState.appearance.style;
+  target.body.dataset.toolbarAutoHide = merged.autoHideToolbar ? "true" : "false";
   target.body.dataset.performanceMode = merged.performanceMode ? "true" : "false";
   target.documentElement?.style?.setProperty("--flow-app-opacity", String(clamp(merged.appOpacity / 100, 0.15, 1)));
 }

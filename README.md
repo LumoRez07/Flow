@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.1.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.2.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.1.0-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.2.0-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -42,14 +42,14 @@
 
 ---
 
-## New in v1.1.0
+## New in v1.2.0
 
-- Multilingual Vosk voice tracking with on-demand model downloads for English, Turkish, Arabic, German, French, and Spanish
-- Settings model management with install state, progress, remaining download size, and transfer speed
-- Lower-latency voice capture and faster follow behavior during voice tracking
-- English app-wide `Hey Flow` commands that work outside voice-tracking mode
-- Clearer listening indicator and more stable wake-word flow
-- Persisted voice model locations and release-ready version metadata
+- Refined main teleprompter UI with cleaner layout and more polished controls
+- New auto-hide behavior for a less distracting reading experience
+- Top notch positioning and presentation improvements for the floating window
+- Improved built-in editor UI for quicker writing and editing workflows
+- Refreshed settings UI with a cleaner structure and better usability
+- Overall visual polish and quality-of-life improvements across the app
 
 ---
 
@@ -189,7 +189,7 @@ Heavy usage may lead to temporary limits until the infrastructure is expanded.
 - Optimized for Windows  
 - AI features require a Groq API key  
 - Voice tracking uses bundled English plus downloadable Vosk models for other supported languages  
-- App-wide `Hey Flow` commands are currently English-only in v1.1.0  
+- App-wide `Hey Flow` commands are currently English-only in v1.2.0  
 - API keys are stored locally  
 
 ---

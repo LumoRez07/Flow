@@ -15,6 +15,7 @@ import {
 
 const MIN_WIDTH = 400;
 const MIN_HEIGHT = 200;
+const COLLAPSED_HEIGHT = 56;
 const MAX_WIDTH_FALLBACK = 2200;
 const MAX_HEIGHT_FALLBACK = 1400;
 const POSITION_PADDING = 600;
@@ -71,6 +72,7 @@ const ui = {
   appOpacityValue: document.querySelector("#appOpacityValue"),
   textSizeInput: document.querySelector("#textSizeInput"),
   textSizeValue: document.querySelector("#textSizeValue"),
+  autoHideToolbarInput: document.querySelector("#autoHideToolbarInput"),
   styleSelect: document.querySelector("#styleSelect"),
   themeSelect: document.querySelector("#themeSelect"),
   performanceModeInput: document.querySelector("#performanceModeInput"),
@@ -81,6 +83,8 @@ const ui = {
   textColorInput: document.querySelector("#textColorInput"),
   textOpacityInput: document.querySelector("#textOpacityInput"),
   textOpacityValue: document.querySelector("#textOpacityValue"),
+  settingsSectionSelect: document.querySelector("#settingsSectionSelect"),
+  settingsSections: document.querySelectorAll("[data-settings-section]"),
   windowStatus: document.querySelector("#windowStatus"),
   cloudRemoteFields: document.querySelector("#cloudRemoteFields"),
   remoteSessionId: document.querySelector("#remoteSessionId"),
@@ -366,6 +370,22 @@ function updateRemoteModeUi() {
   ui.cloudRemoteFields.classList.remove("hidden");
 }
 
+function setActiveSettingsSection(section = ui.settingsSectionSelect?.value || "remote") {
+  const activeSection = String(section || "remote");
+
+  if (ui.settingsSectionSelect) {
+    ui.settingsSectionSelect.value = activeSection;
+  }
+
+  ui.settingsSections.forEach((element) => {
+    const selected = element.dataset.settingsSection === activeSection;
+    element.classList.toggle("hidden", !selected);
+    element.setAttribute("aria-hidden", selected ? "false" : "true");
+  });
+
+  document.querySelector(".page-shell")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function normalizeRemoteCloudUrl(value) {
   return String(value || "").trim().replace(/\/$/, "");
 }
@@ -402,6 +422,20 @@ async function getMainWindow() {
   if (!tauriWindow?.getAllWindows) return null;
   const windows = await tauriWindow.getAllWindows();
   return windows.find((windowRef) => windowRef.label === "main") || windows[0] || null;
+}
+
+async function isMainWindowCollapsed(appWindow) {
+  if (!appWindow?.outerSize) {
+    return false;
+  }
+
+  try {
+    const size = await appWindow.outerSize();
+    return Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
 }
 
 async function getRelevantMonitor() {
@@ -442,6 +476,7 @@ function fillForm() {
   ui.textSizeInput.value = String(state.appearance?.textScale || defaultState.appearance.textScale);
   ui.styleSelect.value = state.appearance?.style || defaultState.appearance.style;
   ui.themeSelect.value = state.appearance?.theme || defaultState.appearance.theme;
+  ui.autoHideToolbarInput.checked = Boolean(state.appearance?.autoHideToolbar);
   
   ui.voiceLanguageSelect.value = normalizeVoiceLanguage(state.appearance?.voiceLanguage || "en-US");
   ui.voiceStyleSelect.value = state.appearance?.voiceScrollStyle || defaultState.appearance.voiceScrollStyle;
@@ -461,6 +496,7 @@ function fillForm() {
   applyAppearanceToDocument({
     theme: ui.themeSelect.value,
     style: ui.styleSelect.value,
+    autoHideToolbar: ui.autoHideToolbarInput.checked,
     performanceMode: ui.performanceModeInput.checked,
     appOpacity: Number(ui.appOpacityInput.value)
   });
@@ -481,9 +517,12 @@ async function readCurrentWindow() {
 
   const size = await appWindow.outerSize();
   const pos = await appWindow.outerPosition();
+  const windowIsCollapsed = Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
 
   state.window.width = size.width;
-  state.window.height = size.height;
+  if (!windowIsCollapsed) {
+    state.window.height = size.height;
+  }
   state.window.x = pos.x;
   state.window.y = pos.y;
   saveState({
@@ -532,6 +571,7 @@ function collectFormState() {
     textScale: Number(ui.textSizeInput.value),
     theme: ui.themeSelect.value,
     style: ui.styleSelect.value,
+    autoHideToolbar: ui.autoHideToolbarInput.checked,
     performanceMode: ui.performanceModeInput.checked,
     textColor: ui.textColorInput.value || state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value),
     textOpacity: Number(ui.textOpacityInput.value)
@@ -563,25 +603,29 @@ async function applyWindowSettings() {
 
   try {
     collectFormState();
-    await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width, state.window.height));
+    const windowIsCollapsed = await isMainWindowCollapsed(appWindow);
 
-    if (state.window.preset === "center") {
-      await appWindow.center();
-      const pos = await appWindow.outerPosition();
-      state.window.x = pos.x;
-      state.window.y = pos.y;
-    } else if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
-      const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
-      if (monitor) {
-        const outer = await appWindow.outerSize();
-        const x = monitor.position.x + Math.round((monitor.size.width - outer.width) / 2) + TOP_CENTER_X_OFFSET;
-        const y = monitor.position.y;
-        await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
-        state.window.x = x;
-        state.window.y = y;
+    if (!windowIsCollapsed) {
+      await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width, state.window.height));
+
+      if (state.window.preset === "center") {
+        await appWindow.center();
+        const pos = await appWindow.outerPosition();
+        state.window.x = pos.x;
+        state.window.y = pos.y;
+      } else if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
+        const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
+        if (monitor) {
+          const outer = await appWindow.outerSize();
+          const x = monitor.position.x + Math.round((monitor.size.width - outer.width) / 2) + TOP_CENTER_X_OFFSET;
+          const y = monitor.position.y;
+          await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
+          state.window.x = x;
+          state.window.y = y;
+        }
+      } else {
+        await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x, state.window.y));
       }
-    } else {
-      await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x, state.window.y));
     }
 
     saveState({
@@ -710,6 +754,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     input.addEventListener("change", scheduleApply);
   });
 
+  ui.settingsSectionSelect?.addEventListener("input", () => {
+    setActiveSettingsSection(ui.settingsSectionSelect.value);
+  });
+  ui.settingsSectionSelect?.addEventListener("change", () => {
+    setActiveSettingsSection(ui.settingsSectionSelect.value);
+  });
+
   ui.voiceLanguageSelect.addEventListener("change", () => {
     renderVoiceModelStatus(ui.voiceLanguageSelect.value);
   });
@@ -748,7 +799,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       closeLanguageMenu();
     }
   });
-  [ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
+  [ui.autoHideToolbarInput, ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
   });
@@ -770,6 +821,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
 
   await readCurrentWindow().catch(console.error);
+  setActiveSettingsSection(ui.settingsSectionSelect?.value || "remote");
 
   remoteStatusTimer = window.setInterval(() => {
     if (document.visibilityState === "visible") {

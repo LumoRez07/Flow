@@ -9,15 +9,29 @@
   </head>
   <body data-page="input">
     <main class="page-shell settings-shell">
-      <section class="panel-card wide-card" id="scriptEditorCard">
+      <div class="settings-section-picker input-section-picker">
+        <div class="input-section-picker-head">
+          <div class="settings-section-picker-copy">
+            <p class="page-kicker" data-i18n="input.section">Section</p>
+            <h2 class="settings-section-picker-title" data-i18n="input.sectionTitle">Choose editor panel</h2>
+          </div>
+          <div class="page-actions input-section-picker-actions">
+            <button class="mini-link" id="openSettingsButton" type="button"><span class="button-label-content"><i class="ph ph-gear-six" aria-hidden="true"></i><span data-i18n="common.settings">Settings</span></span></button>
+            <button class="mini-link" id="closeWindowButton" type="button"><span class="button-label-content"><i class="ph ph-x" aria-hidden="true"></i><span data-i18n="common.close">Close</span></span></button>
+          </div>
+        </div>
+        <select id="inputSectionSelect" class="page-input settings-section-select">
+          <option value="editor" data-i18n="input.section.editor">Editor</option>
+          <option value="assistant" data-i18n="input.section.assistant">Groq assistant</option>
+        </select>
+      </div>
+
+      <div class="input-sections">
+      <section class="panel-card wide-card input-section-panel" id="scriptEditorCard" data-input-section="editor">
         <div class="page-header">
           <div>
             <p class="page-kicker" data-i18n="input.kicker">New text</p>
             <h1 data-i18n="input.title">Script editor</h1>
-          </div>
-          <div class="page-actions">
-            <button class="mini-link" id="openSettingsButton" type="button" data-i18n="common.settings">Settings</button>
-            <button class="mini-link" id="closeWindowButton" type="button" data-i18n="common.close">Close</button>
           </div>
         </div>
 
@@ -41,7 +55,7 @@
         <div class="helper-text editor-help" data-i18n-html="input.editorHelp">Formatting works like Reddit-style markdown for <strong>**bold**</strong> and <em>*italic*</em>, plus tags for <span class="toolbar-underline">[u]underline[/u]</span>, <mark class="mark-yellow">[yellow]highlight[/yellow]</mark>, <mark class="mark-blue">[blue]highlight[/blue]</mark>, and <mark class="mark-red">[red]highlight[/red]</mark>.</div>
       </section>
 
-      <section class="panel-card groq-card">
+      <section class="panel-card wide-card groq-card input-section-panel hidden" data-input-section="assistant">
         <div class="page-header compact-header">
           <div>
             <p class="page-kicker" data-i18n="input.groq">Groq</p>
@@ -62,6 +76,7 @@
 
         <div class="helper-text" id="groqStatus" data-i18n="input.groqOptional">Groq is optional. Your key stays in local storage on this device.</div>
       </section>
+      </div>
     </main>
   </body>
 </html>

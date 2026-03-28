@@ -1,3 +1,13 @@
+/*
+ * Flow - A high-performance teleprompter for Windows.
+ * Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
+
 @import "./assets/vendor/phosphor/style.css";
 @import url("https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Merriweather:wght@400;700&family=Manrope:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&family=Source+Serif+4:wght@400;600;700&display=swap");
 

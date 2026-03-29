@@ -13,6 +13,15 @@ export const defaultState = {
   speed: 120,
   groqKey: "",
   groqPrompt: "",
+  groq: {
+    personality: "natural",
+    grammarLevel: "standard",
+    userContext: "",
+    emojiUsage: "off",
+    academicWordUsage: "off",
+    pointOfView: "first-person",
+    outputLanguage: "app"
+  },
   language: "en",
   desktop: {
     hideFromCapture: true,
@@ -30,7 +39,7 @@ export const defaultState = {
   window: {
     x: null,
     y: null,
-    width: 960,
+    width: 1280,
     height: 260,
     preset: "top-center",
     isPinned: true
@@ -40,6 +49,7 @@ export const defaultState = {
     fontFamily: "inter",
     theme: "main",
     style: "main",
+    speedRailEnabled: true,
     autoHideToolbar: false,
     performanceMode: false,
     appOpacity: 100,
@@ -59,7 +69,43 @@ export const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
   { value: "tr", label: "Türkçe" },
   { value: "ar", label: "العربية" },
-  { value: "de", label: "Deutsch" }
+  { value: "de", label: "Deutsch" },
+  { value: "fr", label: "Français" }
+];
+
+export const GROQ_PERSONALITY_OPTIONS = [
+  { value: "natural", label: "Natural" },
+  { value: "confident", label: "Confident" },
+  { value: "friendly", label: "Friendly" },
+  { value: "professional", label: "Professional" },
+  { value: "persuasive", label: "Persuasive" }
+];
+
+export const GROQ_GRAMMAR_LEVEL_OPTIONS = [
+  { value: "relaxed", label: "Relaxed" },
+  { value: "standard", label: "Standard" },
+  { value: "polished", label: "Polished" }
+];
+
+export const GROQ_EMOJI_USAGE_OPTIONS = [
+  { value: "off", label: "Off" },
+  { value: "on", label: "On" }
+];
+
+export const GROQ_ACADEMIC_WORD_USAGE_OPTIONS = [
+  { value: "off", label: "Off" },
+  { value: "on", label: "On" },
+  { value: "aggressive", label: "Aggressive" }
+];
+
+export const GROQ_POINT_OF_VIEW_OPTIONS = [
+  { value: "first-person", label: "First person" },
+  { value: "third-person", label: "Third person" }
+];
+
+export const GROQ_OUTPUT_LANGUAGE_OPTIONS = [
+  { value: "app", label: "App language" },
+  ...LANGUAGE_OPTIONS
 ];
 
 export const VOICE_LANGUAGE_OPTIONS = [
@@ -258,6 +304,8 @@ const UI_STRINGS = {
     "settings.voiceModelInstalledAction": "Model downloaded",
     "settings.voiceModelDownloadComplete": "{language} Vosk model is ready.",
     "settings.voiceModelDownloadFailed": "Could not download the selected Vosk model.",
+    "settings.speedSlider": "Left speed slider",
+    "settings.speedSliderHelp": "Shows the vertical WPM slider on the left side while playing.",
     "settings.performance": "Performance mode",
     "settings.performanceHelp": "Disables UI animations and forces normal scrolling for smoother performance.",
     "settings.autoHideToolbar": "Auto-hide top bar",
@@ -434,6 +482,8 @@ const UI_STRINGS = {
     "settings.voiceModelInstalledAction": "Model indirildi",
     "settings.voiceModelDownloadComplete": "{language} Vosk modeli hazır.",
     "settings.voiceModelDownloadFailed": "Seçilen Vosk modeli indirilemedi.",
+    "settings.speedSlider": "Sol hız kaydırıcısı",
+    "settings.speedSliderHelp": "Oynatma sırasında solda dikey WPM kaydırıcısını gösterir.",
     "settings.performance": "Performans modu",
     "settings.performanceHelp": "Daha akıcı performans için arayüz animasyonlarını kapatır ve normal kaydırmayı zorlar.",
     "settings.autoHideToolbar": "Üst çubuğu otomatik gizle",
@@ -604,6 +654,8 @@ const UI_STRINGS = {
     "settings.voiceModelInstalledAction": "تم تنزيل النموذج",
     "settings.voiceModelDownloadComplete": "أصبح نموذج Vosk للغة {language} جاهزًا.",
     "settings.voiceModelDownloadFailed": "تعذر تنزيل نموذج Vosk المحدد.",
+    "settings.speedSlider": "شريط السرعة الأيسر",
+    "settings.speedSliderHelp": "يعرض منزلق WPM عموديًا على الجانب الأيسر أثناء التشغيل.",
     "settings.performance": "وضع الأداء",
     "settings.performanceHelp": "يعطّل حركات الواجهة ويفرض التمرير العادي لأداء أكثر سلاسة.",
     "settings.autoHideToolbar": "إخفاء الشريط العلوي تلقائيًا",
@@ -774,6 +826,8 @@ const UI_STRINGS = {
     "settings.voiceModelInstalledAction": "Modell geladen",
     "settings.voiceModelDownloadComplete": "Das {language}-Vosk-Modell ist bereit.",
     "settings.voiceModelDownloadFailed": "Das ausgewählte Vosk-Modell konnte nicht heruntergeladen werden.",
+    "settings.speedSlider": "Linker Geschwindigkeitsregler",
+    "settings.speedSliderHelp": "Zeigt beim Abspielen links einen vertikalen WPM-Regler an.",
     "settings.performance": "Performance-Modus",
     "settings.performanceHelp": "Deaktiviert UI-Animationen und erzwingt normales Scrollen für flüssigere Leistung.",
     "settings.autoHideToolbar": "Obere Leiste automatisch ausblenden",
@@ -1118,6 +1172,334 @@ Object.assign(UI_STRINGS.de, {
   "remote.heartbeatFailed": "Cloud-Heartbeat mit Status {status} fehlgeschlagen."
 });
 
+Object.assign(UI_STRINGS.en, {
+  "language.fr": "French",
+  "common.relaxed": "Relaxed",
+  "common.standard": "Standard",
+  "common.polished": "Polished",
+  "common.natural": "Natural",
+  "common.confident": "Confident",
+  "common.friendly": "Friendly",
+  "common.professional": "Professional",
+  "common.persuasive": "Persuasive",
+  "common.firstPerson": "First person",
+  "common.thirdPerson": "Third person",
+  "common.appLanguage": "App language",
+  "common.aggressive": "Aggressive",
+  "input.assistantHelp": "Saved preferences shape every Groq request, while your instruction stays the task-specific command.",
+  "input.profileTitle": "Writing profile",
+  "input.profileHelp": "These preferences bias tone and delivery, but your instruction still wins when it conflicts.",
+  "input.personality": "Personality",
+  "input.personality.natural": "Natural",
+  "input.personality.confident": "Confident",
+  "input.personality.friendly": "Friendly",
+  "input.personality.professional": "Professional",
+  "input.personality.persuasive": "Persuasive",
+  "input.grammarLevel": "Grammar level",
+  "input.grammarLevel.relaxed": "Relaxed",
+  "input.grammarLevel.standard": "Standard",
+  "input.grammarLevel.polished": "Polished",
+  "input.userContext": "Context about you",
+  "input.userContextPlaceholder": "Example: I am a medical student, I speak fast when nervous, and I want the script to sound calm and credible.",
+  "input.emojiUsage": "Emoji usage",
+  "input.academicWordUsage": "Academic words",
+  "input.academicWordUsage.off": "Off",
+  "input.academicWordUsage.on": "On",
+  "input.academicWordUsage.aggressive": "Aggressive",
+  "input.pointOfView": "Speech point of view",
+  "input.pointOfView.firstPerson": "First person (I / me)",
+  "input.pointOfView.thirdPerson": "Third person",
+  "input.outputLanguage": "Output language",
+  "input.outputLanguage.app": "App language",
+  "input.preferencesSaved": "Groq preferences saved locally.",
+  "input.contextHint": "Add background about your role, audience, goals, or how you want to sound.",
+  "input.outputLanguageHint": "Choose the language Groq should use for the final script."
+});
+
+Object.assign(UI_STRINGS.tr, {
+  "language.fr": "Fransızca",
+  "common.relaxed": "Rahat",
+  "common.standard": "Standart",
+  "common.polished": "Cilalı",
+  "common.natural": "Doğal",
+  "common.confident": "Kendinden emin",
+  "common.friendly": "Samimi",
+  "common.professional": "Profesyonel",
+  "common.persuasive": "İkna edici",
+  "common.firstPerson": "Birinci kişi",
+  "common.thirdPerson": "Üçüncü kişi",
+  "common.appLanguage": "Uygulama dili",
+  "common.aggressive": "Agresif",
+  "input.assistantHelp": "Kaydedilen tercihler her Groq isteğini şekillendirir, talimatınız ise göreve özel komut olarak kalır.",
+  "input.profileTitle": "Yazım profili",
+  "input.profileHelp": "Bu tercihler tonu ve akışı yönlendirir, ancak çakışma olursa talimatınız baskın gelir.",
+  "input.personality": "Kişilik",
+  "input.personality.natural": "Doğal",
+  "input.personality.confident": "Kendinden emin",
+  "input.personality.friendly": "Samimi",
+  "input.personality.professional": "Profesyonel",
+  "input.personality.persuasive": "İkna edici",
+  "input.grammarLevel": "Dilbilgisi seviyesi",
+  "input.grammarLevel.relaxed": "Rahat",
+  "input.grammarLevel.standard": "Standart",
+  "input.grammarLevel.polished": "Cilalı",
+  "input.userContext": "Sizin hakkınızda bağlam",
+  "input.userContextPlaceholder": "Örnek: Tıp öğrencisiyim, heyecanlanınca hızlı konuşuyorum ve metnin sakin ama güvenilir duyulmasını istiyorum.",
+  "input.emojiUsage": "Emoji kullanımı",
+  "input.academicWordUsage": "Akademik kelimeler",
+  "input.academicWordUsage.off": "Kapalı",
+  "input.academicWordUsage.on": "Açık",
+  "input.academicWordUsage.aggressive": "Agresif",
+  "input.pointOfView": "Konuşma bakış açısı",
+  "input.pointOfView.firstPerson": "Birinci kişi (ben)",
+  "input.pointOfView.thirdPerson": "Üçüncü kişi",
+  "input.outputLanguage": "Çıktı dili",
+  "input.outputLanguage.app": "Uygulama dili",
+  "input.preferencesSaved": "Groq tercihleri yerel olarak kaydedildi.",
+  "input.contextHint": "Rolünüz, kitleniz, hedefiniz veya nasıl duyulmak istediğiniz hakkında bilgi ekleyin.",
+  "input.outputLanguageHint": "Groq'un son metni hangi dilde yazacağını seçin."
+});
+
+Object.assign(UI_STRINGS.ar, {
+  "language.fr": "الفرنسية",
+  "common.relaxed": "مرن",
+  "common.standard": "قياسي",
+  "common.polished": "مصقول",
+  "common.natural": "طبيعي",
+  "common.confident": "واثق",
+  "common.friendly": "ودود",
+  "common.professional": "احترافي",
+  "common.persuasive": "إقناعي",
+  "common.firstPerson": "المتكلم",
+  "common.thirdPerson": "الغائب",
+  "common.appLanguage": "لغة التطبيق",
+  "common.aggressive": "مكثف",
+  "input.assistantHelp": "تؤثر التفضيلات المحفوظة في كل طلب Groq، بينما تبقى تعليماتك هي الأمر الخاص بالمهمة.",
+  "input.profileTitle": "ملف أسلوب الكتابة",
+  "input.profileHelp": "توجّه هذه التفضيلات النبرة والإلقاء، لكن تعليماتك تظل المرجع عند التعارض.",
+  "input.personality": "الشخصية",
+  "input.personality.natural": "طبيعية",
+  "input.personality.confident": "واثقة",
+  "input.personality.friendly": "ودودة",
+  "input.personality.professional": "احترافية",
+  "input.personality.persuasive": "إقناعية",
+  "input.grammarLevel": "مستوى القواعد",
+  "input.grammarLevel.relaxed": "مرن",
+  "input.grammarLevel.standard": "قياسي",
+  "input.grammarLevel.polished": "مصقول",
+  "input.userContext": "معلومات عنك",
+  "input.userContextPlaceholder": "مثال: أنا طالب طب، أتكلم بسرعة عندما أتوتر، وأريد أن يبدو النص هادئًا وموثوقًا.",
+  "input.emojiUsage": "استخدام الإيموجي",
+  "input.academicWordUsage": "المفردات الأكاديمية",
+  "input.academicWordUsage.off": "إيقاف",
+  "input.academicWordUsage.on": "تشغيل",
+  "input.academicWordUsage.aggressive": "مكثف",
+  "input.pointOfView": "وجهة النظر في الخطاب",
+  "input.pointOfView.firstPerson": "المتكلم (أنا)",
+  "input.pointOfView.thirdPerson": "الغائب",
+  "input.outputLanguage": "لغة المخرجات",
+  "input.outputLanguage.app": "لغة التطبيق",
+  "input.preferencesSaved": "تم حفظ تفضيلات Groq محليًا.",
+  "input.contextHint": "أضف خلفية عن دورك أو جمهورك أو أهدافك أو كيف تريد أن يبدو صوتك.",
+  "input.outputLanguageHint": "اختر اللغة التي يجب أن يستخدمها Groq في النص النهائي."
+});
+
+Object.assign(UI_STRINGS.de, {
+  "language.fr": "Französisch",
+  "common.relaxed": "Locker",
+  "common.standard": "Standard",
+  "common.polished": "Ausgefeilt",
+  "common.natural": "Natürlich",
+  "common.confident": "Selbstbewusst",
+  "common.friendly": "Freundlich",
+  "common.professional": "Professionell",
+  "common.persuasive": "Überzeugend",
+  "common.firstPerson": "Ich-Perspektive",
+  "common.thirdPerson": "Dritte Person",
+  "common.appLanguage": "App-Sprache",
+  "common.aggressive": "Aggressiv",
+  "input.assistantHelp": "Gespeicherte Präferenzen formen jede Groq-Anfrage, während deine Anweisung der aufgabenspezifische Befehl bleibt.",
+  "input.profileTitle": "Schreibprofil",
+  "input.profileHelp": "Diese Präferenzen lenken Ton und Vortrag, aber deine Anweisung hat im Konfliktfall Vorrang.",
+  "input.personality": "Persönlichkeit",
+  "input.personality.natural": "Natürlich",
+  "input.personality.confident": "Selbstbewusst",
+  "input.personality.friendly": "Freundlich",
+  "input.personality.professional": "Professionell",
+  "input.personality.persuasive": "Überzeugend",
+  "input.grammarLevel": "Grammatikniveau",
+  "input.grammarLevel.relaxed": "Locker",
+  "input.grammarLevel.standard": "Standard",
+  "input.grammarLevel.polished": "Ausgefeilt",
+  "input.userContext": "Kontext über dich",
+  "input.userContextPlaceholder": "Beispiel: Ich studiere Medizin, spreche unter Stress schnell und möchte ruhig und glaubwürdig klingen.",
+  "input.emojiUsage": "Emoji-Nutzung",
+  "input.academicWordUsage": "Akademische Wörter",
+  "input.academicWordUsage.off": "Aus",
+  "input.academicWordUsage.on": "Ein",
+  "input.academicWordUsage.aggressive": "Aggressiv",
+  "input.pointOfView": "Sprechperspektive",
+  "input.pointOfView.firstPerson": "Ich-Perspektive (ich / mir)",
+  "input.pointOfView.thirdPerson": "Dritte Person",
+  "input.outputLanguage": "Ausgabesprache",
+  "input.outputLanguage.app": "App-Sprache",
+  "input.preferencesSaved": "Groq-Präferenzen lokal gespeichert.",
+  "input.contextHint": "Füge Hintergrund zu Rolle, Publikum, Zielen oder gewünschter Wirkung hinzu.",
+  "input.outputLanguageHint": "Wähle die Sprache, die Groq für den finalen Text verwenden soll."
+});
+
+UI_STRINGS.fr = {
+  ...UI_STRINGS.en,
+  "doc.settingsTitle": "Flow · Paramètres",
+  "doc.textTitle": "Flow · Texte",
+  "doc.aboutTitle": "Flow · À propos",
+  "common.settings": "Paramètres",
+  "common.text": "Texte",
+  "common.close": "Fermer",
+  "common.on": "Activé",
+  "common.off": "Désactivé",
+  "common.language": "Langue",
+  "common.copy": "Copier",
+  "common.copyLink": "Copier le lien",
+  "common.loading": "Chargement…",
+  "common.unavailable": "Indisponible",
+  "common.live": "En direct",
+  "common.offline": "Hors ligne",
+  "common.setup": "Configuration",
+  "common.relaxed": "Souple",
+  "common.standard": "Standard",
+  "common.polished": "Soigné",
+  "common.natural": "Naturel",
+  "common.confident": "Sûr de soi",
+  "common.friendly": "Chaleureux",
+  "common.professional": "Professionnel",
+  "common.persuasive": "Persuasif",
+  "common.firstPerson": "Première personne",
+  "common.thirdPerson": "Troisième personne",
+  "common.appLanguage": "Langue de l'application",
+  "common.aggressive": "Agressif",
+  "language.en": "Anglais",
+  "language.tr": "Turc",
+  "language.ar": "Arabe",
+  "language.de": "Allemand",
+  "language.fr": "Français",
+  "settings.kicker": "Paramètres",
+  "settings.title": "Contrôles en direct",
+  "settings.section": "Section",
+  "settings.sectionTitle": "Parcourir les paramètres",
+  "settings.section.remote": "À distance",
+  "settings.section.positioning": "Position",
+  "settings.section.appearance": "Apparence",
+  "settings.section.privacy": "Confidentialité et système",
+  "settings.section.usability": "Ergonomie",
+  "settings.appearance": "Apparence",
+  "settings.sizeAndPlayback": "Taille et style de lecture",
+  "settings.group.windowSize": "Taille de la fenêtre",
+  "settings.group.playback": "Lecture",
+  "settings.group.typography": "Typographie",
+  "settings.group.visuals": "Visuel",
+  "settings.font": "Police",
+  "settings.textSize": "Taille du texte",
+  "settings.voiceTrackingStyle": "Style du suivi vocal",
+  "settings.voiceTrackingStyleHelp": "Choisissez comment la position détectée est affichée pendant que vous parlez.",
+  "settings.voiceStyle.highlight": "Mise en évidence du mot",
+  "settings.voiceStyle.line": "Mise en évidence de la ligne",
+  "settings.voiceStyle.plain": "Texte brut",
+  "settings.voiceModelChecking": "Vérification du modèle…",
+  "settings.voiceModelCheckingHelp": "Flow vérifie si le modèle Vosk sélectionné est déjà enregistré localement.",
+  "settings.voiceModelPathPending": "Vérification du chemin du modèle local…",
+  "settings.voiceModelProgressIdle": "En attente du téléchargement",
+  "settings.voiceModelProgressStats": "{remaining} restants · {speed}",
+  "settings.voiceModelInstalled": "Installé ✓",
+  "settings.voiceModelInstalledHelp": "Ce modèle Vosk est prêt. Flow l'utilisera pour le suivi vocal et les commandes globales.",
+  "settings.voiceModelMissing": "Modèle requis",
+  "settings.voiceModelMissingHelp": "Cette langue n'est pas encore installée. Téléchargez le modèle Vosk avant de l'utiliser pour les commandes ou le suivi vocal.",
+  "settings.voiceModelDownloading": "Téléchargement…",
+  "settings.voiceModelDownloadingHelp": "Le modèle Vosk sélectionné est en cours de téléchargement. Gardez cette fenêtre ouverte jusqu'à la fin.",
+  "settings.voiceModelPathValue": "Modèle enregistré : {path}",
+  "settings.voiceModelPathMissing": "Aucun modèle Vosk local n'a encore été enregistré pour cette langue.",
+  "settings.voiceModelDownloadAction": "Télécharger le modèle Vosk",
+  "settings.voiceModelDownloadingAction": "Téléchargement du modèle…",
+  "settings.voiceModelInstalledAction": "Modèle téléchargé",
+  "settings.voiceModelDownloadComplete": "Le modèle Vosk {language} est prêt.",
+  "settings.voiceModelDownloadFailed": "Impossible de télécharger le modèle Vosk sélectionné.",
+  "settings.speedSlider": "Curseur de vitesse à gauche",
+  "settings.speedSliderHelp": "Affiche le curseur WPM vertical à gauche pendant la lecture.",
+  "settings.performance": "Mode performance",
+  "settings.performanceHelp": "Désactive les animations et force le défilement normal pour une meilleure fluidité.",
+  "settings.autoHideToolbar": "Masquer automatiquement la barre du haut",
+  "settings.autoHideToolbarHelp": "Affiche une petite poignée en haut et révèle la barre seulement au survol.",
+  "settings.textColor": "Couleur du texte",
+  "settings.textTransparency": "Transparence du texte",
+  "settings.appTransparency": "Transparence de l'application",
+  "settings.synced": "Paramètres synchronisés avec la fenêtre principale actuelle.",
+  "settings.applied": "Les changements ont été appliqués automatiquement.",
+  "settings.autoApply": "Les changements s'appliquent automatiquement lorsque vous modifiez un réglage.",
+  "input.kicker": "Nouveau texte",
+  "input.title": "Éditeur de script",
+  "input.section": "Section",
+  "input.sectionTitle": "Choisir un panneau",
+  "input.section.editor": "Éditeur",
+  "input.section.assistant": "Assistant Groq",
+  "input.teleprompterText": "Texte du téléprompteur",
+  "input.toolbar": "Barre de formatage",
+  "input.scriptPlaceholder": "Collez ou écrivez votre texte ici...",
+  "input.importButton": "Importer un fichier",
+  "input.importHelp": "Déposez un fichier TXT, DOCX ou PDF dans l'éditeur, ou choisissez-en un depuis votre appareil.",
+  "input.importing": "Importation de {name}...",
+  "input.imported": "Texte chargé depuis {name}.",
+  "input.importUnsupported": "Ce type de fichier n'est pas pris en charge. Utilisez TXT, DOCX, PDF ou un autre fichier texte lisible.",
+  "input.importFailed": "Impossible de lire ce fichier.",
+  "input.meta": "{count} mots · {minutes} min de lecture",
+  "input.editorHelp": "Le formatage fonctionne comme du markdown façon Reddit pour <strong>**gras**</strong> et <em>*italique*</em>, avec en plus des balises pour <span class=\"toolbar-underline\">[u]souligné[/u]</span>, <mark class=\"mark-yellow\">[yellow]surbrillance[/yellow]</mark>, <mark class=\"mark-blue\">[blue]surbrillance[/blue]</mark> et <mark class=\"mark-red\">[red]surbrillance[/red]</mark>.",
+  "input.groq": "Groq",
+  "input.draftHelper": "Assistant de rédaction",
+  "input.apiKey": "Clé API",
+  "input.apiKeyPlaceholder": "Collez votre clé API Groq",
+  "input.instruction": "Instruction",
+  "input.instructionPlaceholder": "Exemple : réécris ceci pour que cela sonne plus naturellement et soit plus facile à lire face caméra.",
+  "input.saveText": "Enregistrer le texte",
+  "input.useGroq": "Utiliser Groq",
+  "input.groqOptional": "Groq est optionnel. Votre clé reste stockée localement sur cet appareil.",
+  "input.needKey": "Ajoutez d'abord votre clé API Groq.",
+  "input.needInstructionOrScript": "Ajoutez d'abord une instruction ou du texte.",
+  "input.thinking": "Réflexion en cours...",
+  "input.groqUpdated": "Groq a mis à jour votre script.",
+  "input.groqFailed": "La requête Groq a échoué.",
+  "input.saved": "Enregistré localement.",
+  "input.assistantHelp": "Les préférences enregistrées influencent chaque requête Groq, tandis que votre instruction reste la commande spécifique à la tâche.",
+  "input.profileTitle": "Profil d'écriture",
+  "input.profileHelp": "Ces préférences orientent le ton et la livraison, mais votre instruction reste prioritaire en cas de conflit.",
+  "input.personality": "Personnalité",
+  "input.personality.natural": "Naturel",
+  "input.personality.confident": "Sûr de soi",
+  "input.personality.friendly": "Chaleureux",
+  "input.personality.professional": "Professionnel",
+  "input.personality.persuasive": "Persuasif",
+  "input.grammarLevel": "Niveau de grammaire",
+  "input.grammarLevel.relaxed": "Souple",
+  "input.grammarLevel.standard": "Standard",
+  "input.grammarLevel.polished": "Soigné",
+  "input.userContext": "Contexte sur vous",
+  "input.userContextPlaceholder": "Exemple : je suis étudiant en médecine, je parle vite quand je stresse et je veux un ton calme et crédible.",
+  "input.emojiUsage": "Utilisation des emojis",
+  "input.academicWordUsage": "Vocabulaire académique",
+  "input.academicWordUsage.off": "Désactivé",
+  "input.academicWordUsage.on": "Activé",
+  "input.academicWordUsage.aggressive": "Agressif",
+  "input.pointOfView": "Point de vue du discours",
+  "input.pointOfView.firstPerson": "Première personne (je / moi)",
+  "input.pointOfView.thirdPerson": "Troisième personne",
+  "input.outputLanguage": "Langue de sortie",
+  "input.outputLanguage.app": "Langue de l'application",
+  "input.preferencesSaved": "Préférences Groq enregistrées localement.",
+  "input.contextHint": "Ajoutez du contexte sur votre rôle, votre public, vos objectifs ou le ton souhaité.",
+  "input.outputLanguageHint": "Choisissez la langue que Groq doit utiliser pour le texte final.",
+  "about.kicker": "À propos",
+  "about.title": "À propos de ce projet",
+  "about.summary": "Un téléprompteur moderne pour bureau, pensé pour une lecture fluide, une édition rapide, le contrôle vocal et l'injection de messages à distance."
+};
+
 const FONT_STACKS = {
   inter: 'Inter, "Segoe UI", Arial, sans-serif',
   "space-grotesk": '"Space Grotesk", "Segoe UI", Arial, sans-serif',
@@ -1183,7 +1565,7 @@ function normalizeAppOpacity(value, fallback) {
 function normalizeTextScale(value, fallback) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
-  return clamp(Math.round(numeric), 60, 180);
+  return clamp(Math.round(numeric), 30, 180);
 }
 
 function normalizeFontFamily(value, fallback) {
@@ -1222,6 +1604,130 @@ function normalizeTeleprompterTextColor(value, fallback) {
 
 function normalizeLanguage(value, fallback) {
   return LANGUAGE_OPTIONS.some((option) => option.value === value) ? value : fallback;
+}
+
+function normalizeGroqSelect(value, options, fallback) {
+  return options.some((option) => option.value === value) ? value : fallback;
+}
+
+function normalizeGroqText(value, fallback = "", maxLength = 2000) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  return value.trim().slice(0, maxLength);
+}
+
+export function normalizeGroqSettings(value = {}, fallback = defaultState.groq) {
+  return {
+    personality: normalizeGroqSelect(value?.personality, GROQ_PERSONALITY_OPTIONS, fallback.personality),
+    grammarLevel: normalizeGroqSelect(value?.grammarLevel, GROQ_GRAMMAR_LEVEL_OPTIONS, fallback.grammarLevel),
+    userContext: normalizeGroqText(value?.userContext, fallback.userContext, 1600),
+    emojiUsage: normalizeGroqSelect(value?.emojiUsage, GROQ_EMOJI_USAGE_OPTIONS, fallback.emojiUsage),
+    academicWordUsage: normalizeGroqSelect(value?.academicWordUsage, GROQ_ACADEMIC_WORD_USAGE_OPTIONS, fallback.academicWordUsage),
+    pointOfView: normalizeGroqSelect(value?.pointOfView, GROQ_POINT_OF_VIEW_OPTIONS, fallback.pointOfView),
+    outputLanguage: normalizeGroqSelect(value?.outputLanguage, GROQ_OUTPUT_LANGUAGE_OPTIONS, fallback.outputLanguage)
+  };
+}
+
+export function resolveGroqOutputLanguage(outputLanguage = defaultState.groq.outputLanguage, appLanguage = defaultState.language) {
+  if (outputLanguage === "app") {
+    return normalizeLanguage(appLanguage, defaultState.language);
+  }
+
+  return normalizeLanguage(outputLanguage, defaultState.language);
+}
+
+export function getLanguageLabel(language) {
+  return LANGUAGE_OPTIONS.find((option) => option.value === normalizeLanguage(language, defaultState.language))?.label
+    || LANGUAGE_OPTIONS[0].label;
+}
+
+function describeGroqPersonality(personality) {
+  switch (personality) {
+    case "confident":
+      return "Use a confident, decisive speaking style.";
+    case "friendly":
+      return "Use a warm, approachable speaking style.";
+    case "professional":
+      return "Use a polished, professional speaking style.";
+    case "persuasive":
+      return "Use a persuasive, high-conviction speaking style.";
+    default:
+      return "Use a natural, human speaking style.";
+  }
+}
+
+function describeGroqGrammarLevel(grammarLevel) {
+  switch (grammarLevel) {
+    case "relaxed":
+      return "Keep grammar slightly relaxed and conversational without becoming sloppy.";
+    case "polished":
+      return "Use polished grammar and tighter sentence structure.";
+    default:
+      return "Use standard grammar that sounds clear and smooth when spoken aloud.";
+  }
+}
+
+function describeGroqEmojiUsage(emojiUsage) {
+  return emojiUsage === "on"
+    ? "You may use a small number of emojis only when they genuinely improve tone or clarity."
+    : "Do not use emojis.";
+}
+
+function describeGroqAcademicWordUsage(academicWordUsage) {
+  switch (academicWordUsage) {
+    case "aggressive":
+      return "Lean heavily into academic, formal, and intellectually dense wording when it still remains readable aloud.";
+    case "on":
+      return "You may use moderately academic wording when it helps precision or credibility.";
+    default:
+      return "Avoid academic jargon unless the user's instruction explicitly requires it.";
+  }
+}
+
+function describeGroqPointOfView(pointOfView) {
+  return pointOfView === "third-person"
+    ? "Prefer third-person framing and avoid writing from the speaker's personal 'I' perspective unless the user's instruction explicitly requires it."
+    : "Prefer first-person phrasing when the script speaks for the user personally.";
+}
+
+export function buildGroqRequest({
+  instruction = "",
+  script = "",
+  groqSettings = defaultState.groq,
+  appLanguage = defaultState.language
+} = {}) {
+  const normalizedSettings = normalizeGroqSettings(groqSettings, defaultState.groq);
+  const normalizedInstruction = String(instruction || "").trim();
+  const normalizedScript = String(script || "").trim();
+  const outputLanguage = resolveGroqOutputLanguage(normalizedSettings.outputLanguage, appLanguage);
+  const preferences = [
+    `Write the final script in ${getLanguageLabel(outputLanguage)}.`,
+    "Optimize for teleprompter delivery: natural rhythm, clean punctuation, and sentences that are easy to read aloud.",
+    describeGroqPersonality(normalizedSettings.personality),
+    describeGroqGrammarLevel(normalizedSettings.grammarLevel),
+    describeGroqEmojiUsage(normalizedSettings.emojiUsage),
+    describeGroqAcademicWordUsage(normalizedSettings.academicWordUsage),
+    describeGroqPointOfView(normalizedSettings.pointOfView)
+  ];
+
+  if (normalizedSettings.userContext) {
+    preferences.push(`User context: ${normalizedSettings.userContext}`);
+  }
+
+  return [
+    "You are editing or generating teleprompter text.",
+    "Always follow the user's instruction exactly.",
+    "If existing teleprompter text is provided, use it as the source text and rewrite or transform it according to the user's instruction.",
+    "If no existing teleprompter text is provided, generate new teleprompter text from the user's instruction only.",
+    "If the user's direct instruction conflicts with a saved preference, follow the user's direct instruction.",
+    "Return only the final teleprompter text.",
+    "Do not include any intro, label, explanation, notes, or quotation marks.",
+    `PREFERENCES:\n${preferences.join("\n")}`,
+    `USER INSTRUCTION:\n${normalizedInstruction || "Use the existing teleprompter text and improve it for teleprompter delivery."}`,
+    normalizedScript ? `EXISTING TELEPROMPTER TEXT:\n${normalizedScript}` : ""
+  ].filter(Boolean).join("\n\n");
 }
 
 export function normalizeVoiceLanguage(value, fallback = defaultState.appearance.voiceLanguage) {
@@ -1265,6 +1771,23 @@ function normalizeDesktopSettings(value, fallback) {
     preventSleep: value?.preventSleep ?? fallback.preventSleep,
     clickthroughShortcutEnabled: value?.clickthroughShortcutEnabled ?? fallback.clickthroughShortcutEnabled
   };
+}
+
+function normalizeWindowSettings(value, fallback) {
+  const merged = {
+    ...fallback,
+    ...(value || {})
+  };
+
+  if (
+    [960, 1040, 1120].includes(Number(merged.width))
+    && Number(merged.height) === fallback.height
+    && (merged.preset === fallback.preset || !merged.preset)
+  ) {
+    merged.width = fallback.width;
+  }
+
+  return merged;
 }
 
 function generateRemoteId() {
@@ -1354,6 +1877,10 @@ export function normalizeState(rawState = {}) {
     ...rawState,
     groqKey: rawState.groqKey ?? rawState.geminiKey ?? defaults.groqKey,
     groqPrompt: rawState.groqPrompt ?? rawState.geminiPrompt ?? defaults.groqPrompt,
+    groq: {
+      ...defaults.groq,
+      ...(rawState.groq || {})
+    },
     language: rawState.language ?? defaults.language,
     desktop: {
       ...defaults.desktop,
@@ -1363,10 +1890,7 @@ export function normalizeState(rawState = {}) {
       ...defaults.remote,
       ...(rawState.remote || {})
     },
-    window: {
-      ...defaults.window,
-      ...(rawState.window || {})
-    },
+    window: normalizeWindowSettings(rawState.window, defaults.window),
     appearance: {
       ...defaults.appearance,
       ...(rawState.appearance || {})
@@ -1377,6 +1901,7 @@ export function normalizeState(rawState = {}) {
   normalized.speed = normalizeSpeed(normalized.speed, defaults.speed);
   normalized.language = normalizeLanguage(normalized.language, defaults.language);
   normalized.desktop = normalizeDesktopSettings(normalized.desktop, defaults.desktop);
+  normalized.window = normalizeWindowSettings(normalized.window, defaults.window);
   normalized.remote.provider = normalizeRemoteProvider(normalized.remote.provider, defaults.remote.provider);
   normalized.remote.receiverId = normalizeRemoteCredential(normalized.remote.receiverId, "", 128) || generateRemoteId();
   normalized.remote.receiverSecret = normalizeRemoteCredential(normalized.remote.receiverSecret, "", 256) || generateRemoteSecret();
@@ -1384,6 +1909,7 @@ export function normalizeState(rawState = {}) {
   normalized.remote.publicHost = normalizeRemoteHost(normalized.remote.publicHost, defaults.remote.publicHost);
   normalized.appearance.theme = normalizeTheme(normalized.appearance.theme, defaults.appearance.theme);
   normalized.appearance.style = normalizeStyle(normalized.appearance.style, defaults.appearance.style);
+  normalized.appearance.speedRailEnabled = normalized.appearance.speedRailEnabled !== false;
   normalized.appearance.autoHideToolbar = Boolean(normalized.appearance.autoHideToolbar);
   normalized.appearance.performanceMode = Boolean(normalized.appearance.performanceMode);
   normalized.appearance.appWideVoiceCommands = Boolean(normalized.appearance.appWideVoiceCommands);
@@ -1404,6 +1930,7 @@ export function normalizeState(rawState = {}) {
   normalized.appearance.mode = ["highlight", "scroll", "line", "arrow", "voice"].includes(normalized.appearance.mode)
     ? normalized.appearance.mode
     : defaults.appearance.mode;
+  normalized.groq = normalizeGroqSettings(normalized.groq, defaults.groq);
 
   return normalized;
 }
@@ -1435,7 +1962,13 @@ function mergeState(currentState, nextState = {}) {
           ...currentState.appearance,
           ...nextState.appearance
         }
-      : currentState.appearance
+      : currentState.appearance,
+    groq: nextState.groq
+      ? {
+          ...currentState.groq,
+          ...nextState.groq
+        }
+      : currentState.groq
   });
 }
 

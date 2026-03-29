@@ -13,6 +13,7 @@ import {
   applyAppearanceToDocument,
   applyTextDirection,
   applyTranslationsToDocument,
+  buildGroqRequest,
   clamp,
   defaultState,
   estimateMinutes,
@@ -44,6 +45,8 @@ const MIN_WIDTH = 400;
 const MIN_HEIGHT = 200;
 const COLLAPSED_HEIGHT = 56;
 const COLLAPSE_DURATION = 420;
+const SPEED_RAIL_WINDOW_GUTTER = 74;
+const SPEED_RAIL_TRANSITION_MS = 220;
 const PLAYBACK_COUNTDOWN_STEPS = ["3", "2", "1"];
 const PLAYBACK_COUNTDOWN_BASE_STEP_MS = 860;
 const PLAYBACK_COUNTDOWN_FASTEST_STEP_MS = 620;
@@ -128,6 +131,8 @@ let isPaused = false;
 let isCollapsed = false;
 let currentWindowHeight = null;
 let resizeAnimationToken = 0;
+let isSpeedRailVisible = false;
+let speedRailTransitionToken = 0;
 let wordNodes = [];
 let lineGroups = [];
 let lineIndexByWord = [];
@@ -462,6 +467,11 @@ function t(key, params = {}) {
 }
 
 function cacheUi() {
+  ui.speedRail = document.querySelector("#speedRail");
+  ui.speedRailValue = document.querySelector("#speedRailValue");
+  ui.speedRailSlider = document.querySelector("#speedRailSlider");
+  ui.speedRail?.classList.remove("hidden");
+  ui.speedRail?.setAttribute("aria-hidden", "true");
   ui.teleprompterApp = document.querySelector(".teleprompter-app");
   ui.teleprompterToolbar = document.querySelector(".teleprompter-toolbar");
   ui.teleprompterFooter = document.querySelector("#teleprompterFooter");
@@ -531,10 +541,12 @@ async function captureCurrentWindowState() {
     appWindow.outerSize?.().catch?.(() => null) ?? null
   ]);
 
+  const gutterWidth = getSpeedRailWindowGutter();
+
   return {
-    x: position?.x ?? state.window?.x ?? null,
+    x: position ? position.x + gutterWidth : state.window?.x ?? null,
     y: position?.y ?? state.window?.y ?? null,
-    width: size?.width ?? state.window?.width ?? defaultState.window.width,
+    width: size ? Math.max(size.width - gutterWidth, MIN_WIDTH) : state.window?.width ?? defaultState.window.width,
     height: size?.height ?? state.window?.height ?? defaultState.window.height
   };
 }
@@ -590,6 +602,128 @@ function words() {
 function updateSpeedLabel() {
   ui.speedLabel.value = String(state.speed);
   ui.speedLabel.title = `${state.speed} ${t("common.wpm")}`;
+  if (ui.speedRailValue) {
+    ui.speedRailValue.textContent = String(state.speed);
+  }
+  if (ui.speedRailSlider) {
+    ui.speedRailSlider.value = String(state.speed);
+    ui.speedRailSlider.title = `${state.speed} ${t("common.wpm")}`;
+  }
+}
+
+function shouldShowSpeedRail() {
+  const activeMode = getActiveMode();
+
+  return Boolean(ui.speedRail)
+    && state.appearance?.speedRailEnabled !== false
+    && !["voice", "arrow"].includes(activeMode)
+    && isPlaying
+    && !isPaused
+    && wordNodes.length > 0
+    && !isCollapsed;
+}
+
+function getBaseWindowWidth() {
+  return Math.max(state.window.width || defaultState.window.width, MIN_WIDTH);
+}
+
+function getSpeedRailWindowGutter() {
+  return state.appearance?.speedRailEnabled === false || ["voice", "arrow"].includes(getActiveMode())
+    ? 0
+    : SPEED_RAIL_WINDOW_GUTTER;
+}
+
+function getTargetWindowWidth() {
+  return getBaseWindowWidth() + getSpeedRailWindowGutter();
+}
+
+function setSpeedRailGutter(value) {
+  const normalizedGutter = Math.max(0, Math.min(SPEED_RAIL_WINDOW_GUTTER, Number(value) || 0));
+  document.documentElement.style.setProperty("--speed-rail-gutter-current", `${normalizedGutter}px`);
+}
+
+async function positionWindowForCurrentLayout(appWindow, gutterWidth = getSpeedRailWindowGutter()) {
+
+  if (state.window.preset === "center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
+    const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
+    if (monitor) {
+      const x = monitor.position.x + Math.round((monitor.size.width - getBaseWindowWidth()) / 2) - gutterWidth;
+      const y = monitor.position.y + Math.round((monitor.size.height - state.window.height) / 2);
+      await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
+      return;
+    }
+  }
+
+  if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
+    const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
+    if (monitor) {
+      const x = monitor.position.x + Math.round((monitor.size.width - getBaseWindowWidth()) / 2) + TOP_CENTER_X_OFFSET - gutterWidth;
+      await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, monitor.position.y));
+      return;
+    }
+  }
+
+  if (state.window.x !== null && state.window.y !== null && tauriDpi.LogicalPosition) {
+    await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x - gutterWidth, state.window.y));
+  }
+}
+
+async function applyWindowGeometry(appWindow, gutterWidth = getSpeedRailWindowGutter(), height = state.window.height) {
+  if (!tauriDpi?.LogicalSize) {
+    return;
+  }
+
+  const width = getBaseWindowWidth() + gutterWidth;
+  await appWindow.setSize(new tauriDpi.LogicalSize(width, height)).catch(console.error);
+  await positionWindowForCurrentLayout(appWindow, gutterWidth).catch(console.error);
+}
+
+function updateSpeedRailVisibility() {
+  const shouldShowRail = shouldShowSpeedRail();
+  if (shouldShowRail === isSpeedRailVisible) {
+    return;
+  }
+
+  isSpeedRailVisible = shouldShowRail;
+  const token = ++speedRailTransitionToken;
+
+  const finalizeShow = async () => {
+    if (token !== speedRailTransitionToken) {
+      return;
+    }
+
+    if (ui.speedRail) {
+      ui.speedRail.setAttribute("aria-hidden", "false");
+    }
+
+    requestAnimationFrame(() => {
+      if (token !== speedRailTransitionToken) {
+        return;
+      }
+
+      document.body.classList.add("speed-rail-visible");
+    });
+  };
+
+  const finalizeHide = async () => {
+    document.body.classList.remove("speed-rail-visible");
+
+    if (ui.speedRail) {
+      ui.speedRail.setAttribute("aria-hidden", "true");
+    }
+
+    await wait(SPEED_RAIL_TRANSITION_MS);
+    if (token !== speedRailTransitionToken) {
+      return;
+    }
+  };
+
+  if (shouldShowRail) {
+    finalizeShow().catch(console.error);
+    return;
+  }
+
+  finalizeHide().catch(console.error);
 }
 
 async function applyDesktopPreferences() {
@@ -664,26 +798,33 @@ function scheduleSpeedPersist() {
   }, 140);
 }
 
-function adjustSpeed(delta) {
-  const nextSpeed = clamp(state.speed + delta, 60, 360);
-  if (nextSpeed === state.speed) {
+function setSpeedValue(nextSpeed, options = {}) {
+  const normalizedSpeed = clamp(Number(nextSpeed) || state.speed, 60, 360);
+  if (normalizedSpeed === state.speed) {
+    updateSpeedLabel();
     return;
   }
 
-  state.speed = nextSpeed;
+  state.speed = normalizedSpeed;
   updateSpeedLabel();
-  scheduleSpeedPersist();
+
+  if (options.persistImmediately) {
+    flushPendingSpeedPersist();
+  } else {
+    scheduleSpeedPersist();
+  }
 
   if (!isPlaying || isPaused) {
     updatePlaybackIndicators(true);
   }
 }
 
+function adjustSpeed(delta) {
+  setSpeedValue(state.speed + delta);
+}
+
 function commitTypedSpeed() {
-  const typedSpeed = clamp(Number(ui.speedLabel.value) || state.speed, 60, 360);
-  adjustSpeed(typedSpeed - state.speed);
-  flushPendingSpeedPersist();
-  updateSpeedLabel();
+  setSpeedValue(ui.speedLabel.value, { persistImmediately: true });
 }
 
 function updateSpeedInputMode() {
@@ -976,6 +1117,7 @@ function updatePlayButtons() {
   const showReplay = isPaused && currentIndex > 0;
   ui.floatingReplayButton.classList.toggle("hidden", !showReplay);
   updateFloatingPlaybackMeta();
+  updateSpeedRailVisibility();
 }
 
 function hexToRgbTriplet(hexColor) {
@@ -1010,8 +1152,9 @@ async function animateWindowHeight(targetHeight) {
     currentWindowHeight = targetHeight;
     if (tauriWindow?.getCurrentWindow && tauriDpi?.LogicalSize) {
       const appWindow = tauriWindow.getCurrentWindow();
-      const width = Math.max(state.window.width || defaultState.window.width, MIN_WIDTH);
+      const width = getTargetWindowWidth();
       await appWindow.setSize(new tauriDpi.LogicalSize(width, targetHeight)).catch(console.error);
+      await positionWindowForCurrentLayout(appWindow).catch(console.error);
     }
     return;
   }
@@ -1022,7 +1165,7 @@ async function animateWindowHeight(targetHeight) {
   }
 
   const appWindow = tauriWindow.getCurrentWindow();
-  const width = Math.max(state.window.width || defaultState.window.width, MIN_WIDTH);
+  const width = getTargetWindowWidth();
   const startHeight = currentWindowHeight ?? Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT);
 
   if (startHeight === targetHeight) {
@@ -1057,6 +1200,7 @@ async function animateWindowHeight(targetHeight) {
         lastAppliedHeight = nextHeight;
         currentWindowHeight = nextHeight;
         appWindow.setSize(new tauriDpi.LogicalSize(width, nextHeight)).catch(console.error);
+        positionWindowForCurrentLayout(appWindow).catch(console.error);
       }
 
       if (progress < 1) {
@@ -1065,7 +1209,8 @@ async function animateWindowHeight(targetHeight) {
       }
 
       currentWindowHeight = targetHeight;
-      appWindow.setSize(new tauriDpi.LogicalSize(width, targetHeight)).catch(console.error).finally(resolve);
+      appWindow.setSize(new tauriDpi.LogicalSize(width, targetHeight)).catch(console.error);
+      positionWindowForCurrentLayout(appWindow).catch(console.error).finally(resolve);
     };
 
     requestAnimationFrame((timestamp) => step(timestamp, timestamp));
@@ -1482,18 +1627,12 @@ async function generatePromptScript() {
     saveState({ groqPrompt: promptDescription });
   }
 
-  const request = [
-    "You are editing or generating teleprompter text.",
-    "Always follow the user's instruction exactly.",
-    "If existing teleprompter text is provided, use it as the source text and rewrite or transform it according to the user's instruction.",
-    "If no existing teleprompter text is provided, generate new teleprompter text from the user's instruction only.",
-    "Match the language requested by the user. If the user asks for Arabic, write fully in Arabic.",
-    "Do not invent a random topic unless the user explicitly asks for one.",
-    "Return only the final teleprompter text.",
-    "Do not include any intro, label, explanation, notes, or quotation marks.",
-    `USER INSTRUCTION:\n${promptDescription}`,
-    existingScript ? `\nEXISTING TELEPROMPTER TEXT:\n${existingScript}` : ""
-  ].filter(Boolean).join("\n\n");
+  const request = buildGroqRequest({
+    instruction: promptDescription,
+    script: existingScript,
+    groqSettings: state.groq,
+    appLanguage: state.language
+  });
 
   ui.statusLabel.textContent = t("tele.generating");
   ui.generateButton.disabled = true;
@@ -4667,6 +4806,7 @@ function refreshFromStorage() {
 
   if (previousState.language !== state.language) {
     applyTranslationsToDocument(state.language);
+    updateSpeedLabel();
     updateCollapseButton();
     updatePlayButtons();
   }
@@ -4675,6 +4815,8 @@ function refreshFromStorage() {
 
   if (previousState.appearance !== JSON.stringify(state.appearance)) {
     applyAppearanceSettings();
+    updatePlayButtons();
+    applyStoredWindowSettings().catch(console.error);
 
     if (voiceLanguageChanged && isPlaying && getActiveMode() === "voice") {
       stopVoiceTracking()
@@ -4728,6 +4870,24 @@ function wireEvents() {
   ui.speedLabel.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       ui.speedLabel.blur();
+    }
+  });
+  ui.speedRailSlider.addEventListener("input", () => {
+    setSpeedValue(ui.speedRailSlider.value);
+  });
+  ui.speedRailSlider.addEventListener("change", () => {
+    setSpeedValue(ui.speedRailSlider.value, { persistImmediately: true });
+  });
+  ui.speedRailSlider.addEventListener("keydown", (event) => {
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      adjustSpeed(event.repeat ? 4 : 2);
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      adjustSpeed(event.repeat ? -4 : -2);
     }
   });
 
@@ -4842,34 +5002,19 @@ async function applyStoredWindowSettings() {
   if (!tauriWindow?.getCurrentWindow || !tauriDpi?.LogicalSize) return;
 
   const appWindow = tauriWindow.getCurrentWindow();
-  state.window.width = Math.max(state.window.width || defaultState.window.width, MIN_WIDTH);
+  state.window.width = getBaseWindowWidth();
   state.window.height = Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT);
+
+  setSpeedRailGutter(getSpeedRailWindowGutter());
 
   if (isCollapsed) {
     return;
   }
 
-  await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width, state.window.height));
+  await appWindow.setSize(new tauriDpi.LogicalSize(getTargetWindowWidth(), state.window.height));
   currentWindowHeight = state.window.height;
 
-  if (state.window.preset === "center") {
-    await appWindow.center();
-    return;
-  }
-
-  if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
-    const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
-    if (monitor) {
-      const outer = await appWindow.outerSize();
-      const x = monitor.position.x + Math.round((monitor.size.width - outer.width) / 2) + TOP_CENTER_X_OFFSET;
-      await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, monitor.position.y));
-      return;
-    }
-  }
-
-  if (state.window.x !== null && state.window.y !== null && tauriDpi.LogicalPosition) {
-    await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x, state.window.y));
-  }
+  await positionWindowForCurrentLayout(appWindow);
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -4879,6 +5024,7 @@ window.addEventListener("DOMContentLoaded", () => {
   applyDesktopPreferences().catch(console.error);
   applyTranslationsToDocument(state.language);
   cacheUi();
+  setSpeedRailGutter(SPEED_RAIL_WINDOW_GUTTER);
   installVoiceCommandDebugHelpers();
   applyAppearanceSettings();
   updateCollapseButton();

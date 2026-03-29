@@ -77,6 +77,78 @@
 
         <label class="field-label" for="groqPromptInput" data-i18n="input.instruction">Instruction</label>
         <textarea id="groqPromptInput" class="page-textarea small-textarea" data-i18n-placeholder="input.instructionPlaceholder" placeholder="Example: Rewrite this to sound more natural and easier to read on camera."></textarea>
+        <p class="helper-text" data-i18n="input.assistantHelp">Saved preferences shape every Groq request, while your instruction stays the task-specific command.</p>
+
+        <div class="settings-subgroup assistant-profile-group">
+          <div class="settings-subgroup-header">
+            <h3 class="settings-subgroup-title" data-i18n="input.profileTitle">Writing profile</h3>
+          </div>
+          <p class="helper-text" data-i18n="input.profileHelp">These preferences bias tone and delivery, but your instruction still wins when it conflicts.</p>
+
+          <div class="group-grid settings-subgroup-grid">
+            <label>
+              <span data-i18n="input.personality">Personality</span>
+              <select id="groqPersonalitySelect" class="page-input">
+                <option value="natural" data-i18n="input.personality.natural">Natural</option>
+                <option value="confident" data-i18n="input.personality.confident">Confident</option>
+                <option value="friendly" data-i18n="input.personality.friendly">Friendly</option>
+                <option value="professional" data-i18n="input.personality.professional">Professional</option>
+                <option value="persuasive" data-i18n="input.personality.persuasive">Persuasive</option>
+              </select>
+            </label>
+
+            <label>
+              <span data-i18n="input.grammarLevel">Grammar level</span>
+              <select id="groqGrammarLevelSelect" class="page-input">
+                <option value="relaxed" data-i18n="input.grammarLevel.relaxed">Relaxed</option>
+                <option value="standard" data-i18n="input.grammarLevel.standard">Standard</option>
+                <option value="polished" data-i18n="input.grammarLevel.polished">Polished</option>
+              </select>
+            </label>
+
+            <label>
+              <span data-i18n="input.emojiUsage">Emoji usage</span>
+              <select id="groqEmojiUsageSelect" class="page-input">
+                <option value="off" data-i18n="common.off">Off</option>
+                <option value="on" data-i18n="common.on">On</option>
+              </select>
+            </label>
+
+            <label>
+              <span data-i18n="input.academicWordUsage">Academic words</span>
+              <select id="groqAcademicWordUsageSelect" class="page-input">
+                <option value="off" data-i18n="input.academicWordUsage.off">Off</option>
+                <option value="on" data-i18n="input.academicWordUsage.on">On</option>
+                <option value="aggressive" data-i18n="input.academicWordUsage.aggressive">Aggressive</option>
+              </select>
+            </label>
+
+            <label>
+              <span data-i18n="input.pointOfView">Speech point of view</span>
+              <select id="groqPointOfViewSelect" class="page-input">
+                <option value="first-person" data-i18n="input.pointOfView.firstPerson">First person (I / me)</option>
+                <option value="third-person" data-i18n="input.pointOfView.thirdPerson">Third person</option>
+              </select>
+            </label>
+
+            <label>
+              <span data-i18n="input.outputLanguage">Output language</span>
+              <select id="groqOutputLanguageSelect" class="page-input">
+                <option value="app" data-i18n="input.outputLanguage.app">App language</option>
+                <option value="en" data-i18n="language.en">English</option>
+                <option value="tr" data-i18n="language.tr">Turkish</option>
+                <option value="ar" data-i18n="language.ar">Arabic</option>
+                <option value="de" data-i18n="language.de">German</option>
+                <option value="fr" data-i18n="language.fr">French</option>
+              </select>
+            </label>
+          </div>
+
+          <label class="field-label" for="groqUserContextInput" data-i18n="input.userContext">Context about you</label>
+          <span class="helper-text" data-i18n="input.contextHint">Add background about your role, audience, goals, or how you want to sound.</span>
+          <textarea id="groqUserContextInput" class="page-textarea small-textarea" data-i18n-placeholder="input.userContextPlaceholder" placeholder="Example: I am a medical student, I speak fast when nervous, and I want the script to sound calm and credible."></textarea>
+          <span class="helper-text" data-i18n="input.outputLanguageHint">Choose the language Groq should use for the final script.</span>
+        </div>
 
         <div class="page-actions stack-actions">
           <button class="primary-action" id="saveScriptButton" type="button" data-i18n="input.saveText">Save text</button>

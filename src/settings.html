@@ -133,7 +133,7 @@
               <label class="slider-field">
                 <span class="slider-header">
                   <span data-i18n="settings.width">Width</span>
-                  <span class="slider-value" id="widthValue">960 px</span>
+                  <span class="slider-value" id="widthValue">1280 px</span>
                 </span>
                 <input id="widthInput" class="slider-input" type="range" min="400" step="10" />
               </label>
@@ -161,6 +161,14 @@
               <option value="arrow" data-i18n="settings.mode.arrow">Arrow mode</option>
               <option value="voice" data-i18n="settings.mode.voice">Voice tracking</option>
             </select>
+
+            <label class="toggle-field" for="speedRailEnabledInput">
+              <span>
+                <span class="field-label inline-label" data-i18n="settings.speedSlider">Left speed slider</span>
+                <span class="helper-text toggle-help" data-i18n="settings.speedSliderHelp">Shows the vertical WPM slider on the left side while playing.</span>
+              </span>
+              <input id="speedRailEnabledInput" class="toggle-input" type="checkbox" />
+            </label>
 
             <div class="settings-subgroup hidden" id="voiceLanguageGroup">
               <label class="field-label" for="voiceLanguageSelect" data-i18n="settings.voiceLanguage">Voice Language</label>
@@ -237,6 +245,7 @@
                 <option value="tr" data-i18n="language.tr">Turkish</option>
                 <option value="ar" data-i18n="language.ar">Arabic</option>
                 <option value="de" data-i18n="language.de">German</option>
+                <option value="fr" data-i18n="language.fr">French</option>
               </select>
               <button class="language-trigger" id="languageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
                 <span class="language-flag" id="languageTriggerFlag" data-flag="en" aria-hidden="true"></span>
@@ -260,6 +269,10 @@
                   <span class="language-flag" data-flag="de" aria-hidden="true"></span>
                   <span class="language-option-label" data-language-label="de">German</span>
                 </button>
+                <button class="language-option" type="button" data-value="fr" role="option">
+                  <span class="language-flag" data-flag="fr" aria-hidden="true"></span>
+                  <span class="language-option-label" data-language-label="fr">French</span>
+                </button>
               </div>
             </div>
 
@@ -268,7 +281,7 @@
                 <span data-i18n="settings.textSize">Text size</span>
                 <span class="slider-value" id="textSizeValue">100%</span>
               </span>
-              <input id="textSizeInput" class="slider-input" type="range" min="60" max="180" step="5" />
+              <input id="textSizeInput" class="slider-input" type="range" min="30" max="180" step="5" />
             </label>
           </div>
 

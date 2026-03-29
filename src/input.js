@@ -8,7 +8,7 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, estimateMinutes, generateWithGroq, loadState, saveState, splitWords, translate } from "./shared.js";
+import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, loadState, saveState, splitWords, translate } from "./shared.js";
 
 const invoke = window.__TAURI__?.core?.invoke;
 const tauriWindow = window.__TAURI__?.window;
@@ -27,6 +27,13 @@ const ui = {
   importStatus: document.querySelector("#importStatus"),
   groqKeyInput: document.querySelector("#groqKeyInput"),
   groqPromptInput: document.querySelector("#groqPromptInput"),
+  groqPersonalitySelect: document.querySelector("#groqPersonalitySelect"),
+  groqGrammarLevelSelect: document.querySelector("#groqGrammarLevelSelect"),
+  groqEmojiUsageSelect: document.querySelector("#groqEmojiUsageSelect"),
+  groqAcademicWordUsageSelect: document.querySelector("#groqAcademicWordUsageSelect"),
+  groqPointOfViewSelect: document.querySelector("#groqPointOfViewSelect"),
+  groqOutputLanguageSelect: document.querySelector("#groqOutputLanguageSelect"),
+  groqUserContextInput: document.querySelector("#groqUserContextInput"),
   groqButton: document.querySelector("#groqButton"),
   saveScriptButton: document.querySelector("#saveScriptButton"),
   groqStatus: document.querySelector("#groqStatus"),
@@ -49,6 +56,19 @@ function t(key, params = {}) {
 function syncTextDirections() {
   applyTextDirection(ui.scriptInput, ui.scriptInput.value);
   applyTextDirection(ui.groqPromptInput, ui.groqPromptInput.value);
+  applyTextDirection(ui.groqUserContextInput, ui.groqUserContextInput.value);
+}
+
+function getGroqSettingsFromForm() {
+  return {
+    personality: ui.groqPersonalitySelect.value,
+    grammarLevel: ui.groqGrammarLevelSelect.value,
+    userContext: ui.groqUserContextInput.value,
+    emojiUsage: ui.groqEmojiUsageSelect.value,
+    academicWordUsage: ui.groqAcademicWordUsageSelect.value,
+    pointOfView: ui.groqPointOfViewSelect.value,
+    outputLanguage: ui.groqOutputLanguageSelect.value
+  };
 }
 
 function syncFromStorage() {
@@ -57,12 +77,20 @@ function syncFromStorage() {
   state.speed = latest.speed ?? state.speed;
   state.groqKey = latest.groqKey ?? latest.geminiKey ?? "";
   state.groqPrompt = latest.groqPrompt ?? latest.geminiPrompt ?? "";
+  state.groq = latest.groq ?? structuredClone(defaultState.groq);
   state.appearance = latest.appearance ?? state.appearance;
   state.language = latest.language ?? state.language;
 
   ui.scriptInput.value = state.script;
   ui.groqKeyInput.value = state.groqKey;
   ui.groqPromptInput.value = state.groqPrompt;
+  ui.groqPersonalitySelect.value = state.groq.personality;
+  ui.groqGrammarLevelSelect.value = state.groq.grammarLevel;
+  ui.groqEmojiUsageSelect.value = state.groq.emojiUsage;
+  ui.groqAcademicWordUsageSelect.value = state.groq.academicWordUsage;
+  ui.groqPointOfViewSelect.value = state.groq.pointOfView;
+  ui.groqOutputLanguageSelect.value = state.groq.outputLanguage;
+  ui.groqUserContextInput.value = state.groq.userContext;
   syncTextDirections();
   applyAppearanceToDocument(state.appearance);
   applyTranslationsToDocument(state.language);
@@ -100,11 +128,13 @@ function persist() {
   state.script = ui.scriptInput.value;
   state.groqKey = ui.groqKeyInput.value;
   state.groqPrompt = ui.groqPromptInput.value;
+  state.groq = getGroqSettingsFromForm();
   syncTextDirections();
   saveState({
     script: state.script,
     groqKey: state.groqKey,
-    groqPrompt: state.groqPrompt
+    groqPrompt: state.groqPrompt,
+    groq: state.groq
   });
   refreshMeta();
 }
@@ -414,18 +444,12 @@ async function useGroq() {
     return;
   }
 
-  const request = [
-    "You are editing or generating teleprompter text.",
-    "Always follow the user's instruction exactly.",
-    "If existing teleprompter text is provided, use it as the source text and rewrite or transform it according to the user's instruction.",
-    "If no existing teleprompter text is provided, generate new teleprompter text from the user's instruction only.",
-    "Match the language requested by the user. If the user asks for Arabic, write fully in Arabic.",
-    "Do not invent a random topic unless the user explicitly asks for one.",
-    "Return only the final teleprompter text.",
-    "Do not include any intro, label, explanation, notes, or quotation marks.",
-    `USER INSTRUCTION:\n${instruction || "Use the existing teleprompter text and improve it for teleprompter delivery."}`,
-    script ? `\nEXISTING TELEPROMPTER TEXT:\n${script}` : ""
-  ].filter(Boolean).join("\n\n");
+  const request = buildGroqRequest({
+    instruction,
+    script,
+    groqSettings: getGroqSettingsFromForm(),
+    appLanguage: state.language
+  });
 
   ui.groqStatus.textContent = t("input.thinking");
   ui.groqButton.disabled = true;
@@ -515,9 +539,21 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   ui.groqKeyInput.addEventListener("input", persist);
   ui.groqPromptInput.addEventListener("input", persist);
+  [
+    ui.groqPersonalitySelect,
+    ui.groqGrammarLevelSelect,
+    ui.groqEmojiUsageSelect,
+    ui.groqAcademicWordUsageSelect,
+    ui.groqPointOfViewSelect,
+    ui.groqOutputLanguageSelect
+  ].forEach((input) => {
+    input.addEventListener("input", persist);
+    input.addEventListener("change", persist);
+  });
+  ui.groqUserContextInput.addEventListener("input", persist);
   ui.saveScriptButton.addEventListener("click", () => {
     persist();
-    ui.groqStatus.textContent = t("input.saved");
+    ui.groqStatus.textContent = t("input.preferencesSaved");
   });
   ui.groqButton.addEventListener("click", useGroq);
   ui.closeWindowButton.addEventListener("click", () => {

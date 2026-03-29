@@ -19,6 +19,12 @@
   </head>
 
   <body data-page="teleprompter">
+    <aside class="teleprompter-speed-rail" id="speedRail" aria-label="Words per minute control">
+      <div class="speed-rail-value" id="speedRailValue">120</div>
+      <div class="speed-rail-unit" data-i18n="common.wpm">wpm</div>
+      <input class="speed-rail-slider" id="speedRailSlider" type="range" min="60" max="360" step="2" value="120" data-i18n-aria-label="common.speedAria" aria-label="Speed in words per minute" />
+    </aside>
+
     <main class="teleprompter-app">
       <div class="teleprompter-hover-trigger top-hover-trigger" aria-hidden="true"></div>
       <div class="teleprompter-toolbar">

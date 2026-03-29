@@ -26,6 +26,7 @@ import {
 const MIN_WIDTH = 400;
 const MIN_HEIGHT = 200;
 const COLLAPSED_HEIGHT = 56;
+const SPEED_RAIL_WINDOW_GUTTER = 74;
 const MAX_WIDTH_FALLBACK = 2200;
 const MAX_HEIGHT_FALLBACK = 1400;
 const POSITION_PADDING = 600;
@@ -55,6 +56,7 @@ const ui = {
   heightValue: document.querySelector("#heightValue"),
   presetSelect: document.querySelector("#presetSelect"),
   modeSelect: document.querySelector("#modeSelect"),
+  speedRailEnabledInput: document.querySelector("#speedRailEnabledInput"),
   voiceLanguageGroup: document.querySelector("#voiceLanguageGroup"),
   voiceLanguageSelect: document.querySelector("#voiceLanguageSelect"),
   voiceModelCard: document.querySelector("#voiceModelCard"),
@@ -121,9 +123,17 @@ function t(key, params = {}) {
   return translate(key, state.language, params);
 }
 
+function getSpeedRailWindowGutter() {
+  return state.appearance?.speedRailEnabled === false || ["voice", "arrow"].includes(state.appearance?.mode)
+    ? 0
+    : SPEED_RAIL_WINDOW_GUTTER;
+}
+
 function getVoiceLanguageLabel(language) {
-  return VOICE_LANGUAGE_OPTIONS.find((option) => option.value === normalizeVoiceLanguage(language))?.label
-    || VOICE_LANGUAGE_OPTIONS[0].label;
+  const normalizedLanguage = normalizeVoiceLanguage(language);
+  const option = VOICE_LANGUAGE_OPTIONS.find((entry) => entry.value === normalizedLanguage) || VOICE_LANGUAGE_OPTIONS[0];
+  const languageCode = option.value.slice(0, 2).toLowerCase();
+  return translate(`language.${languageCode}`, state.language);
 }
 
 function formatMegabytes(bytes) {
@@ -186,8 +196,7 @@ function renderVoiceLanguageOptions() {
   Array.from(ui.voiceLanguageSelect.options).forEach((option) => {
     const language = normalizeVoiceLanguage(option.value);
     const status = voiceModelStatuses.get(language);
-    const baseLabel = option.dataset.baseLabel || option.textContent.trim();
-    option.dataset.baseLabel = baseLabel;
+    const baseLabel = getVoiceLanguageLabel(language);
     option.textContent = status?.installed ? `✓ ${baseLabel}` : baseLabel;
   });
 }
@@ -364,6 +373,7 @@ function updatePositioningAvailability() {
 
 function updateAppearanceAvailability() {
   ui.modeSelect.disabled = false;
+  ui.speedRailEnabledInput.disabled = false;
   const isVoiceMode = ui.modeSelect.value === "voice";
   ui.voiceLanguageGroup.classList.toggle("hidden", !isVoiceMode);
   ui.voiceLanguageSelect.disabled = !isVoiceMode;
@@ -467,7 +477,8 @@ async function configureSliderRanges() {
   ui.xInput.max = String(originX + monitorWidth + POSITION_PADDING);
   ui.yInput.min = String(originY - monitorHeight - POSITION_PADDING);
   ui.yInput.max = String(originY + monitorHeight + POSITION_PADDING);
-  ui.widthInput.max = String(Math.max(monitorWidth, MAX_WIDTH_FALLBACK));
+  const gutterWidth = getSpeedRailWindowGutter();
+  ui.widthInput.max = String(Math.max(monitorWidth - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth));
   ui.heightInput.max = String(Math.max(monitorHeight, MAX_HEIGHT_FALLBACK));
 }
 
@@ -487,6 +498,7 @@ function fillForm() {
   ui.styleSelect.value = state.appearance?.style || defaultState.appearance.style;
   ui.themeSelect.value = state.appearance?.theme || defaultState.appearance.theme;
   ui.autoHideToolbarInput.checked = Boolean(state.appearance?.autoHideToolbar);
+  ui.speedRailEnabledInput.checked = state.appearance?.speedRailEnabled !== false;
   
   ui.voiceLanguageSelect.value = normalizeVoiceLanguage(state.appearance?.voiceLanguage || "en-US");
   ui.voiceStyleSelect.value = state.appearance?.voiceScrollStyle || defaultState.appearance.voiceScrollStyle;
@@ -529,11 +541,12 @@ async function readCurrentWindow() {
   const pos = await appWindow.outerPosition();
   const windowIsCollapsed = Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
 
-  state.window.width = size.width;
+  const gutterWidth = getSpeedRailWindowGutter();
+  state.window.width = Math.max(size.width - gutterWidth, MIN_WIDTH);
   if (!windowIsCollapsed) {
     state.window.height = size.height;
   }
-  state.window.x = pos.x;
+  state.window.x = pos.x + gutterWidth;
   state.window.y = pos.y;
   saveState({
     window: {
@@ -582,6 +595,7 @@ function collectFormState() {
     theme: ui.themeSelect.value,
     style: ui.styleSelect.value,
     autoHideToolbar: ui.autoHideToolbarInput.checked,
+    speedRailEnabled: ui.speedRailEnabledInput.checked,
     performanceMode: ui.performanceModeInput.checked,
     textColor: ui.textColorInput.value || state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value),
     textOpacity: Number(ui.textOpacityInput.value)
@@ -613,28 +627,33 @@ async function applyWindowSettings() {
 
   try {
     collectFormState();
+    await configureSliderRanges();
     const windowIsCollapsed = await isMainWindowCollapsed(appWindow);
+    const gutterWidth = getSpeedRailWindowGutter();
 
     if (!windowIsCollapsed) {
-      await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width, state.window.height));
+      await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width + gutterWidth, state.window.height));
 
-      if (state.window.preset === "center") {
-        await appWindow.center();
-        const pos = await appWindow.outerPosition();
-        state.window.x = pos.x;
-        state.window.y = pos.y;
+      if (state.window.preset === "center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
+        const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
+        if (monitor) {
+          const x = monitor.position.x + Math.round((monitor.size.width - state.window.width) / 2) - gutterWidth;
+          const y = monitor.position.y + Math.round((monitor.size.height - state.window.height) / 2);
+          await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
+          state.window.x = x + gutterWidth;
+          state.window.y = y;
+        }
       } else if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
         const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
         if (monitor) {
-          const outer = await appWindow.outerSize();
-          const x = monitor.position.x + Math.round((monitor.size.width - outer.width) / 2) + TOP_CENTER_X_OFFSET;
+          const x = monitor.position.x + Math.round((monitor.size.width - state.window.width) / 2) + TOP_CENTER_X_OFFSET - gutterWidth;
           const y = monitor.position.y;
           await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
-          state.window.x = x;
+          state.window.x = x + gutterWidth;
           state.window.y = y;
         }
       } else {
-        await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x, state.window.y));
+        await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x - gutterWidth, state.window.y));
       }
     }
 
@@ -792,6 +811,8 @@ window.addEventListener("DOMContentLoaded", async () => {
       ui.languageSelect.value = option.dataset.value;
       state.language = option.dataset.value;
       applyTranslationsToDocument(state.language);
+      renderVoiceLanguageOptions();
+      renderVoiceModelStatus(ui.voiceLanguageSelect.value);
       renderLanguagePicker(option.dataset.value, option.dataset.value);
       closeLanguageMenu();
       scheduleApply();
@@ -809,7 +830,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       closeLanguageMenu();
     }
   });
-  [ui.autoHideToolbarInput, ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
+  [ui.autoHideToolbarInput, ui.speedRailEnabledInput, ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
   });

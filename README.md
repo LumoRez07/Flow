@@ -54,7 +54,8 @@ Flow is a desktop teleprompter focused on live readability and operational speed
 ## Preview
 
 <p align="center">
-  <img src="assets/flow%20main%20playing.png" alt="Flow main teleprompter while playing" width="900" />
+  <img src="assets/flow%20main.png" alt="Flow main teleprompter" width="48%" />
+  <img src="assets/flow%20main%20playing.png" alt="Flow main teleprompter while playing" width="48%" />
 </p>
 
 <p align="center">
@@ -63,9 +64,13 @@ Flow is a desktop teleprompter focused on live readability and operational speed
 </p>
 
 <p align="center">
-  <img src="assets/flow%20ai%20assistant.png" alt="Flow AI assistant" width="31%" />
-  <img src="assets/flow%20bright%20playing.png" alt="Flow bright theme while playing" width="31%" />
-  <img src="assets/flow%20yellow%20green%20playing.png" alt="Flow yellow green theme while playing" width="31%" />
+  <img src="assets/flow%20ai%20assistant.png" alt="Flow AI assistant" width="48%" />
+  <img src="assets/flow%20about.png" alt="Flow about screen" width="48%" />
+</p>
+
+<p align="center">
+  <img src="assets/flow%20bright%20playing.png" alt="Flow bright theme while playing" width="48%" />
+  <img src="assets/flow%20yellow%20green%20playing.png" alt="Flow yellow green theme while playing" width="48%" />
 </p>
 
 ## Highlights

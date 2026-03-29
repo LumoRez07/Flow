@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.3.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.3.1</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.3.0-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.3.1-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -42,7 +42,7 @@
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.3.0
+## What's New in 1.3.1
 
 - Added expanded Groq customization controls for drafting and rewriting workflows.
 - Added French app localization and refreshed translation coverage in settings.

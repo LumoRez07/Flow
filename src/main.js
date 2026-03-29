@@ -1315,7 +1315,9 @@ function applyResponsiveText() {
   const heightSize = basisHeight * 0.18;
   const baseSize = clamp(Math.min(widthSize, heightSize), 28, 120);
   const scale = (state.appearance?.textScale || defaultState.appearance.textScale) / 100;
-  const computed = clamp(baseSize * scale, 20, 180);
+  const minimumTextScale = 30;
+  const minimumRenderedSize = Math.max(8, (baseSize * minimumTextScale) / 100);
+  const computed = clamp(baseSize * scale, minimumRenderedSize, 180);
 
   const viewportChanged = basisWidth !== lastResponsiveViewportWidth
     || basisHeight !== lastResponsiveViewportHeight;

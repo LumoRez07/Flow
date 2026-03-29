@@ -51,8 +51,6 @@ Flow is a desktop teleprompter focused on live readability and operational speed
 - Refined voice-tracking settings, model install status, and translated language labels.
 - Lowered the minimum text size setting from 60% to 30%.
 
-See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the full release summary.
-
 ## Preview
 
 <p align="center">

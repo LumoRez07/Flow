@@ -38,6 +38,10 @@
   <img alt="Updater" src="https://img.shields.io/badge/Updates-Built%20In-f59e0b?style=for-the-badge" />
 </p>
 
+<a href="https://launchigniter.com/product/flow?ref=badge-flow" target="_blank">
+  <img src="https://launchigniter.com/api/badge/flow?theme=light" alt="Featured on LaunchIgniter" width="212" height="55" />
+</a>
+
 ## Overview
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
@@ -137,7 +141,6 @@ Flow includes a remote sender and inbox flow for pushing text into a running tel
 ## License
 
 This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
-
 ## Türkçe
 
 ### Genel Bakış

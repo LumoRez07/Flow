@@ -38,9 +38,11 @@
   <img alt="Updater" src="https://img.shields.io/badge/Updates-Built%20In-f59e0b?style=for-the-badge" />
 </p>
 
-<a href="https://launchigniter.com/product/flow?ref=badge-flow" target="_blank">
-  <img src="https://launchigniter.com/api/badge/flow?theme=light" alt="Featured on LaunchIgniter" width="212" height="55" />
-</a>
+<p align="center">
+  <a href="https://launchigniter.com/product/flow?ref=badge-flow" target="_blank">
+    <img src="https://launchigniter.com/api/badge/flow?theme=light" alt="Featured on LaunchIgniter" width="212" height="55" />
+  </a>
+</p>
 
 ## Overview
 

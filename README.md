@@ -476,3 +476,14 @@ Flow incluye un emisor remoto y una bandeja de entrada para enviar texto a una s
 - El seguimiento por voz esta pensado para funcionar localmente con modelos Vosk.
 - Las solicitudes a Groq solo se envian cuando se usan las funciones de IA.
 - Consulta [privacy-policy.md](privacy-policy.md) para mas detalles.
+
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=LumoRez07%2FFlow&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=LumoRez07/Flow&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=LumoRez07/Flow&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=LumoRez07/Flow&type=date&legend=top-left" />
+ </picture>
+</a>

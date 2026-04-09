@@ -35,7 +35,6 @@
   <img alt="Voice Tracking" src="https://img.shields.io/badge/Voice%20Tracking-6%20Languages-16a34a?style=for-the-badge" />
   <img alt="AI Drafting" src="https://img.shields.io/badge/AI-Groq-0ea5e9?style=for-the-badge" />
   <img alt="Remote Messaging" src="https://img.shields.io/badge/Remote-Messaging-10b981?style=for-the-badge" />
-  <img alt="Updater" src="https://img.shields.io/badge/Updates-Built%20In-f59e0b?style=for-the-badge" />
 </p>
 
 ## Overview

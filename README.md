@@ -42,12 +42,11 @@ Flow is a desktop teleprompter focused on live readability and operational speed
 
 ## What's New in 1.4.0
 
-- Added expanded Groq customization controls for drafting and rewriting workflows.
-- Added French app localization and refreshed translation coverage in settings.
-- Added a left-side playback speed rail with runtime toggle support.
-- Improved Tauri window sizing and teleprompter layout stability during playback.
-- Refined voice-tracking settings, model install status, and translated language labels.
-- Lowered the minimum text size setting from 60% to 30%.
+- Added dedicated sound input controls with microphone selection, live level preview, noise gate, and input gain tuning.
+- Improved voice tracking and app-wide voice commands with better wake handling, health recovery, and clearer microphone failure states.
+- Added quick-connect QR links for cloud remote sessions so senders can open with the receiver UUID and access password already filled in.
+- Added sender-side reply tracking for remote messages so queued items can show accepted or denied status.
+- Expanded translation coverage for new voice, remote, and settings states across the supported languages.
 
 ## Preview
 
@@ -75,10 +74,11 @@ Flow is a desktop teleprompter focused on live readability and operational speed
 
 - Five playback styles: highlight, scroll, line, arrow, and voice tracking.
 - Local-first script storage and settings persistence.
-- App-wide voice control with localized wake greetings and command aliases.
+- Dedicated sound input tuning with device selection, live monitoring, noise gate, and gain controls.
+- App-wide voice control with localized wake greetings and more resilient recognition handling.
 - Vosk speech models with bundled English and downloadable Turkish, Arabic, German, French, and Spanish support.
 - Built-in script editor with formatting, word count, and reading-time helpers.
-- Remote messaging flow with inbox review before insertion.
+- Remote messaging flow with inbox review, quick-connect QR links, and sender-side reply status updates.
 - Optional Groq-powered generation and rewriting.
 - Always-on-top Windows overlay with click-through and capture-protection options.
 - Built-in updater for published Windows installer releases.
@@ -118,12 +118,13 @@ src-tauri/target/release/bundle
 
 - Wake phrase support follows the selected voice language.
 - Voice tracking currently supports English, Turkish, Arabic, German, French, and Spanish.
+- Settings now include microphone selection, live level preview, noise gate, and gain tuning for voice features.
 - English is bundled; the other Vosk models are downloaded on demand from Settings.
 - Groq features are optional and require a user-provided API key.
 
 ## Remote Messaging
 
-Flow includes a remote sender and inbox flow for pushing text into a running teleprompter session. Remote infrastructure is still evolving, so very heavy usage may hit temporary service limits.
+Flow includes a remote sender and inbox flow for pushing text into a running teleprompter session. Cloud sessions can expose quick-connect links and QR codes with the receiver UUID and access password prefilled, and senders can monitor queued messages as they move to accepted or denied. Remote infrastructure is still evolving, so very heavy usage may hit temporary service limits.
 
 ## Privacy
 
@@ -143,21 +144,21 @@ Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü telepromp
 
 ### 1.4.0 Sürümündeki Yenilikler
 
-- Groq ile yazım ve yeniden yazım için gelişmiş özelleştirme seçenekleri eklendi.
-- Fransızca uygulama dili ve ayarlarda daha geniş çeviri desteği eklendi.
-- Oynatma sırasında görünen sol hız rayı ve ayarlardan açma kapama desteği eklendi.
-- Tauri pencere boyutlandırması ve teleprompter yerleşimi iyileştirildi.
-- Ses takibi ayarları, model durumu ve dil etiketleri iyileştirildi.
-- Minimum metin boyutu yüzde 60'tan yüzde 30'a düşürüldü.
+- Mikrofon seçimi, canlı seviye önizlemesi, gürültü kapısı ve giriş kazancı içeren özel ses girişi ayarları eklendi.
+- Ses takibi ve uygulama geneli sesli komutlar; daha iyi uyandırma yönetimi, sağlık kontrolü ve daha açık mikrofon hata durumlarıyla iyileştirildi.
+- Bulut uzak oturumları için, alıcı UUID'si ve erişim parolası önceden doldurulmuş hızlı bağlantı QR ve bağlantıları eklendi.
+- Kuyruktaki uzak mesajların kabul veya ret durumunu gösterebilen gönderici tarafı yanıt takibi eklendi.
+- Desteklenen dillerde yeni ses, uzak erişim ve ayar durumları için çeviri kapsamı genişletildi.
 
 ### Öne Çıkanlar
 
 - Vurgu, kaydırma, satır, ok ve ses takibi modları.
 - Yerel olarak saklanan metin ve ayarlar.
-- Yerelleştirilmiş uyandırma ifadeleri ve komutlarla uygulama genelinde ses kontrolü.
+- Aygıt seçimi, canlı izleme, gürültü kapısı ve kazanç kontrolleri içeren ses girişi ayarları.
+- Yerelleştirilmiş uyandırma ifadeleri ve daha dayanıklı algılama yapısıyla uygulama genelinde ses kontrolü.
 - İngilizce gömülü, Türkçe, Arapça, Almanca, Fransızca ve İspanyolca için indirilebilir Vosk modelleri.
 - Biçimlendirme, kelime sayısı ve okuma süresi araçları içeren metin düzenleyici.
-- Metni eklemeden önce inceleme sunan uzaktan mesaj alma akışı.
+- Metni eklemeden önce inceleme, hızlı bağlantı QR ve gönderici yanıt durumu sunan uzaktan mesaj akışı.
 - İsteğe bağlı Groq destekli üretim ve yeniden yazım.
 - Her zaman üstte çalışan Windows katmanı, tıklama geçişi ve yakalama koruması seçenekleri.
 
@@ -189,12 +190,13 @@ npm run tauri build
 
 - Uyandırma ifadesi seçili ses diline göre çalışır.
 - Ses takibi İngilizce, Türkçe, Arapça, Almanca, Fransızca ve İspanyolca destekler.
+- Ayarlar ekranında mikrofon seçimi, canlı seviye önizlemesi, gürültü kapısı ve giriş kazancı araçları bulunur.
 - İngilizce model gömülüdür; diğer Vosk modelleri Ayarlar ekranından indirilebilir.
 - Groq özellikleri isteğe bağlıdır ve kullanıcı tarafından sağlanan API anahtarı gerektirir.
 
 ### Uzaktan Mesajlaşma
 
-Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderici ve gelen kutusu akışı içerir. Altyapı hâlâ geliştirildiği için çok yoğun kullanım geçici sınırlara yol açabilir.
+Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderici ve gelen kutusu akışı içerir. Bulut oturumları, alıcı UUID'si ve erişim parolası doldurulmuş hızlı bağlantı bağlantıları ve QR kodları üretebilir; göndericiler de kuyruktaki mesajların kabul veya ret durumuna geçtiğini izleyebilir. Altyapı hâlâ geliştirildiği için çok yoğun kullanım geçici sınırlara yol açabilir.
 
 ### Gizlilik
 
@@ -211,21 +213,21 @@ Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للق
 
 ### الجديد في 1.4.0
 
-- تمت إضافة خيارات تخصيص موسعة لـ Groq للكتابة وإعادة الصياغة.
-- تمت إضافة اللغة الفرنسية للتطبيق وتحسين الترجمة في شاشة الإعدادات.
-- تمت إضافة شريط سرعة جانبي يظهر أثناء التشغيل مع خيار تفعيله أو تعطيله من الإعدادات.
-- تم تحسين حجم نافذة Tauri واستقرار تخطيط التلقين.
-- تم تحسين إعدادات تتبع الصوت وحالة النماذج وتسميات اللغات.
-- تم خفض الحد الأدنى لحجم النص من 60 بالمئة إلى 30 بالمئة.
+- تمت إضافة إعدادات مخصصة لإدخال الصوت تشمل اختيار الميكروفون، ومعاينة المستوى مباشرة، وبوابة الضوضاء، والتحكم في كسب الإدخال.
+- تم تحسين تتبع الصوت والأوامر الصوتية على مستوى التطبيق عبر إدارة أفضل لعبارة التنبيه، واستعادة الخدمة، ورسائل أوضح لأعطال الميكروفون.
+- تمت إضافة روابط ورموز QR للاتصال السريع في الجلسات السحابية بحيث تُفتح صفحة المُرسل مع تعبئة UUID وكلمة مرور الوصول مسبقًا.
+- تمت إضافة تتبع لحالة ردود الرسائل من جهة المُرسل بحيث يمكن رؤية الرسائل المعلقة عند قبولها أو رفضها.
+- تم توسيع الترجمة لتغطية حالات جديدة تخص الصوت، والاتصال البعيد، والإعدادات في اللغات المدعومة.
 
 ### أبرز الميزات
 
 - أوضاع التمييز والتمرير والسطر والسهم وتتبع الصوت.
 - تخزين النصوص والإعدادات محلياً.
-- تحكم صوتي على مستوى التطبيق مع عبارات تنبيه وأوامر مترجمة.
+- إعدادات لإدخال الصوت تشمل اختيار الجهاز، والمراقبة الحية، وبوابة الضوضاء، والتحكم في الكسب.
+- تحكم صوتي على مستوى التطبيق مع عبارات تنبيه مترجمة ومعالجة أكثر ثباتًا للتعرّف.
 - نماذج Vosk مع الإنجليزية المضمنة ودعم قابل للتنزيل للتركية والعربية والألمانية والفرنسية والإسبانية.
 - محرر نصوص مع أدوات التنسيق وعدّ الكلمات ووقت القراءة المتوقع.
-- نظام رسائل عن بُعد مع مراجعة النص قبل إدخاله.
+- نظام رسائل عن بُعد مع مراجعة النص، وروابط QR سريعة، وتحديثات لحالة رد المُرسل.
 - كتابة وإعادة صياغة اختيارية عبر Groq.
 - طبقة Windows دائمة الظهور مع دعم النقر العابر وحماية الالتقاط.
 
@@ -257,12 +259,13 @@ npm run tauri build
 
 - تعمل عبارة التنبيه حسب لغة الصوت المحددة.
 - يدعم تتبع الصوت الإنجليزية والتركية والعربية والألمانية والفرنسية والإسبانية.
+- تتضمن الإعدادات الآن اختيار الميكروفون، ومعاينة المستوى مباشرة، وبوابة الضوضاء، وضبط كسب الإدخال.
 - اللغة الإنجليزية مدمجة؛ ويمكن تنزيل بقية نماذج Vosk من الإعدادات.
 - ميزات Groq اختيارية وتتطلب مفتاح API يقدمه المستخدم.
 
 ### الرسائل عن بُعد
 
-يتضمن Flow مسار إرسال وصندوق وارد لإرسال النصوص إلى جلسة تلقين تعمل حالياً. ما زالت البنية التحتية تتطور، لذلك قد يؤدي الاستخدام المكثف إلى حدود مؤقتة.
+يتضمن Flow مسار إرسال وصندوق وارد لإرسال النصوص إلى جلسة تلقين تعمل حالياً. يمكن للجلسات السحابية توفير روابط سريعة ورموز QR مع تعبئة UUID وكلمة مرور الوصول مسبقًا، كما يمكن للمُرسل متابعة الرسائل المعلقة عندما تنتقل إلى حالة قبول أو رفض. ما زالت البنية التحتية تتطور، لذلك قد يؤدي الاستخدام المكثف إلى حدود مؤقتة.
 
 ### الخصوصية
 
@@ -279,21 +282,21 @@ Flow est un teleprompter de bureau rapide et epure concu pour la lecture en dire
 
 ### Nouveautes de la version 1.4.0
 
-- Ajout d'options avancees de personnalisation Groq pour l'ecriture et la reecriture.
-- Ajout du francais comme langue de l'application et amelioration des traductions dans les parametres.
-- Ajout d'un rail lateral de vitesse visible pendant la lecture avec option d'activation dans les parametres.
-- Amelioration du dimensionnement de la fenetre Tauri et de la stabilite de la mise en page du teleprompter.
-- Amelioration des reglages de suivi vocal, de l'etat des modeles et des libelles de langue.
-- Reduction de la taille minimale du texte de 60 pour cent a 30 pour cent.
+- Ajout de reglages dedies a l'entree audio avec selection du microphone, apercu du niveau en direct, noise gate et gain d'entree.
+- Amelioration du suivi vocal et des commandes vocales globales avec une meilleure gestion du reveil, de la reprise et des erreurs micro plus claires.
+- Ajout de liens et QR codes de connexion rapide pour les sessions cloud afin d'ouvrir l'emetteur avec l'UUID du recepteur et le mot de passe deja remplis.
+- Ajout du suivi des reponses cote emetteur afin d'afficher quand les messages en attente sont acceptes ou refuses.
+- Extension de la couverture de traduction pour les nouveaux etats lies a la voix, au distant et aux parametres.
 
 ### Points forts
 
 - Modes surlignage, defilement, ligne, fleches et suivi vocal.
 - Stockage local du texte et des parametres.
-- Commandes vocales globales avec expressions de reveil et commandes localisees.
+- Reglages d'entree audio avec selection du peripherique, monitoring en direct, noise gate et controle du gain.
+- Commandes vocales globales avec expressions de reveil localisees et reconnaissance plus robuste.
 - Modeles Vosk avec anglais integre et prise en charge telechargeable du turc, de l'arabe, de l'allemand, du francais et de l'espagnol.
 - Editeur de texte avec mise en forme, compteur de mots et estimation du temps de lecture.
-- Flux de messagerie distante avec verification avant insertion du texte.
+- Flux de messagerie distante avec verification, QR de connexion rapide et statut des reponses cote emetteur.
 - Generation et reecriture facultatives avec Groq.
 - Fenetre Windows toujours au premier plan avec options click-through et protection de capture.
 
@@ -325,12 +328,13 @@ npm run tauri build
 
 - L'expression de reveil suit la langue vocale selectionnee.
 - Le suivi vocal prend en charge l'anglais, le turc, l'arabe, l'allemand, le francais et l'espagnol.
+- Les parametres incluent maintenant la selection du microphone, un apercu du niveau en direct, un noise gate et le reglage du gain.
 - L'anglais est integre; les autres modeles Vosk peuvent etre telecharges depuis les parametres.
 - Les fonctions Groq sont optionnelles et necessitent une cle API fournie par l'utilisateur.
 
 ### Messagerie distante
 
-Flow inclut un emetteur distant et une boite de reception pour envoyer du texte vers une session de teleprompter active. L'infrastructure evolue encore, donc un usage intensif peut provoquer des limites temporaires.
+Flow inclut un emetteur distant et une boite de reception pour envoyer du texte vers une session de teleprompter active. Les sessions cloud peuvent fournir des liens rapides et des QR codes avec l'UUID du recepteur et le mot de passe deja remplis, et les emetteurs peuvent suivre les messages en attente jusqu'a leur acceptation ou leur refus. L'infrastructure evolue encore, donc un usage intensif peut provoquer des limites temporaires.
 
 ### Confidentialite
 
@@ -347,21 +351,21 @@ Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen
 
 ### Neu in 1.4.0
 
-- Erweiterte Groq-Anpassungen fuer Schreiben und Umschreiben hinzugefuegt.
-- Franzoesisch als App-Sprache hinzugefuegt und Uebersetzungen in den Einstellungen erweitert.
-- Linke Geschwindigkeitsleiste hinzugefuegt, die waehrend der Wiedergabe erscheint und in den Einstellungen umschaltbar ist.
-- Tauri-Fenstergroesse und Stabilitaet des Teleprompter-Layouts verbessert.
-- Sprachverfolgungs-Einstellungen, Modellstatus und Sprachbezeichnungen verbessert.
-- Minimale Textgroesse von 60 Prozent auf 30 Prozent reduziert.
+- Eigene Audioeingabe-Einstellungen mit Mikrofonwahl, Live-Pegelvorschau, Noise Gate und Eingangsverstaerkung hinzugefuegt.
+- Sprachverfolgung und app-weite Sprachbefehle mit besserer Wake-Logik, Wiederherstellung und klareren Mikrofonfehlern verbessert.
+- Schnellverbindungs-Links und QR-Codes fuer Cloud-Sitzungen hinzugefuegt, damit sich der Sender mit vorausgefuellter UUID und Zugriffspasswort oeffnen laesst.
+- Antwortstatus fuer Remote-Nachrichten auf der Senderseite hinzugefuegt, damit wartende Nachrichten als angenommen oder abgelehnt sichtbar werden.
+- Uebersetzungen fuer neue Sprach-, Remote- und Einstellungszustaende erweitert.
 
 ### Highlights
 
 - Hervorheben, Scrollen, Zeilen-, Pfeil- und Sprachverfolgungsmodus.
 - Lokale Speicherung von Text und Einstellungen.
-- App-weite Sprachsteuerung mit lokalisierten Aktivierungsphrasen und Befehlen.
+- Audioeingabe-Einstellungen mit Geraetewahl, Live-Monitoring, Noise Gate und Gain-Reglern.
+- App-weite Sprachsteuerung mit lokalisierten Aktivierungsphrasen und robusterer Erkennung.
 - Vosk-Modelle mit integriertem Englisch und herunterladbarer Unterstuetzung fuer Tuerkisch, Arabisch, Deutsch, Franzoesisch und Spanisch.
 - Texteditor mit Formatierung, Wortzaehler und Lesedauer-Schaetzung.
-- Remote-Messaging mit Pruefung vor dem Einfuegen des Textes.
+- Remote-Messaging mit Pruefung, Schnellverbindungs-QR und Antwortstatus auf Senderseite.
 - Optionale Groq-Generierung und -Umschreibung.
 - Immer-im-Vordergrund-Windows-Overlay mit Click-through und Aufnahmeschutz.
 
@@ -393,12 +397,13 @@ npm run tauri build
 
 - Die Aktivierungsphrase folgt der ausgewaehlten Sprachsprache.
 - Sprachverfolgung unterstuetzt Englisch, Tuerkisch, Arabisch, Deutsch, Franzoesisch und Spanisch.
+- Die Einstellungen enthalten jetzt Mikrofonwahl, Live-Pegelvorschau, Noise Gate und Eingangsverstaerkung fuer Sprachfunktionen.
 - Englisch ist integriert; die anderen Vosk-Modelle koennen in den Einstellungen heruntergeladen werden.
 - Groq-Funktionen sind optional und benoetigen einen vom Nutzer bereitgestellten API-Schluessel.
 
 ### Remote Messaging
 
-Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufende Teleprompter-Sitzung zu senden. Die Infrastruktur entwickelt sich noch weiter, daher kann starke Nutzung zu temporaeren Begrenzungen fuehren.
+Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufende Teleprompter-Sitzung zu senden. Cloud-Sitzungen koennen Schnellverbindungs-Links und QR-Codes mit vorausgefuellter UUID und Zugriffspasswort bereitstellen, und Sender koennen wartende Nachrichten bis zur Annahme oder Ablehnung verfolgen. Die Infrastruktur entwickelt sich noch weiter, daher kann starke Nutzung zu temporaeren Begrenzungen fuehren.
 
 ### Datenschutz
 
@@ -415,21 +420,21 @@ Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vi
 
 ### Novedades en 1.4.0
 
-- Se agregaron opciones avanzadas de personalizacion de Groq para escribir y reescribir.
-- Se agrego frances como idioma de la aplicacion y se mejoraron las traducciones en configuracion.
-- Se agrego una barra lateral de velocidad visible durante la reproduccion con opcion para activarla o desactivarla.
-- Se mejoro el tamano de la ventana Tauri y la estabilidad del diseno del teleprompter.
-- Se mejoraron la configuracion de seguimiento por voz, el estado de los modelos y las etiquetas de idioma.
-- El tamano minimo del texto bajo de 60 por ciento a 30 por ciento.
+- Se agregaron controles dedicados de entrada de audio con seleccion de microfono, vista previa del nivel en vivo, puerta de ruido y ajuste de ganancia.
+- Se mejoraron el seguimiento por voz y los comandos de voz globales con mejor manejo de activacion, recuperacion y estados de error mas claros para el microfono.
+- Se agregaron enlaces rapidos y codigos QR para sesiones en la nube, de modo que el emisor pueda abrirse con el UUID del receptor y la contrasena de acceso ya completados.
+- Se agrego seguimiento de respuestas del lado del emisor para que los mensajes en cola puedan verse como aceptados o rechazados.
+- Se amplio la cobertura de traduccion para nuevos estados de voz, remoto y configuracion en los idiomas compatibles.
 
 ### Puntos destacados
 
 - Modos de resaltado, desplazamiento, linea, flechas y seguimiento por voz.
 - Almacenamiento local de texto y configuracion.
-- Control por voz en toda la aplicacion con frases de activacion y comandos localizados.
+- Ajustes de entrada de audio con seleccion de dispositivo, monitoreo en vivo, puerta de ruido y controles de ganancia.
+- Control por voz en toda la aplicacion con frases de activacion localizadas y reconocimiento mas resistente.
 - Modelos Vosk con ingles integrado y soporte descargable para turco, arabe, aleman, frances y espanol.
 - Editor de texto con formato, conteo de palabras y estimacion de tiempo de lectura.
-- Flujo de mensajeria remota con revision antes de insertar el texto.
+- Flujo de mensajeria remota con revision, QR de conexion rapida y actualizaciones de estado de respuesta para el emisor.
 - Generacion y reescritura opcionales con Groq.
 - Superposicion de Windows siempre visible con opciones de click-through y proteccion de captura.
 
@@ -461,12 +466,13 @@ npm run tauri build
 
 - La frase de activacion sigue el idioma de voz seleccionado.
 - El seguimiento por voz admite ingles, turco, arabe, aleman, frances y espanol.
+- Configuracion ahora incluye seleccion de microfono, vista previa de nivel en vivo, puerta de ruido y ajuste de ganancia para las funciones de voz.
 - Ingles viene integrado; los demas modelos Vosk se pueden descargar desde Configuracion.
 - Las funciones de Groq son opcionales y requieren una clave API proporcionada por el usuario.
 
 ### Mensajeria remota
 
-Flow incluye un emisor remoto y una bandeja de entrada para enviar texto a una sesion de teleprompter en ejecucion. La infraestructura aun sigue evolucionando, por lo que un uso intensivo puede generar limites temporales.
+Flow incluye un emisor remoto y una bandeja de entrada para enviar texto a una sesion de teleprompter en ejecucion. Las sesiones en la nube pueden ofrecer enlaces rapidos y codigos QR con el UUID del receptor y la contrasena de acceso ya completados, y los emisores pueden seguir los mensajes en cola hasta que sean aceptados o rechazados. La infraestructura aun sigue evolucionando, por lo que un uso intensivo puede generar limites temporales.
 
 ### Privacidad
 

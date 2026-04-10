@@ -656,15 +656,15 @@ function getActiveVoiceConfig(languageTag = getVoiceLanguageTag()) {
   return VOICE_LANGUAGE_CONFIGS[normalizeVoiceLanguage(languageTag)] || VOICE_LANGUAGE_CONFIGS["en-US"];
 }
 
-function getVoiceActionEntries(languageTag = getVoiceLanguageTag()) {
+function getVoiceActionEntries(languageTag = getVoiceCommandLanguageTag()) {
   return Object.entries(getActiveVoiceConfig(languageTag).actions);
 }
 
-function getVoiceWakePhrase(languageTag = getVoiceLanguageTag()) {
+function getVoiceWakePhrase(languageTag = getVoiceCommandLanguageTag()) {
   return getActiveVoiceConfig(languageTag).wakeDisplay;
 }
 
-function getVoiceCommandFillerTokens(languageTag = getVoiceLanguageTag()) {
+function getVoiceCommandFillerTokens(languageTag = getVoiceCommandLanguageTag()) {
   return new Set(getActiveVoiceConfig(languageTag).filler);
 }
 

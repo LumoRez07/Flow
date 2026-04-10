@@ -116,7 +116,7 @@ src-tauri/target/release/bundle
 
 ## Voice and AI
 
-- Wake phrase support follows the selected voice language.
+- Voice command wake phrase is fixed to English: `Hey Flow`.
 - Voice tracking currently supports English, Turkish, Arabic, German, French, and Spanish.
 - Settings now include microphone selection, live level preview, noise gate, and gain tuning for voice features.
 - English is bundled; the other Vosk models are downloaded on demand from Settings.
@@ -188,7 +188,7 @@ npm run tauri build
 
 ### Ses ve Yapay Zekâ
 
-- Uyandırma ifadesi seçili ses diline göre çalışır.
+- Sesli komutlar için uyandırma ifadesi sabittir: `Hey Flow`.
 - Ses takibi İngilizce, Türkçe, Arapça, Almanca, Fransızca ve İspanyolca destekler.
 - Ayarlar ekranında mikrofon seçimi, canlı seviye önizlemesi, gürültü kapısı ve giriş kazancı araçları bulunur.
 - İngilizce model gömülüdür; diğer Vosk modelleri Ayarlar ekranından indirilebilir.
@@ -257,7 +257,7 @@ npm run tauri build
 
 ### الصوت والذكاء الاصطناعي
 
-- تعمل عبارة التنبيه حسب لغة الصوت المحددة.
+- عبارة التنبيه للأوامر الصوتية ثابتة بالإنجليزية: `Hey Flow`.
 - يدعم تتبع الصوت الإنجليزية والتركية والعربية والألمانية والفرنسية والإسبانية.
 - تتضمن الإعدادات الآن اختيار الميكروفون، ومعاينة المستوى مباشرة، وبوابة الضوضاء، وضبط كسب الإدخال.
 - اللغة الإنجليزية مدمجة؛ ويمكن تنزيل بقية نماذج Vosk من الإعدادات.
@@ -326,7 +326,7 @@ npm run tauri build
 
 ### Voix et IA
 
-- L'expression de reveil suit la langue vocale selectionnee.
+- L'expression de reveil des commandes vocales est fixe en anglais : `Hey Flow`.
 - Le suivi vocal prend en charge l'anglais, le turc, l'arabe, l'allemand, le francais et l'espagnol.
 - Les parametres incluent maintenant la selection du microphone, un apercu du niveau en direct, un noise gate et le reglage du gain.
 - L'anglais est integre; les autres modeles Vosk peuvent etre telecharges depuis les parametres.
@@ -395,7 +395,7 @@ npm run tauri build
 
 ### Sprache und KI
 
-- Die Aktivierungsphrase folgt der ausgewaehlten Sprachsprache.
+- Die Aktivierungsphrase fuer Sprachbefehle ist fest auf Englisch: `Hey Flow`.
 - Sprachverfolgung unterstuetzt Englisch, Tuerkisch, Arabisch, Deutsch, Franzoesisch und Spanisch.
 - Die Einstellungen enthalten jetzt Mikrofonwahl, Live-Pegelvorschau, Noise Gate und Eingangsverstaerkung fuer Sprachfunktionen.
 - Englisch ist integriert; die anderen Vosk-Modelle koennen in den Einstellungen heruntergeladen werden.
@@ -464,7 +464,7 @@ npm run tauri build
 
 ### Voz e IA
 
-- La frase de activacion sigue el idioma de voz seleccionado.
+- La frase de activacion para los comandos de voz esta fija en ingles: `Hey Flow`.
 - El seguimiento por voz admite ingles, turco, arabe, aleman, frances y espanol.
 - Configuracion ahora incluye seleccion de microfono, vista previa de nivel en vivo, puerta de ruido y ajuste de ganancia para las funciones de voz.
 - Ingles viene integrado; los demas modelos Vosk se pueden descargar desde Configuracion.

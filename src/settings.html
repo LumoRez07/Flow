@@ -14,6 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="doc.settingsTitle">Flow · Settings</title>
     <link rel="stylesheet" href="styles.css" />
+    <script src="/assets/vendor/qrious.min.js" defer></script>
     <script type="module" src="/settings.js" defer></script>
   </head>
   <body data-page="settings">
@@ -39,6 +40,7 @@
             <option value="remote" data-i18n="settings.section.remote">Remote</option>
             <option value="positioning" data-i18n="settings.section.positioning">Positioning</option>
             <option value="appearance" data-i18n="settings.section.appearance">Appearance</option>
+            <option value="sound-input" data-i18n="settings.section.soundInput">Sound input settings</option>
             <option value="privacy" data-i18n="settings.section.privacy">Privacy & system</option>
             <option value="usability" data-i18n="settings.section.usability">Usability</option>
           </select>
@@ -76,6 +78,19 @@
               <div class="remote-session-row remote-link-row">
                 <a class="remote-session-link" id="remoteSenderUrl" href="#" target="_blank" rel="noreferrer" data-i18n="common.loading">Loading…</a>
                 <button class="mini-link copy-chip" id="copySenderUrlButton" type="button"><span class="button-label-content"><i class="ph ph-link-simple" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
+              </div>
+            </div>
+
+            <div class="remote-session-card remote-qr-card" id="remoteSenderQrCard">
+              <span class="remote-session-label" data-i18n="settings.remoteSenderQr">Quick connect QR</span>
+              <div class="remote-qr-layout">
+                <div class="remote-qr-canvas-wrap">
+                  <canvas id="remoteSenderQrCanvas" class="remote-qr-canvas hidden" width="220" height="220"></canvas>
+                </div>
+                <div class="remote-qr-copy">
+                  <p class="helper-text remote-qr-status" id="remoteSenderQrStatus" data-i18n="settings.remoteSenderQrHelp">Scan to open the sender page with the UUID and access password already filled in.</p>
+                  <button class="mini-link copy-chip" id="copySenderAuthUrlButton" type="button"><span class="button-label-content"><i class="ph ph-qr-code" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
+                </div>
               </div>
             </div>
           </div>
@@ -341,6 +356,61 @@
                 <input id="appOpacityInput" class="slider-input" type="range" min="15" max="100" step="1" />
               </label>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-group hidden" data-settings-section="sound-input">
+          <div>
+            <p class="page-kicker" data-i18n="settings.soundInput">Sound input</p>
+            <h2 data-i18n="settings.soundInputTitle">Sound input settings</h2>
+          </div>
+
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.soundInputMonitoring">Monitoring</h3>
+            </div>
+
+            <label class="field-label" for="soundInputDeviceSelect" data-i18n="settings.soundInputDevice">Input device</label>
+            <span class="helper-text" data-i18n="settings.soundInputDeviceHelp">Choose the microphone used for voice tracking and app-wide Flow commands.</span>
+            <select id="soundInputDeviceSelect" class="page-input">
+              <option value="default" data-i18n="settings.soundInputDeviceDefault">System default</option>
+            </select>
+
+            <div class="sound-input-meter-card">
+              <div class="slider-header">
+                <span data-i18n="settings.soundInputLevel">Level</span>
+                <span class="slider-value" id="soundInputLevelValue">0%</span>
+              </div>
+              <div class="sound-input-level-meter" aria-hidden="true">
+                <span id="soundInputLevelFill"></span>
+              </div>
+              <p class="helper-text sound-input-status" id="soundInputStatus" data-i18n="settings.soundInputPreviewIdle">Open this section to preview your microphone level.</p>
+            </div>
+          </div>
+
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.soundInputCleanup">Cleanup</h3>
+              <button class="secondary-action compact-action" id="soundInputRecommendedButton" type="button" data-i18n="settings.soundInputRecommended">Use recommended</button>
+            </div>
+
+            <label class="slider-field">
+              <span class="slider-header">
+                <span data-i18n="settings.soundInputNoiseGate">Noise gate</span>
+                <span class="slider-value" id="soundInputNoiseGateValue">0.01</span>
+              </span>
+              <input id="soundInputNoiseGateInput" class="slider-input" type="range" min="0" max="0.08" step="0.001" />
+            </label>
+            <span class="helper-text" data-i18n="settings.soundInputNoiseGateHelp">Cuts low-level room noise before Flow sends audio to voice tracking.</span>
+
+            <label class="slider-field">
+              <span class="slider-header">
+                <span data-i18n="settings.soundInputGain">Input gain</span>
+                <span class="slider-value" id="soundInputGainValue">2.00x</span>
+              </span>
+              <input id="soundInputGainInput" class="slider-input" type="range" min="0.5" max="4" step="0.05" />
+            </label>
+            <span class="helper-text" data-i18n="settings.soundInputGainHelp">Boosts the selected microphone before the Vosk recognizer processes it.</span>
           </div>
         </div>
 

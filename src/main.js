@@ -59,10 +59,12 @@ const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
 const VOICE_SCROLL_EASING = 0.1;
 const VOICE_SCROLL_MAX_STEP = 10;
 const VOICE_TRACKING_PARTIAL_MIN_INTERVAL_MS = 180;
+const VOICE_FORWARD_SKIP_CONFIRM_MS = 2500;
 const VOICE_COMMAND_SOUND_URL = new URL("./assets/voice-command-recognized.mp3", import.meta.url).href;
 const VOICE_COMMAND_SOUND_REPEAT_GUARD_MS = 700;
 const VOICE_COMMAND_RESTART_DELAY_MS = 0;
 const VOICE_COMMAND_COOLDOWN_MS = 40;
+const VOICE_COMMAND_IDLE_ARM_MS = 45_000;
 const VOICE_COMMAND_REPEAT_GUARD_MS = 450;
 const VOICE_COMMAND_ACTION_REPEAT_GUARD_MS = 520;
 const VOICE_COMMAND_MIN_CONFIDENCE = 0.35;
@@ -118,6 +120,12 @@ const CLOUD_HEARTBEAT_INTERVAL_MS = 25_000;
 const CLOUD_POLL_MIN_INTERVAL_MS = 6_000;
 const CLOUD_POLL_MAX_INTERVAL_MS = 30_000;
 const CLOUD_POLL_BACKOFF_STEP_MS = 4_000;
+const VOICE_HEALTH_IDLE_CHECK_MS = 30_000;
+const VOICE_HEALTH_ACTIVE_CHECK_MS = 8_000;
+const VOICE_COMMAND_STALL_RESET_MS = 20_000;
+const VOICE_CAPTURE_ERROR_PERMISSION_DENIED = "voice-capture-permission-denied";
+const VOICE_CAPTURE_ERROR_NO_DEVICE = "voice-capture-no-device";
+const VOICE_CAPTURE_ERROR_UNAVAILABLE = "voice-capture-unavailable";
 
 const ui = {};
 let tickTimer = null;
@@ -186,9 +194,11 @@ let voiceTrackingSourceNode = null;
 let voiceTrackingProcessorNode = null;
 let voiceTrackingSilenceNode = null;
 let voiceTrackingSession = 0;
+let activeVoiceTrackingLanguageTag = null;
 let lastVoiceTrackingAudioProcessAt = 0;
 let lastVoiceTrackingPartialHandledAt = 0;
 let lastVoiceTrackingPartialKey = "";
+let pendingForwardVoiceSkip = null;
 let voiceCommandListenerSession = 0;
 let voiceCommandResumeListenersInstalled = false;
 let voiceCommandSyncPromise = Promise.resolve();
@@ -198,6 +208,8 @@ let voiceWakeOverlayTimer = null;
 let voiceWakeActiveUntil = 0;
 let lastVoiceWakeAt = 0;
 let voiceWakeAwaitingFollowup = false;
+let voiceCommandArmedUntil = 0;
+let voiceCommandSharedWithTracking = false;
 let shouldAnnounceClickthroughStatus = false;
 let lineMapRebuildFrame = null;
 let cachedPromptViewportWidth = 0;
@@ -211,6 +223,7 @@ let frozenReadingViewportWidth = 0;
 let frozenReadingViewportHeight = 0;
 const voiceModelStatusCache = new Map();
 const voiceCaptureWorkletModulePromises = new WeakMap();
+let promptFeedbackState = null;
 
 const VOICE_COMMAND_ACTION_DEDUPE_ACTIONS = new Set([
   "up",
@@ -402,6 +415,238 @@ function getVoiceCommandLanguageTag() {
   return ENGLISH_VOICE_LANGUAGE;
 }
 
+function armVoiceCommandListener(durationMs = VOICE_COMMAND_IDLE_ARM_MS) {
+  if (!state.appearance?.appWideVoiceCommands) {
+    return;
+  }
+
+  voiceCommandArmedUntil = performance.now() + Math.max(durationMs, 0);
+}
+
+function disarmVoiceCommandListener() {
+  voiceCommandArmedUntil = 0;
+}
+
+function isVoiceCommandListenerArmed() {
+  return performance.now() < voiceCommandArmedUntil;
+}
+
+function clampSoundInputNumber(value, min, max, fallback) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  return clamp(numericValue, min, max);
+}
+
+function normalizeSoundInputDeviceId(value) {
+  const normalizedValue = String(value || "").trim();
+  return normalizedValue || defaultState.appearance.soundInputDeviceId;
+}
+
+function getSoundInputSettings(appearance = state.appearance) {
+  const source = appearance || defaultState.appearance;
+  return {
+    deviceId: normalizeSoundInputDeviceId(source.soundInputDeviceId || defaultState.appearance.soundInputDeviceId),
+    noiseGate: clampSoundInputNumber(source.soundInputNoiseGate, 0, 0.08, defaultState.appearance.soundInputNoiseGate),
+    inputGain: clampSoundInputNumber(source.soundInputGain, 0.5, 4, defaultState.appearance.soundInputGain)
+  };
+}
+
+function getVoiceCaptureSettingsSignature(appearance = state.appearance) {
+  return JSON.stringify(getSoundInputSettings(appearance));
+}
+
+function buildVoiceCaptureAudioConstraints(soundInputSettings = getSoundInputSettings()) {
+  const constraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: false,
+    channelCount: 1
+  };
+
+  if (soundInputSettings.deviceId !== defaultState.appearance.soundInputDeviceId) {
+    constraints.deviceId = { exact: soundInputSettings.deviceId };
+  }
+
+  return constraints;
+}
+
+function createVoiceCaptureError(code, message, cause = null) {
+  const error = new Error(message);
+  error.name = "VoiceCaptureError";
+  error.code = code;
+  if (cause) {
+    error.cause = cause;
+  }
+  return error;
+}
+
+function stopMediaStreamTracks(mediaStream) {
+  mediaStream?.getTracks?.().forEach((track) => {
+    track.enabled = false;
+    track.stop();
+  });
+}
+
+async function getAudioInputDevices() {
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    return null;
+  }
+
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter((device) => device.kind === "audioinput");
+  } catch (error) {
+    return null;
+  }
+}
+
+function normalizeVoiceCaptureError(error) {
+  if (error?.code === VOICE_CAPTURE_ERROR_PERMISSION_DENIED
+    || error?.code === VOICE_CAPTURE_ERROR_NO_DEVICE
+    || error?.code === VOICE_CAPTURE_ERROR_UNAVAILABLE) {
+    return error;
+  }
+
+  const message = String(error?.message || error || "").trim();
+  const name = String(error?.name || "").trim();
+
+  if (/NotAllowedError|SecurityError/i.test(name) || /permission|denied|notallowed/i.test(message)) {
+    return createVoiceCaptureError(VOICE_CAPTURE_ERROR_PERMISSION_DENIED, "Microphone permission denied", error);
+  }
+
+  if (/NotFoundError|DevicesNotFoundError/i.test(name) || /no microphone|requested device not found/i.test(message)) {
+    return createVoiceCaptureError(VOICE_CAPTURE_ERROR_NO_DEVICE, "No microphone detected", error);
+  }
+
+  if (/NotReadableError|TrackStartError|AbortError|OverconstrainedError/i.test(name)) {
+    return createVoiceCaptureError(VOICE_CAPTURE_ERROR_UNAVAILABLE, "Microphone unavailable", error);
+  }
+
+  return createVoiceCaptureError(VOICE_CAPTURE_ERROR_UNAVAILABLE, message || "Microphone unavailable", error);
+}
+
+function processVoiceCaptureSamples(samples, soundInputSettings = getSoundInputSettings()) {
+  if (!samples?.length) {
+    return samples;
+  }
+
+  const inputGain = clampSoundInputNumber(soundInputSettings.inputGain, 0.5, 4, 1);
+  const noiseGate = clampSoundInputNumber(soundInputSettings.noiseGate, 0, 0.08, 0);
+  let sumSquares = 0;
+  let peak = 0;
+
+  for (let index = 0; index < samples.length; index += 1) {
+    const sample = samples[index] * inputGain;
+    sumSquares += sample * sample;
+    peak = Math.max(peak, Math.abs(sample));
+  }
+
+  const rmsLevel = Math.sqrt(sumSquares / samples.length);
+  const limiterScale = peak > 0.985 ? 0.985 / peak : 1;
+  const gateScale = noiseGate > 0 && rmsLevel < noiseGate
+    ? Math.max(rmsLevel / Math.max(noiseGate, 0.0001), 0.18)
+    : 1;
+  const finalScale = inputGain * limiterScale * gateScale;
+
+  if (Math.abs(finalScale - 1) < 0.001) {
+    return samples;
+  }
+
+  const processedSamples = new Float32Array(samples.length);
+  for (let index = 0; index < samples.length; index += 1) {
+    processedSamples[index] = clamp(samples[index] * finalScale, -1, 1);
+  }
+
+  return processedSamples;
+}
+
+async function requestVoiceCaptureMediaStream(soundInputSettings = getSoundInputSettings()) {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_UNAVAILABLE, "Microphone capture is unavailable");
+  }
+
+  const audioInputDevices = await getAudioInputDevices();
+  if (Array.isArray(audioInputDevices) && audioInputDevices.length === 0) {
+    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_NO_DEVICE, "No microphone detected");
+  }
+
+  const primaryConstraints = buildVoiceCaptureAudioConstraints(soundInputSettings);
+  let mediaStream = null;
+
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: primaryConstraints
+    });
+  } catch (error) {
+    const errorName = String(error?.name || error?.message || error);
+    const canFallbackToDefault = soundInputSettings.deviceId !== defaultState.appearance.soundInputDeviceId
+      && /NotFoundError|OverconstrainedError/i.test(errorName);
+
+    if (!canFallbackToDefault) {
+      throw normalizeVoiceCaptureError(error);
+    }
+
+    try {
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: false,
+        audio: buildVoiceCaptureAudioConstraints({
+          ...soundInputSettings,
+          deviceId: defaultState.appearance.soundInputDeviceId
+        })
+      });
+    } catch (fallbackError) {
+      throw normalizeVoiceCaptureError(fallbackError);
+    }
+  }
+
+  const audioTracks = mediaStream.getAudioTracks();
+  if (audioTracks.length === 0) {
+    stopMediaStreamTracks(mediaStream);
+    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_NO_DEVICE, "No microphone detected");
+  }
+
+  if (audioTracks.every((track) => track.readyState === "ended")) {
+    stopMediaStreamTracks(mediaStream);
+    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_UNAVAILABLE, "Microphone unavailable");
+  }
+
+  return mediaStream;
+}
+
+function getVoiceTrackingFailureStatus(error) {
+  if (/Missing Vosk model/i.test(String(error?.message || error || ""))) {
+    return `🎤 Download ${getVoiceLanguageLabel()} model first`;
+  }
+
+  switch (error?.code) {
+    case VOICE_CAPTURE_ERROR_PERMISSION_DENIED:
+      return t("tele.status.micBlocked");
+    case VOICE_CAPTURE_ERROR_NO_DEVICE:
+      return t("tele.status.noMic");
+    case VOICE_CAPTURE_ERROR_UNAVAILABLE:
+      return t("tele.status.micUnavailable");
+    default:
+      return "🎤 Mic Request Failed";
+  }
+}
+
+function getVoiceTrackingFeedbackKey(error) {
+  switch (error?.code) {
+    case VOICE_CAPTURE_ERROR_PERMISSION_DENIED:
+      return "tele.voiceFeedback.micBlocked";
+    case VOICE_CAPTURE_ERROR_NO_DEVICE:
+      return "tele.voiceFeedback.noMic";
+    case VOICE_CAPTURE_ERROR_UNAVAILABLE:
+      return "tele.voiceFeedback.micUnavailable";
+    default:
+      return "";
+  }
+}
+
 function getVoiceLanguageLabel(languageTag = getVoiceLanguageTag()) {
   return VOICE_LANGUAGE_OPTIONS.find((option) => option.value === normalizeVoiceLanguage(languageTag))?.label
     || VOICE_LANGUAGE_OPTIONS[0].label;
@@ -500,6 +745,55 @@ function cacheUi() {
   ui.pinButton = document.querySelector("#pinButton");
   ui.dragOverlay = document.querySelector("#dragOverlay");
   ui.voiceCommandIndicator = document.querySelector("#voiceCommandIndicator");
+  ui.promptFeedback = null;
+  ensurePromptFeedbackElement();
+}
+
+function ensurePromptFeedbackElement() {
+  if (ui.promptFeedback || !ui.promptViewport) {
+    return;
+  }
+
+  const feedback = document.createElement("div");
+  feedback.id = "promptFeedback";
+  feedback.className = "teleprompter-feedback hidden";
+  feedback.setAttribute("role", "status");
+  feedback.setAttribute("aria-live", "polite");
+  feedback.setAttribute("aria-hidden", "true");
+  ui.promptViewport.appendChild(feedback);
+  ui.promptFeedback = feedback;
+}
+
+function updatePromptFeedbackOverlay() {
+  ensurePromptFeedbackElement();
+
+  if (!ui.promptFeedback || !ui.promptViewport) {
+    return;
+  }
+
+  const message = promptFeedbackState
+    ? t(promptFeedbackState.key, promptFeedbackState.params)
+    : "";
+  const visible = Boolean(message);
+
+  ui.promptFeedback.textContent = message;
+  ui.promptFeedback.classList.toggle("hidden", !visible);
+  ui.promptFeedback.setAttribute("aria-hidden", visible ? "false" : "true");
+  ui.promptViewport.dataset.feedbackVisible = visible ? "true" : "false";
+}
+
+function setPromptFeedback(key, params = {}) {
+  promptFeedbackState = key ? { key, params } : null;
+  updatePromptFeedbackOverlay();
+}
+
+function clearPromptFeedback() {
+  if (!promptFeedbackState) {
+    return;
+  }
+
+  promptFeedbackState = null;
+  updatePromptFeedbackOverlay();
 }
 
 
@@ -1957,6 +2251,7 @@ function clearPlayback() {
 
   lastScrollFrameAt = 0;
   voiceTranscript = "";
+  pendingForwardVoiceSkip = null;
   resetVoiceCommandTranscript();
   stopViewportScrollAnimation();
 
@@ -1990,6 +2285,7 @@ function stopPlayback(reset = true) {
   updateWordState(false);
   updatePlayButtons();
   syncVoiceCommandListener();
+  scheduleVoiceHealthCheck(0);
 }
 
 function pausePlayback() {
@@ -2110,11 +2406,12 @@ function playScrollMode() {
   scrollAnimationFrame = requestAnimationFrame(step);
 }
 
-function movePlaybackByLine(direction) {
+function movePlaybackByLine(direction, options = {}) {
   if (wordNodes.length === 0 || lineGroups.length === 0) {
     return false;
   }
 
+  const { allowVoiceModeBackward = false } = options;
   const activeMode = getActiveMode();
 
   if (activeMode === "arrow" && isPlaying && !isPaused) {
@@ -2130,6 +2427,10 @@ function movePlaybackByLine(direction) {
   }
 
   if (activeMode === "voice") {
+    if (direction < 0 && !allowVoiceModeBackward) {
+      return false;
+    }
+
     currentIndex = nextLine.firstIndex;
     updateWordState(true);
     return true;
@@ -2182,6 +2483,7 @@ function clearVoiceWakeState(options = {}) {
   const { hideOverlay = true } = options;
   voiceWakeActiveUntil = 0;
   voiceWakeAwaitingFollowup = false;
+  resetVoiceCommandTranscript();
 
   if (voiceWakeOverlayTimer) {
     clearTimeout(voiceWakeOverlayTimer);
@@ -2215,6 +2517,7 @@ function activateVoiceWake(options = {}) {
   const { awaitFollowup = true } = options;
   const now = performance.now();
   const nextWakeDeadline = now + VOICE_WAKE_COMMAND_WINDOW_MS;
+  resetVoiceCommandTranscript();
 
   if (now - lastVoiceWakeAt < VOICE_WAKE_COOLDOWN_MS) {
     voiceWakeActiveUntil = nextWakeDeadline;
@@ -2252,6 +2555,37 @@ function getRecognitionResultTranscripts(result) {
   return Array.from(result)
     .map((alternative) => alternative?.transcript?.trim())
     .filter(Boolean);
+}
+
+function handleBrowserSpeechRecognitionResult(event) {
+  if (!event?.results) {
+    return { handled: false, consumed: false };
+  }
+
+  for (let index = event.resultIndex || 0; index < event.results.length; index += 1) {
+    const result = event.results[index];
+    if (!result) {
+      continue;
+    }
+
+    const transcripts = getRecognitionResultTranscripts(result);
+    const primaryConfidence = Number(result[0]?.confidence);
+    const confidence = Number.isFinite(primaryConfidence) && primaryConfidence > 0 ? primaryConfidence : 1;
+
+    for (const transcript of transcripts) {
+      const outcome = handleOfflineVoiceCommandTranscript(transcript, {
+        isFinal: Boolean(result.isFinal),
+        confidence,
+        wakeConfidence: confidence
+      });
+
+      if (outcome.handled || outcome.consumed) {
+        return outcome;
+      }
+    }
+  }
+
+  return { handled: false, consumed: false };
 }
 
 function findVoiceCommandInTranscripts(transcripts, transcriptPrefix = "") {
@@ -2337,24 +2671,40 @@ function isVoiceWakeSequence(tokens, index, languageTag = getVoiceCommandLanguag
   return isVoiceGreetingToken(tokens[index], languageTag) && isVoiceWakeToken(tokens[index + 1], languageTag);
 }
 
-function findVoiceWakeIndex(tokens, languageTag = getVoiceCommandLanguageTag()) {
-  if (!Array.isArray(tokens) || tokens.length < 2) {
-    return -1;
+function findVoiceWakeMatch(tokens, languageTag = getVoiceCommandLanguageTag()) {
+  if (!Array.isArray(tokens) || tokens.length === 0) {
+    return null;
   }
 
   const startIndex = Math.max(tokens.length - VOICE_COMMAND_LOOKBACK_TOKENS, 0);
   for (let index = startIndex; index < tokens.length - 1; index += 1) {
     if (isVoiceWakeSequence(tokens, index, languageTag)) {
-      return index;
+      return {
+        index,
+        length: 2
+      };
     }
   }
 
-  return -1;
+  for (let index = startIndex; index < tokens.length; index += 1) {
+    if (isVoiceWakeToken(tokens[index], languageTag)) {
+      return {
+        index,
+        length: 1
+      };
+    }
+  }
+
+  return null;
+}
+
+function findVoiceWakeIndex(tokens, languageTag = getVoiceCommandLanguageTag()) {
+  return findVoiceWakeMatch(tokens, languageTag)?.index ?? -1;
 }
 
 function hasVoiceWakePhrase(text, languageTag = getVoiceCommandLanguageTag()) {
   const tokens = tokenizeNormalizedText(text, languageTag);
-  return findVoiceWakeIndex(tokens, languageTag) >= 0;
+  return Boolean(findVoiceWakeMatch(tokens, languageTag));
 }
 
 function getVoiceCommandActionFuzzy(phrase, languageTag = getVoiceCommandLanguageTag()) {
@@ -2465,13 +2815,18 @@ function getVoiceCommandActionFromTokens(candidateTokens, languageTag = getVoice
   return null;
 }
 
-function collectVoiceCommandCandidateTokens(tokens, startIndex, languageTag = getVoiceCommandLanguageTag()) {
+function collectVoiceCommandCandidateTokens(tokens, startIndex, languageTag = getVoiceCommandLanguageTag(), options = {}) {
   const collected = [];
   const fillerTokens = getVoiceCommandFillerTokens(languageTag);
+  const { ignoreWakeTokens = false } = options;
 
   for (let index = startIndex; index < tokens.length && collected.length < 4; index += 1) {
     const token = tokens[index];
     if (!token || fillerTokens.has(token)) {
+      continue;
+    }
+
+    if (ignoreWakeTokens && (isVoiceGreetingToken(token, languageTag) || isVoiceWakeToken(token, languageTag))) {
       continue;
     }
 
@@ -2487,7 +2842,9 @@ function extractVoiceCommandWithoutWake(text, languageTag = getVoiceCommandLangu
     return null;
   }
 
-  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, 0, languageTag);
+  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, 0, languageTag, {
+    ignoreWakeTokens: true
+  });
   const match = getVoiceCommandActionFromTokens(candidateTokens, languageTag);
   if (!match) {
     return null;
@@ -2558,14 +2915,21 @@ function hasOfflineVoiceCommandSupport() {
 function getOfflineVoiceCommandGrammar(languageTag = getVoiceCommandLanguageTag()) {
   const wakePhrase = getVoiceWakePhrase(languageTag);
   const wakeTokens = getActiveVoiceConfig(languageTag).wake || [];
+  const commandAliases = getVoiceActionEntries(languageTag).flatMap(([, aliases]) => aliases);
   const grammarPhrases = Array.from(new Set([
     wakePhrase,
     ...wakeTokens,
-    ...getVoiceActionEntries(languageTag).flatMap(([, aliases]) => aliases.map((alias) => `${wakePhrase} ${alias}`))
-    ,...getVoiceActionEntries(languageTag).flatMap(([, aliases]) => wakeTokens.map((wakeToken) => `${wakeToken} ${alias}`))
+    ...commandAliases,
+    ...commandAliases.map((alias) => `${wakePhrase} ${alias}`),
+    ...commandAliases.flatMap((alias) => wakeTokens.map((wakeToken) => `${wakeToken} ${alias}`))
   ]));
 
   return JSON.stringify([...grammarPhrases, "[unk]"]);
+}
+
+function shouldBlockVoiceCommandRecognition(error) {
+  const message = String(error?.message || error || "").trim();
+  return /permission|denied|notallowederror|missing vosk model|offline voice command model failed to load|failed to fetch|networkerror|asset/i.test(message);
 }
 
 async function resolveVoiceModelStatus(languageTag = getVoiceLanguageTag(), options = {}) {
@@ -2657,6 +3021,32 @@ async function ensureOfflineVoiceCommandModel(languageTag = getVoiceLanguageTag(
   return modelPromise;
 }
 
+function releaseOfflineVoiceModel(languageTag = getVoiceLanguageTag()) {
+  const normalizedLanguage = normalizeVoiceLanguage(languageTag);
+  const model = voiceModels.get(normalizedLanguage);
+
+  if (model?.terminate) {
+    try {
+      model.terminate();
+    } catch (error) {
+      console.error("Offline voice model termination failed", error);
+    }
+  }
+
+  voiceModels.delete(normalizedLanguage);
+  voiceModelPromises.delete(normalizedLanguage);
+}
+
+function releaseUnusedVoiceModels(keepLanguages = []) {
+  const keepSet = new Set(Array.from(keepLanguages, (language) => normalizeVoiceLanguage(language)).filter(Boolean));
+
+  for (const language of voiceModels.keys()) {
+    if (!keepSet.has(language)) {
+      releaseOfflineVoiceModel(language);
+    }
+  }
+}
+
 async function resumeOfflineVoiceCommandAudioContext() {
   if (!voiceCommandAudioContext || voiceCommandAudioContext.state !== "suspended") {
     return;
@@ -2689,12 +3079,16 @@ async function ensureVoiceCaptureWorklet(audioContext) {
   return voiceCaptureWorkletModulePromises.get(audioContext);
 }
 
-async function createVoiceCaptureNode(audioContext, mediaStream, onSamples) {
+async function createVoiceCaptureNode(audioContext, mediaStream, onSamples, options = {}) {
+  const {
+    soundInputSettings = getSoundInputSettings(),
+    preferScriptProcessor = false
+  } = options;
   const sourceNode = audioContext.createMediaStreamSource(mediaStream);
   const silenceNode = audioContext.createGain();
   silenceNode.gain.value = 0;
 
-  const workletReady = await ensureVoiceCaptureWorklet(audioContext);
+  const workletReady = !preferScriptProcessor && await ensureVoiceCaptureWorklet(audioContext);
   if (workletReady && typeof AudioWorkletNode !== "undefined") {
     const processorNode = new AudioWorkletNode(audioContext, "flow-voice-capture", {
       numberOfInputs: 1,
@@ -2711,7 +3105,7 @@ async function createVoiceCaptureNode(audioContext, mediaStream, onSamples) {
         return;
       }
 
-      onSamples(samples, audioContext.sampleRate);
+      onSamples(processVoiceCaptureSamples(samples, soundInputSettings), audioContext.sampleRate);
     };
 
     sourceNode.connect(processorNode);
@@ -2735,7 +3129,7 @@ async function createVoiceCaptureNode(audioContext, mediaStream, onSamples) {
 
     const copy = new Float32Array(samples.length);
     copy.set(samples);
-    onSamples(copy, event.inputBuffer.sampleRate);
+    onSamples(processVoiceCaptureSamples(copy, soundInputSettings), event.inputBuffer.sampleRate);
   };
 
   sourceNode.connect(processorNode);
@@ -2748,6 +3142,79 @@ async function createVoiceCaptureNode(audioContext, mediaStream, onSamples) {
     silenceNode,
     usingWorklet: false
   };
+}
+
+function isVoiceCommandRecognizerActive() {
+  return Boolean(
+    voiceCommandRecognition
+      && (
+        voiceCommandRecognition.engine === "web-speech"
+        || voiceCommandSharedWithTracking
+        || (voiceCommandMediaStream && voiceCommandAudioContext)
+      )
+  );
+}
+
+function createVoiceCommandRecognizer(model, sampleRate, languageTag = getVoiceCommandLanguageTag()) {
+  const recognizer = new model.KaldiRecognizer(sampleRate);
+  recognizer.setWords(true);
+  recognizer.on("partialresult", (message) => {
+    handleOfflineVoiceCommandTranscript(message?.result?.partial, {
+      isFinal: false,
+      confidence: 1,
+      wakeConfidence: 1,
+    });
+  });
+  recognizer.on("result", (message) => {
+    handleOfflineVoiceCommandTranscript(getVoskResultText(message), {
+      isFinal: true,
+      confidence: getAverageVoskWordConfidence(getVoskResultWords(message)),
+      wakeConfidence: getWakePhraseConfidence(message, languageTag)
+    });
+  });
+
+  return recognizer;
+}
+
+function acceptVoiceCommandSamples(samples, sampleRate) {
+  if (!voiceCommandRecognition?.acceptWaveformFloat || !samples?.length) {
+    return;
+  }
+
+  lastVoiceCommandAudioProcessAt = performance.now();
+
+  try {
+    voiceCommandRecognition.acceptWaveformFloat(samples, sampleRate);
+  } catch (error) {
+    console.error("Offline voice command audio processing failed", error);
+  }
+}
+
+async function attachVoiceCommandRecognizerToTracking(sampleRate) {
+  const shouldAttachDuringTracking = shouldEnableVoiceCommandListener() || (isPlaying && getActiveMode() === "voice");
+  if (!shouldAttachDuringTracking) {
+    return;
+  }
+
+  if (voiceCommandSharedWithTracking && voiceCommandRecognition?.acceptWaveformFloat) {
+    return;
+  }
+
+  const languageTag = getVoiceCommandLanguageTag();
+  const model = await ensureOfflineVoiceCommandModel(languageTag);
+  if (!model || !(shouldEnableVoiceCommandListener() || (isPlaying && getActiveMode() === "voice"))) {
+    return;
+  }
+
+  if (voiceCommandRecognition && !voiceCommandSharedWithTracking) {
+    await stopVoiceCommandListener({ preserveModel: true });
+  }
+
+  voiceCommandRecognition = createVoiceCommandRecognizer(model, sampleRate, languageTag);
+  voiceCommandSharedWithTracking = true;
+  lastVoiceCommandAudioProcessAt = performance.now();
+  isVoiceCommandRecognitionBlocked = false;
+  updateVoiceCommandIndicator();
 }
 
 function installOfflineVoiceCommandResumeListeners() {
@@ -2785,11 +3252,15 @@ function handleOfflineVoiceCommandTranscript(text, options = {}) {
     confidence = 0,
     wakeConfidence = 0
   } = options;
-  const wakeInTranscript = hasVoiceWakePhrase(transcript, languageTag) && wakeConfidence >= VOICE_WAKE_MIN_CONFIDENCE;
+  const wakePhraseDetected = hasVoiceWakePhrase(transcript, languageTag);
+  const wakeInTranscript = wakePhraseDetected && (!isFinal || wakeConfidence >= VOICE_WAKE_MIN_CONFIDENCE || wakePhraseDetected);
   const wakeActive = isVoiceWakeActive();
   const command = extractVoiceCommand(transcript, languageTag);
+  const bufferedFollowupTranscript = wakeActive && voiceWakeAwaitingFollowup
+    ? `${voiceCommandTranscript} ${transcript}`.trim()
+    : "";
   const followupCommand = wakeActive && voiceWakeAwaitingFollowup
-    ? extractVoiceCommandWithoutWake(transcript, languageTag)
+    ? extractVoiceCommandWithoutWake(bufferedFollowupTranscript || transcript, languageTag)
     : null;
 
   if (!isFinal) {
@@ -2816,14 +3287,19 @@ function handleOfflineVoiceCommandTranscript(text, options = {}) {
     return { handled: false, consumed: true };
   }
 
-  if (command && wakeInTranscript && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(command)) {
+  if (command && wakeInTranscript && processVoiceCommand(command)) {
     clearVoiceWakeState();
     return { handled: true, consumed: true };
   }
 
-  if (followupCommand && confidence >= VOICE_COMMAND_MIN_CONFIDENCE && processVoiceCommand(followupCommand)) {
+  if (followupCommand && processVoiceCommand(followupCommand)) {
     clearVoiceWakeState();
     return { handled: true, consumed: true };
+  }
+
+  if (isFinal && wakeActive && voiceWakeAwaitingFollowup) {
+    appendVoiceCommandTranscript(transcript, languageTag);
+    return { handled: false, consumed: true };
   }
 
   return { handled: false, consumed: false };
@@ -2888,6 +3364,14 @@ function getVoiceCommandErrorMessage(error) {
     return "Voice commands unavailable";
   }
 
+  if (error?.code === VOICE_CAPTURE_ERROR_NO_DEVICE) {
+    return "Voice commands unavailable: no microphone detected";
+  }
+
+  if (error?.code === VOICE_CAPTURE_ERROR_UNAVAILABLE) {
+    return "Voice commands unavailable: microphone unavailable";
+  }
+
   if (/permission|denied|notallowederror/i.test(message)) {
     return "Voice commands blocked: microphone permission denied";
   }
@@ -2922,8 +3406,15 @@ function updateVoiceCommandIndicator() {
     return;
   }
 
-  const enabled = shouldEnableVoiceCommandListener();
-  const active = Boolean(voiceCommandRecognition && voiceCommandMediaStream && voiceCommandAudioContext);
+  const enabled = (
+    shouldEnableVoiceCommandListener()
+    || isVoiceCommandRecognizerActive()
+    || isVoiceCommandRecognitionStarting
+    || isVoiceWakeActive()
+    || voiceCommandSharedWithTracking
+    || (isPlaying && getActiveMode() === "voice")
+  );
+  const active = isVoiceCommandRecognizerActive();
   const wakeActive = isVoiceWakeActive();
   const stateLabel = !enabled
     ? "off"
@@ -2947,16 +3438,18 @@ function updateVoiceCommandIndicator() {
 
 function extractVoiceCommand(text, languageTag = getVoiceCommandLanguageTag()) {
   const tokens = tokenizeNormalizedText(text, languageTag);
-  if (tokens.length < 3) {
+  if (tokens.length < 2) {
     return null;
   }
 
-  const wakeIndex = findVoiceWakeIndex(tokens, languageTag);
-  if (wakeIndex < 0) {
+  const wakeMatch = findVoiceWakeMatch(tokens, languageTag);
+  if (!wakeMatch) {
     return null;
   }
 
-  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, wakeIndex + 2, languageTag);
+  const candidateTokens = collectVoiceCommandCandidateTokens(tokens, wakeMatch.index + wakeMatch.length, languageTag, {
+    ignoreWakeTokens: true
+  });
   const match = getVoiceCommandActionFromTokens(candidateTokens, languageTag);
   if (match) {
     return {
@@ -3109,6 +3602,7 @@ function processVoiceCommand(command, options = {}) {
   }
 
   const { playSound = true } = options;
+  armVoiceCommandListener();
   resetVoiceCommandTranscript();
   beginVoiceCommandCooldown();
   const handled = handleVoiceCommandAction(command.action);
@@ -3256,7 +3750,7 @@ function handleVoiceCommandAction(action) {
 }
 
 function ensureVoiceCommandRecognition() {
-  if (!hasOfflineVoiceCommandSupport()) {
+  if (!hasOfflineVoiceCommandSupport() && !hasSpeechRecognitionSupport()) {
     return null;
   }
 
@@ -3265,14 +3759,15 @@ function ensureVoiceCommandRecognition() {
   }
 
   voiceCommandRecognition = {
-    engine: "vosk"
+    engine: "pending"
   };
 
   return voiceCommandRecognition;
 }
 
 async function stopVoiceCommandListener(options = {}) {
-  const { preserveError = false } = options;
+  const { preserveError = false, preserveModel = false } = options;
+  const usingWebSpeech = voiceCommandRecognition?.engine === "web-speech";
   voiceCommandListenerSession += 1;
   isVoiceCommandRecognitionStarting = false;
   resetVoiceCommandTranscript();
@@ -3285,7 +3780,18 @@ async function stopVoiceCommandListener(options = {}) {
 
   disconnectOfflineVoiceCommandAudioGraph();
 
-  if (voiceCommandRecognition?.remove) {
+  if (voiceCommandRecognition?.engine === "web-speech") {
+    voiceCommandRecognition.onresult = null;
+    voiceCommandRecognition.onerror = null;
+    voiceCommandRecognition.onend = null;
+    voiceCommandRecognition.onaudiostart = null;
+    voiceCommandRecognition.onaudioend = null;
+    try {
+      voiceCommandRecognition.abort?.();
+    } catch (error) {
+      // Recognition is already stopped.
+    }
+  } else if (voiceCommandRecognition?.remove) {
     try {
       voiceCommandRecognition.remove();
     } catch (error) {
@@ -3294,6 +3800,7 @@ async function stopVoiceCommandListener(options = {}) {
   }
 
   voiceCommandRecognition = null;
+  voiceCommandSharedWithTracking = false;
   updateVoiceCommandIndicator();
 
   if (voiceCommandMediaStream) {
@@ -3305,6 +3812,20 @@ async function stopVoiceCommandListener(options = {}) {
   }
 
   await disposeOfflineVoiceCommandAudioContext();
+
+  const voiceTrackingUsesCommandLanguage = Boolean(voiceRecognition)
+    && normalizeVoiceLanguage(getVoiceLanguageTag()) === normalizeVoiceLanguage(getVoiceCommandLanguageTag());
+  if (!preserveModel && !voiceTrackingUsesCommandLanguage) {
+    releaseOfflineVoiceModel(getVoiceCommandLanguageTag());
+  }
+
+  releaseUnusedVoiceModels([
+    voiceRecognition ? getVoiceLanguageTag() : null,
+    (!usingWebSpeech && (preserveModel || isVoiceCommandRecognizerActive() || shouldEnableVoiceCommandListener()))
+      ? getVoiceCommandLanguageTag()
+      : null
+  ]);
+
   updateVoiceCommandIndicator();
 }
 
@@ -3318,7 +3839,7 @@ async function startVoiceCommandListener() {
 
   clearVoiceCommandRestartTimer();
 
-  if (voiceCommandRecognition?.remove && voiceCommandAudioContext && voiceCommandMediaStream) {
+  if (isVoiceCommandRecognizerActive()) {
     return;
   }
 
@@ -3331,27 +3852,85 @@ async function startVoiceCommandListener() {
   isVoiceCommandRecognitionStarting = true;
 
   try {
-    const languageTag = getVoiceCommandLanguageTag();
-    const model = await ensureOfflineVoiceCommandModel(languageTag);
-    if (!model || !shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
+    if (hasSpeechRecognitionSupport()) {
+      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+      const recognizer = new SpeechRecognitionClass();
+      recognizer.engine = "web-speech";
+      recognizer.lang = getVoiceCommandLanguageTag();
+      recognizer.continuous = true;
+      recognizer.interimResults = true;
+      recognizer.maxAlternatives = 3;
+      recognizer.onaudiostart = () => {
+        lastVoiceCommandAudioProcessAt = performance.now();
+      };
+      recognizer.onaudioend = () => {
+        lastVoiceCommandAudioProcessAt = performance.now();
+      };
+      recognizer.onresult = (event) => {
+        lastVoiceCommandAudioProcessAt = performance.now();
+        handleBrowserSpeechRecognitionResult(event);
+      };
+      recognizer.onerror = (event) => {
+        if (listenerSession !== voiceCommandListenerSession) {
+          return;
+        }
+
+        const error = event?.error || event;
+        lastVoiceCommandError = getVoiceCommandErrorMessage(error);
+        isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
+        updateVoiceCommandIndicator();
+      };
+      recognizer.onend = () => {
+        if (listenerSession !== voiceCommandListenerSession || voiceCommandRecognition !== recognizer) {
+          return;
+        }
+
+        voiceCommandRecognition = null;
+        updateVoiceCommandIndicator();
+
+        if (shouldEnableVoiceCommandListener() && !isVoiceCommandRecognitionBlocked) {
+          scheduleVoiceCommandListenerRestart(180);
+        }
+      };
+
+      voiceCommandRecognition = recognizer;
+      lastVoiceCommandAudioProcessAt = performance.now();
+      releaseUnusedVoiceModels([
+        voiceRecognition ? getVoiceLanguageTag() : null
+      ]);
+      recognizer.start();
+      isVoiceCommandRecognitionBlocked = false;
+      updateVoiceCommandIndicator();
       return;
     }
 
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: false,
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        channelCount: 1
-      }
-    });
+    const soundInputSettings = getSoundInputSettings();
+    const mediaStream = await requestVoiceCaptureMediaStream(soundInputSettings);
+    if (!shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
+      stopMediaStreamTracks(mediaStream);
+      return;
+    }
+
+    const languageTag = getVoiceCommandLanguageTag();
+    let model = null;
+    try {
+      model = await ensureOfflineVoiceCommandModel(languageTag);
+    } catch (error) {
+      stopMediaStreamTracks(mediaStream);
+      throw error;
+    }
+
+    if (!model || !shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
+      stopMediaStreamTracks(mediaStream);
+      return;
+    }
 
     voiceCommandMediaStream = mediaStream;
+    voiceCommandSharedWithTracking = false;
     voiceCommandAudioContext = new AudioContextClass({ sampleRate: 16000 });
     if (listenerSession !== voiceCommandListenerSession) {
-      mediaStream.getTracks().forEach((track) => track.stop());
+      stopMediaStreamTracks(mediaStream);
       await voiceCommandAudioContext.close().catch(() => {});
       voiceCommandAudioContext = null;
       return;
@@ -3360,38 +3939,14 @@ async function startVoiceCommandListener() {
     await resumeOfflineVoiceCommandAudioContext();
     installOfflineVoiceCommandResumeListeners();
 
-    const recognizer = new model.KaldiRecognizer(voiceCommandAudioContext.sampleRate);
-    recognizer.setWords(true);
-    recognizer.on("partialresult", (message) => {
-      handleOfflineVoiceCommandTranscript(message?.result?.partial, {
-        isFinal: false,
-        confidence: 1,
-        wakeConfidence: 1,
-      });
-    });
-    recognizer.on("result", (message) => {
-      handleOfflineVoiceCommandTranscript(getVoskResultText(message), {
-        isFinal: true,
-        confidence: getAverageVoskWordConfidence(getVoskResultWords(message)),
-        wakeConfidence: getWakePhraseConfidence(message, languageTag)
-      });
-    });
-
-    voiceCommandRecognition = recognizer;
+    voiceCommandRecognition = createVoiceCommandRecognizer(model, voiceCommandAudioContext.sampleRate, languageTag);
     lastVoiceCommandAudioProcessAt = performance.now();
 
     const captureNodes = await createVoiceCaptureNode(voiceCommandAudioContext, mediaStream, (samples, sampleRate) => {
-      if (!voiceCommandRecognition?.acceptWaveformFloat) {
-        return;
-      }
-
-      lastVoiceCommandAudioProcessAt = performance.now();
-
-      try {
-        voiceCommandRecognition.acceptWaveformFloat(samples, sampleRate);
-      } catch (error) {
-        console.error("Offline voice command audio processing failed", error);
-      }
+      acceptVoiceCommandSamples(samples, sampleRate);
+    }, {
+      soundInputSettings,
+      preferScriptProcessor: true
     });
 
     voiceCommandSourceNode = captureNodes.sourceNode;
@@ -3408,10 +3963,12 @@ async function startVoiceCommandListener() {
   } catch (error) {
     console.error("Offline voice command listener failed to start", error);
     lastVoiceCommandError = getVoiceCommandErrorMessage(error);
-    isVoiceCommandRecognitionBlocked = true;
+    isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
     await stopVoiceCommandListener({ preserveError: true });
-    isVoiceCommandRecognitionBlocked = true;
-    scheduleVoiceCommandListenerRestart(VOICE_COMMAND_RESTART_DELAY_MS + 120);
+    isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
+    if (!isVoiceCommandRecognitionBlocked) {
+      scheduleVoiceCommandListenerRestart(VOICE_COMMAND_RESTART_DELAY_MS + 120);
+    }
   } finally {
     isVoiceCommandRecognitionStarting = false;
     updateVoiceCommandIndicator();
@@ -3421,14 +3978,30 @@ async function startVoiceCommandListener() {
 function syncVoiceCommandListener(options = {}) {
   const { forceReset = false } = options;
 
+  scheduleVoiceHealthCheck(0);
+
   voiceCommandSyncPromise = voiceCommandSyncPromise
     .catch(() => {})
     .then(async () => {
       if (forceReset) {
-        await stopVoiceCommandListener();
+        await stopVoiceCommandListener({ preserveModel: shouldEnableVoiceCommandListener() });
       }
 
       if (shouldEnableVoiceCommandListener()) {
+        if (isPlaying && getActiveMode() === "voice") {
+          if (voiceTrackingAudioContext && voiceTrackingMediaStream && voiceRecognition?.acceptWaveformFloat) {
+            await attachVoiceCommandRecognizerToTracking(voiceTrackingAudioContext.sampleRate);
+            return;
+          }
+
+          if (!forceReset && voiceCommandSharedWithTracking) {
+            return;
+          }
+
+          await stopVoiceCommandListener({ preserveModel: true });
+          return;
+        }
+
         await startVoiceCommandListener();
         return;
       }
@@ -3445,65 +4018,120 @@ function refreshVoiceCommandListener(forceReset = false) {
   }, 0);
 }
 
-function startVoiceCommandHealthMonitor() {
+function shouldMonitorVoiceHealth() {
+  return shouldEnableVoiceCommandListener() || (isPlaying && getActiveMode() === "voice");
+}
+
+function scheduleVoiceHealthCheck(delayMs = VOICE_HEALTH_IDLE_CHECK_MS) {
   if (voiceCommandHealthTimer) {
+    clearTimeout(voiceCommandHealthTimer);
+  }
+
+  voiceCommandHealthTimer = window.setTimeout(() => {
+    voiceCommandHealthTimer = null;
+    startVoiceCommandHealthMonitor();
+  }, Math.max(delayMs, 0));
+}
+
+function startVoiceCommandHealthMonitor() {
+  if (!shouldMonitorVoiceHealth()) {
+    if (voiceCommandRecognition || voiceCommandMediaStream || voiceCommandAudioContext) {
+      stopVoiceCommandListener().catch(console.error);
+    }
+    scheduleVoiceHealthCheck(VOICE_HEALTH_IDLE_CHECK_MS);
     return;
   }
 
-  voiceCommandHealthTimer = window.setInterval(() => {
-    if (isPlaying && getActiveMode() === "voice") {
-      if (!voiceRecognition || !voiceTrackingAudioContext || !voiceTrackingMediaStream) {
-        playVoiceMode();
-        return;
-      }
+  if (isPlaying && getActiveMode() === "voice") {
+    if (!voiceRecognition || !voiceTrackingAudioContext || !voiceTrackingMediaStream) {
+      playVoiceMode();
+      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+      return;
+    }
 
-      const trackingTracks = voiceTrackingMediaStream.getAudioTracks();
-      if (trackingTracks.length === 0 || trackingTracks.some((track) => track.readyState === "ended")) {
-        stopVoiceTracking()
+    const trackingTracks = voiceTrackingMediaStream.getAudioTracks();
+    if (trackingTracks.length === 0 || trackingTracks.some((track) => track.readyState === "ended")) {
+      stopVoiceTracking()
+        .catch(console.error)
+        .finally(() => {
+          if (isPlaying && getActiveMode() === "voice") {
+            playVoiceMode();
+          }
+        });
+      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+      return;
+    }
+
+    if (lastVoiceTrackingAudioProcessAt > 0 && performance.now() - lastVoiceTrackingAudioProcessAt > 3000) {
+      stopVoiceTracking()
+        .catch(console.error)
+        .finally(() => {
+          if (isPlaying && getActiveMode() === "voice") {
+            playVoiceMode();
+          }
+        });
+      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+      return;
+    }
+  }
+
+  if (shouldEnableVoiceCommandListener() && !isVoiceCommandRecognitionStarting) {
+    const usingWebSpeech = voiceCommandRecognition?.engine === "web-speech";
+
+    if (isPlaying && getActiveMode() === "voice" && voiceTrackingAudioContext && voiceTrackingMediaStream && voiceRecognition?.acceptWaveformFloat) {
+      if (!isVoiceCommandRecognizerActive()) {
+        attachVoiceCommandRecognizerToTracking(voiceTrackingAudioContext.sampleRate)
           .catch(console.error)
           .finally(() => {
-            if (isPlaying && getActiveMode() === "voice") {
-              playVoiceMode();
-            }
+            scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
           });
         return;
       }
+    } else if (!isVoiceCommandRecognizerActive()) {
+      syncVoiceCommandListener({ forceReset: true });
+      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+      return;
+    }
 
-      if (lastVoiceTrackingAudioProcessAt > 0 && performance.now() - lastVoiceTrackingAudioProcessAt > 3000) {
-        stopVoiceTracking()
-          .catch(console.error)
-          .finally(() => {
-            if (isPlaying && getActiveMode() === "voice") {
-              playVoiceMode();
-            }
-          });
+    if (usingWebSpeech) {
+      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+      return;
+    }
+
+    if (!voiceCommandSharedWithTracking) {
+      const tracks = voiceCommandMediaStream?.getAudioTracks() || [];
+      if (tracks.length === 0 || tracks.some((track) => track.readyState === "ended")) {
+        syncVoiceCommandListener({ forceReset: true });
+        scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+        return;
+      }
+
+      if (voiceCommandAudioContext?.state === "suspended") {
+        resumeOfflineVoiceCommandAudioContext().catch(() => {});
+        scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+        return;
+      }
+
+      if (voiceCommandAudioContext && voiceCommandAudioContext.state === "closed") {
+        syncVoiceCommandListener({ forceReset: true });
+        scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
         return;
       }
     }
 
-    if (!shouldEnableVoiceCommandListener() || isVoiceCommandRecognitionStarting) {
+    if (
+      !voiceCommandSharedWithTracking
+      && voiceCommandAudioContext?.state === "running"
+      && lastVoiceCommandAudioProcessAt > 0
+      && performance.now() - lastVoiceCommandAudioProcessAt > VOICE_COMMAND_STALL_RESET_MS
+    ) {
+      syncVoiceCommandListener({ forceReset: true });
+      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
       return;
     }
+  }
 
-    if (!voiceCommandRecognition || !voiceCommandAudioContext || !voiceCommandMediaStream) {
-      syncVoiceCommandListener({ forceReset: true });
-      return;
-    }
-
-    const tracks = voiceCommandMediaStream.getAudioTracks();
-    if (tracks.length === 0 || tracks.some((track) => track.readyState === "ended")) {
-      syncVoiceCommandListener({ forceReset: true });
-      return;
-    }
-
-    if (voiceCommandAudioContext.state === "suspended") {
-      resumeOfflineVoiceCommandAudioContext().catch(() => {});
-    }
-
-    if (lastVoiceCommandAudioProcessAt > 0 && performance.now() - lastVoiceCommandAudioProcessAt > 3000) {
-      syncVoiceCommandListener({ forceReset: true });
-    }
-  }, 2000);
+  scheduleVoiceHealthCheck(shouldMonitorVoiceHealth() ? VOICE_HEALTH_ACTIVE_CHECK_MS : VOICE_HEALTH_IDLE_CHECK_MS);
 }
 
 function installVoiceCommandDebugHelpers() {
@@ -3529,7 +4157,8 @@ function installVoiceCommandDebugHelpers() {
     getState() {
       return {
         appWideVoiceCommands: shouldEnableVoiceCommandListener(),
-        voiceCommandListening: Boolean(voiceCommandRecognition && voiceCommandMediaStream && voiceCommandAudioContext),
+        voiceCommandListening: isVoiceCommandRecognizerActive(),
+        voiceCommandSharedWithTracking,
         voiceCommandStarting: isVoiceCommandRecognitionStarting,
         voiceCommandBlocked: isVoiceCommandRecognitionBlocked,
         lastVoiceCommandError,
@@ -3964,6 +4593,78 @@ function getVoiceNextIndex(matchedIndex) {
   return Math.min(matchedIndex + 1, wordNodes.length - 1);
 }
 
+function clearPendingForwardVoiceSkip() {
+  pendingForwardVoiceSkip = null;
+}
+
+function buildPendingForwardVoiceSkip(match) {
+  if (!match || (match.phraseLength || 0) !== 1) {
+    return null;
+  }
+
+  const activeLineIndex = clamp(lineIndexByWord[currentIndex] ?? 0, 0, Math.max(lineGroups.length - 1, 0));
+  const matchedWordIndex = match.matchedWordIndex ?? -1;
+  const matchedLineIndex = clamp(match.lineIndex ?? activeLineIndex, 0, Math.max(lineGroups.length - 1, 0));
+  if (matchedWordIndex <= currentIndex || matchedLineIndex <= activeLineIndex) {
+    return null;
+  }
+
+  const matchedTokenIndex = getNormalizedTokenIndexForWord(matchedWordIndex, "end");
+  const firstToken = normalizedWordTokens[matchedTokenIndex] || "";
+  const nextTokenIndex = matchedTokenIndex + 1;
+  const nextToken = normalizedWordTokens[nextTokenIndex] || "";
+  const nextWordIndex = getWordIndexForNormalizedToken(nextTokenIndex);
+  if (!firstToken || !nextToken || nextWordIndex < 0 || nextWordIndex <= matchedWordIndex) {
+    return null;
+  }
+
+  return {
+    firstWordIndex: matchedWordIndex,
+    firstToken,
+    nextToken,
+    nextTokenIndex,
+    nextWordIndex,
+    lineIndex: lineIndexByWord[nextWordIndex] ?? matchedLineIndex,
+    phrase: `${firstToken} ${nextToken}`,
+    expiresAt: performance.now() + VOICE_FORWARD_SKIP_CONFIRM_MS
+  };
+}
+
+function resolveForwardVoiceSkipMatch(spokenTokens, match) {
+  const latestToken = spokenTokens[spokenTokens.length - 1] || "";
+  const latestPhrase = spokenTokens.slice(-2).join(" ");
+
+  if (pendingForwardVoiceSkip) {
+    const pending = pendingForwardVoiceSkip;
+    const expired = performance.now() > pending.expiresAt;
+    const invalidatedByProgress = currentIndex > pending.firstWordIndex;
+
+    if (expired || invalidatedByProgress) {
+      clearPendingForwardVoiceSkip();
+    } else if (latestToken === pending.nextToken || latestPhrase === pending.phrase) {
+      clearPendingForwardVoiceSkip();
+      return {
+        matchedIndex: pending.nextTokenIndex,
+        matchedWordIndex: pending.nextWordIndex,
+        lineIndex: pending.lineIndex,
+        phraseLength: 2
+      };
+    }
+  }
+
+  const pendingMatch = buildPendingForwardVoiceSkip(match);
+  if (pendingMatch) {
+    pendingForwardVoiceSkip = pendingMatch;
+    return null;
+  }
+
+  if (match && (match.phraseLength || 0) > 1) {
+    clearPendingForwardVoiceSkip();
+  }
+
+  return match;
+}
+
 function disconnectVoiceTrackingAudioGraph() {
   if (voiceTrackingSourceNode) {
     try {
@@ -4012,10 +4713,13 @@ async function disposeVoiceTrackingAudioContext() {
 }
 
 async function stopVoiceTracking() {
+  const trackingLanguageTag = activeVoiceTrackingLanguageTag || getVoiceLanguageTag();
   voiceTrackingSession += 1;
+  activeVoiceTrackingLanguageTag = null;
   lastVoiceTrackingAudioProcessAt = 0;
   lastVoiceTrackingPartialHandledAt = 0;
   lastVoiceTrackingPartialKey = "";
+  clearPendingForwardVoiceSkip();
 
   disconnectVoiceTrackingAudioGraph();
 
@@ -4029,6 +4733,21 @@ async function stopVoiceTracking() {
 
   voiceRecognition = null;
 
+  if (voiceCommandSharedWithTracking && voiceCommandRecognition?.remove) {
+    try {
+      voiceCommandRecognition.remove();
+    } catch (error) {
+      // Recognizer already removed.
+    }
+  }
+
+  if (voiceCommandSharedWithTracking) {
+    voiceCommandRecognition = null;
+    voiceCommandSharedWithTracking = false;
+    lastVoiceCommandAudioProcessAt = 0;
+    updateVoiceCommandIndicator();
+  }
+
   if (voiceTrackingMediaStream) {
     voiceTrackingMediaStream.getTracks().forEach((track) => {
       track.enabled = false;
@@ -4038,6 +4757,19 @@ async function stopVoiceTracking() {
   }
 
   await disposeVoiceTrackingAudioContext();
+
+  const trackingModelNeededForCommands = isVoiceCommandRecognizerActive()
+    && normalizeVoiceLanguage(trackingLanguageTag) === normalizeVoiceLanguage(getVoiceCommandLanguageTag());
+  if (!trackingModelNeededForCommands) {
+    releaseOfflineVoiceModel(trackingLanguageTag);
+  }
+
+  releaseUnusedVoiceModels([
+    voiceCommandRecognition?.engine && voiceCommandRecognition.engine !== "web-speech"
+      ? getVoiceCommandLanguageTag()
+      : null,
+    voiceRecognition ? getVoiceLanguageTag() : null
+  ]);
 }
 
 function applyVoiceTrackingTranscript(transcript, options = {}) {
@@ -4084,13 +4816,18 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
   }
 
   const spokenTokens = tokenizeNormalizedText(isFinal ? combinedTranscript : text);
-  const bestLineMatch = clampVoiceTrackingMatchToAdjacentLine(
+  const bestLineMatch = clampVoiceTrackingMatchToAdjacentLine(resolveForwardVoiceSkipMatch(
+    spokenTokens,
     (isFinal ? findVoiceDistantPhraseMatch(spokenTokens) : null)
       || findVoiceLineMatch(spokenTokens, isFinal ? { radius: 1, allowExact: true } : { radius: 1, allowExact: false })
-  );
+  ));
   const bestMatchIndex = bestLineMatch?.matchedWordIndex ?? -1;
 
   if (bestMatchIndex >= 0 && bestMatchIndex !== currentIndex) {
+    if (bestMatchIndex < currentIndex) {
+      return;
+    }
+
     const previousLineIndex = lineIndexByWord[currentIndex] ?? 0;
     const nextLineIndex = bestLineMatch?.lineIndex ?? previousLineIndex;
     currentIndex = bestMatchIndex;
@@ -4112,33 +4849,47 @@ async function startVoiceTracking() {
     return;
   }
 
+  const session = ++voiceTrackingSession;
   syncStateFromStorage();
   const languageTag = getVoiceLanguageTag();
   rebuildNormalizedScriptTokenMap(languageTag);
-  const model = await ensureOfflineVoiceCommandModel(languageTag);
+  const soundInputSettings = getSoundInputSettings();
+  const mediaStream = await requestVoiceCaptureMediaStream(soundInputSettings);
+  if (session !== voiceTrackingSession) {
+    stopMediaStreamTracks(mediaStream);
+    return;
+  }
+
+  let model = null;
+  try {
+    model = await ensureOfflineVoiceCommandModel(languageTag);
+  } catch (error) {
+    stopMediaStreamTracks(mediaStream);
+    throw error;
+  }
+
+  if (session !== voiceTrackingSession) {
+    stopMediaStreamTracks(mediaStream);
+    releaseUnusedVoiceModels([
+      voiceCommandRecognition?.engine && voiceCommandRecognition.engine !== "web-speech"
+        ? getVoiceCommandLanguageTag()
+        : null,
+      voiceRecognition ? activeVoiceTrackingLanguageTag : null
+    ]);
+    return;
+  }
+
   if (!model) {
+    stopMediaStreamTracks(mediaStream);
     throw new Error(`Missing Vosk model for ${getVoiceLanguageLabel(languageTag)}`);
   }
 
-  const session = ++voiceTrackingSession;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  const mediaStream = await navigator.mediaDevices.getUserMedia({
-    video: false,
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-      channelCount: 1
-    }
-  });
 
   voiceTrackingMediaStream = mediaStream;
   voiceTrackingAudioContext = new AudioContextClass({ sampleRate: 16000 });
   if (session !== voiceTrackingSession) {
-    mediaStream.getTracks().forEach((track) => {
-      track.enabled = false;
-      track.stop();
-    });
+    stopMediaStreamTracks(mediaStream);
     await disposeVoiceTrackingAudioContext();
     return;
   }
@@ -4148,6 +4899,12 @@ async function startVoiceTracking() {
       await voiceTrackingAudioContext.resume();
     } catch (error) {
       // Resume may require a user gesture in some webviews.
+    }
+
+    if (session !== voiceTrackingSession) {
+      stopMediaStreamTracks(mediaStream);
+      await disposeVoiceTrackingAudioContext();
+      return;
     }
   }
 
@@ -4164,7 +4921,25 @@ async function startVoiceTracking() {
   });
 
   voiceRecognition = recognizer;
+  activeVoiceTrackingLanguageTag = languageTag;
   lastVoiceTrackingAudioProcessAt = performance.now();
+
+  if (shouldEnableVoiceCommandListener() || (isPlaying && getActiveMode() === "voice")) {
+    try {
+      await attachVoiceCommandRecognizerToTracking(voiceTrackingAudioContext.sampleRate);
+    } catch (error) {
+      console.error("Offline voice command recognizer failed to attach to tracking", error);
+      lastVoiceCommandError = getVoiceCommandErrorMessage(error);
+      isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
+      updateVoiceCommandIndicator();
+    }
+
+    if (session !== voiceTrackingSession) {
+      stopMediaStreamTracks(mediaStream);
+      await disposeVoiceTrackingAudioContext();
+      return;
+    }
+  }
 
   const captureNodes = await createVoiceCaptureNode(voiceTrackingAudioContext, mediaStream, (samples, sampleRate) => {
     if (!voiceRecognition?.acceptWaveformFloat) {
@@ -4178,7 +4953,45 @@ async function startVoiceTracking() {
     } catch (error) {
       console.error("Vosk voice tracking audio processing failed", error);
     }
-  });
+
+    if (voiceCommandSharedWithTracking) {
+      acceptVoiceCommandSamples(samples, sampleRate);
+    }
+  }, { soundInputSettings });
+
+  if (session !== voiceTrackingSession) {
+    if (captureNodes.sourceNode) {
+      try {
+        captureNodes.sourceNode.disconnect();
+      } catch (error) {
+        // Node already disconnected.
+      }
+    }
+
+    if (captureNodes.processorNode) {
+      try {
+        captureNodes.processorNode.disconnect();
+      } catch (error) {
+        // Node already disconnected.
+      }
+      if (captureNodes.processorNode.port) {
+        captureNodes.processorNode.port.onmessage = null;
+      }
+      captureNodes.processorNode.onaudioprocess = null;
+    }
+
+    if (captureNodes.silenceNode) {
+      try {
+        captureNodes.silenceNode.disconnect();
+      } catch (error) {
+        // Node already disconnected.
+      }
+    }
+
+    stopMediaStreamTracks(mediaStream);
+    await disposeVoiceTrackingAudioContext();
+    return;
+  }
 
   voiceTrackingSourceNode = captureNodes.sourceNode;
   voiceTrackingProcessorNode = captureNodes.processorNode;
@@ -4186,6 +4999,8 @@ async function startVoiceTracking() {
 }
 
 function playVoiceMode() {
+  clearPromptFeedback();
+  scheduleVoiceHealthCheck(0);
   voiceTranscript = "";
   resetVoiceCommandTranscript();
   syncPromptLayout();
@@ -4194,10 +5009,12 @@ function playVoiceMode() {
 
   startVoiceTracking().catch((error) => {
     console.error("Vosk voice tracking failed to start", error);
+    const feedbackKey = getVoiceTrackingFeedbackKey(error);
+    if (feedbackKey) {
+      setPromptFeedback(feedbackKey);
+    }
     if (ui.statusLabel) {
-      ui.statusLabel.textContent = /Missing Vosk model/i.test(String(error?.message || error))
-        ? `\u{1F3A4} Download ${getVoiceLanguageLabel()} model first`
-        : "\u{1F3A4} Mic Request Failed";
+      ui.statusLabel.textContent = getVoiceTrackingFailureStatus(error);
     }
     stopPlayback();
   });
@@ -4206,6 +5023,7 @@ function playVoiceMode() {
 async function play() {
   if (wordNodes.length === 0) return;
   const activeMode = getActiveMode();
+  clearPromptFeedback();
 
   if (currentIndex >= wordNodes.length - 1) {
     currentIndex = 0;
@@ -4756,6 +5574,20 @@ function handlePlaybackHotkeys(event) {
     }
   }
 
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && (isPlaying || isPaused) && getActiveMode() === "voice") {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      movePlaybackByLine(1, { allowVoiceModeBackward: true });
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      movePlaybackByLine(-1, { allowVoiceModeBackward: true });
+      return;
+    }
+  }
+
   if (!event.ctrlKey && !event.metaKey && !event.altKey && (isPlaying || isPaused) && ["line", "scroll"].includes(getActiveMode())) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -4785,6 +5617,7 @@ function handlePlaybackHotkeys(event) {
 function refreshFromStorage() {
   const previousVoiceLanguage = getVoiceLanguageTag();
   const previousAppWideVoiceCommands = Boolean(state.appearance?.appWideVoiceCommands);
+  const previousVoiceCaptureSettings = getVoiceCaptureSettingsSignature();
   const previousState = {
     script: state.script,
     speed: state.speed,
@@ -4800,7 +5633,8 @@ function refreshFromStorage() {
   const nextVoiceLanguage = getVoiceLanguageTag();
   const voiceLanguageChanged = previousVoiceLanguage !== nextVoiceLanguage;
   const appWideVoiceCommandsChanged = previousAppWideVoiceCommands !== Boolean(state.appearance?.appWideVoiceCommands);
-  syncVoiceCommandListener({ forceReset: voiceLanguageChanged || appWideVoiceCommandsChanged });
+  const voiceCaptureSettingsChanged = previousVoiceCaptureSettings !== getVoiceCaptureSettingsSignature();
+  syncVoiceCommandListener({ forceReset: voiceLanguageChanged || appWideVoiceCommandsChanged || voiceCaptureSettingsChanged });
 
   if (previousState.speed !== state.speed) {
     updateSpeedLabel();
@@ -4808,6 +5642,7 @@ function refreshFromStorage() {
 
   if (previousState.language !== state.language) {
     applyTranslationsToDocument(state.language);
+    updatePromptFeedbackOverlay();
     updateSpeedLabel();
     updateCollapseButton();
     updatePlayButtons();
@@ -4820,7 +5655,7 @@ function refreshFromStorage() {
     updatePlayButtons();
     applyStoredWindowSettings().catch(console.error);
 
-    if (voiceLanguageChanged && isPlaying && getActiveMode() === "voice") {
+    if ((voiceLanguageChanged || voiceCaptureSettingsChanged) && isPlaying && getActiveMode() === "voice") {
       stopVoiceTracking()
         .catch(console.error)
         .finally(() => {
@@ -4956,19 +5791,45 @@ function wireEvents() {
   });
   window.addEventListener("focus", () => {
     refreshFromStorage();
-    refreshVoiceCommandListener(true);
+    if (shouldEnableVoiceCommandListener() && !isVoiceCommandRecognizerActive() && !isVoiceCommandRecognitionStarting) {
+      refreshVoiceCommandListener();
+    }
     resumeOfflineVoiceCommandAudioContext().catch(() => {});
   });
   window.addEventListener("blur", () => {
-    resumeOfflineVoiceCommandAudioContext().catch(() => {});
+    scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
   });
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
-      refreshVoiceCommandListener(true);
+      if (shouldEnableVoiceCommandListener() && !isVoiceCommandRecognizerActive() && !isVoiceCommandRecognitionStarting) {
+        refreshVoiceCommandListener();
+      }
       resumeOfflineVoiceCommandAudioContext().catch(() => {});
       return;
     }
+
+    scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
   });
+  window.addEventListener("pointerdown", () => {
+    if (!state.appearance?.appWideVoiceCommands) {
+      return;
+    }
+
+    if (!isVoiceCommandRecognizerActive() && !isVoiceCommandRecognitionStarting) {
+      refreshVoiceCommandListener();
+    }
+    resumeOfflineVoiceCommandAudioContext().catch(() => {});
+  }, true);
+  window.addEventListener("keydown", (event) => {
+    if (!state.appearance?.appWideVoiceCommands || event.repeat) {
+      return;
+    }
+
+    if (!isVoiceCommandRecognizerActive() && !isVoiceCommandRecognitionStarting) {
+      refreshVoiceCommandListener();
+    }
+    resumeOfflineVoiceCommandAudioContext().catch(() => {});
+  }, true);
   window.addEventListener("storage", refreshFromStorage);
   window.addEventListener("flow-state-updated", refreshFromStorage);
   window.addEventListener("keydown", handlePlaybackHotkeys);
@@ -4978,10 +5839,11 @@ function wireEvents() {
     }
     stopVoiceCommandListener();
     stopVoiceTracking();
+    disarmVoiceCommandListener();
     unlistenClickthroughChanged?.();
     unlistenClickthroughChanged = null;
     if (voiceCommandHealthTimer) {
-      clearInterval(voiceCommandHealthTimer);
+      clearTimeout(voiceCommandHealthTimer);
       voiceCommandHealthTimer = null;
     }
     remoteCardCollapseTimers.forEach((timer) => clearTimeout(timer));

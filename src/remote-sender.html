@@ -164,6 +164,92 @@
       .status.success { color: #a7f3d0; }
       .status.warn { color: #fde68a; }
 
+      .reply-section {
+        margin-top: 18px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .reply-section-header {
+        display: grid;
+        gap: 6px;
+      }
+
+      .reply-help {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .reply-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .reply-item {
+        display: grid;
+        gap: 8px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: rgba(2, 6, 23, 0.68);
+        border: 1px solid rgba(148, 163, 184, 0.16);
+      }
+
+      .reply-item-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .reply-item-title {
+        min-width: 0;
+        font-weight: 700;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .reply-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        background: rgba(148, 163, 184, 0.18);
+        color: #dbeafe;
+        flex: 0 0 auto;
+      }
+
+      .reply-badge[data-status="queued"] {
+        background: rgba(96, 165, 250, 0.18);
+        color: #bfdbfe;
+      }
+
+      .reply-badge[data-status="accepted"] {
+        background: rgba(52, 211, 153, 0.18);
+        color: #a7f3d0;
+      }
+
+      .reply-badge[data-status="denied"],
+      .reply-badge[data-status="notFound"],
+      .reply-badge[data-status="unsupported"] {
+        background: rgba(248, 113, 113, 0.18);
+        color: #fecaca;
+      }
+
+      .reply-item-meta {
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      .reply-empty {
+        color: var(--muted);
+        padding: 4px 2px 0;
+      }
+
       .note {
         margin-top: 22px;
         padding: 14px 16px;
@@ -296,6 +382,14 @@
           </form>
 
           <div class="status" id="statusMessage" aria-live="polite"></div>
+
+          <section class="reply-section" id="replySection" aria-live="polite">
+            <div class="reply-section-header">
+              <h3 id="replyTitle">Message replies</h3>
+              <p class="reply-help" id="replyHelp">Queued messages update here when the receiver accepts or denies them.</p>
+            </div>
+            <div class="reply-list" id="replyList"></div>
+          </section>
         </section>
 
         <div class="note">

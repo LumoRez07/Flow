@@ -16,20 +16,312 @@ const TRANSLATIONS = {
   fr: { language: "Langue", pageKicker: "Expéditeur distant Flow", pageTitle: "Authentifiez-vous avant d'envoyer du texte à un récepteur en direct", pageSubtitle: "Utilisez l'UUID actif et le mot de passe d'accès généré de 24 mots depuis la page des paramètres du récepteur. Après authentification, cette page peut uniquement envoyer des messages texte.", authSessionIdLabel: "UUID du récepteur", authSessionIdPlaceholder: "Collez l'UUID actif depuis les paramètres de Flow", authAccessPasswordLabel: "Mot de passe d'accès", authAccessPasswordPlaceholder: "Collez le mot de passe d'accès généré de 24 mots", composerTitle: "Expéditeur authentifié", titleLabel: "Titre", titlePlaceholder: "Exemple : note du producteur", importanceLabel: "Importance", importanceNormal: "Normale", importanceImportant: "IMPORTANT", contentLabel: "Contenu", contentPlaceholder: "Saisissez le texte à proposer au récepteur.", authIdle: "Continuer", authBusy: "Vérification…", sendIdle: "Envoyer", sendBusy: "Envoi…", cancel: "Effacer le brouillon", switchReceiver: "Changer de récepteur", importantNote: "IMPORTANT ajoute une balise de surbrillance rouge dans l'aperçu du récepteur.", portForwardNote: "Pour l'utiliser depuis n'importe où, la machine du récepteur doit toujours avoir le port 43127 ouvert et redirigé vers Flow dans le routeur ou le pare-feu.", authFailed: "Échec de l'authentification.", verifyFailed: "Impossible de vérifier l'UUID cible pour le moment.", relayRejected: "Le relais a rejeté le message.", connectedTo: "Connecté à {id}", authenticatedReady: "Authentifié. Vous pouvez maintenant envoyer des messages texte.", readyToSend: "Prêt à envoyer.", fillAuth: "Renseignez d'abord l'UUID et le mot de passe d'accès.", checkingAccess: "Vérification de l'accès au récepteur…", uuidInactive: "Cet UUID n'est pas actif actuellement.", fillContent: "Remplissez les champs Titre et Contenu avant l'envoi.", checkingLive: "Vérification que le récepteur est toujours en direct…", uuidNoLongerActive: "Cet UUID n'est plus actif. Authentifiez-vous de nouveau après la reconnexion du récepteur.", receiverOffline: "Le récepteur s'est déconnecté.", receiverLiveSending: "Le récepteur est en direct. Envoi du message…", messageSent: "Message envoyé.", authExpired: "L'authentification a expiré ou a échoué. Reconnectez-vous.", savedLoginOffline: "Connexion enregistrée trouvée, mais le récepteur est actuellement hors ligne.", draftCleared: "Brouillon effacé.", signInDifferent: "Connectez-vous à un autre récepteur." }
 };
 
+Object.assign(TRANSLATIONS.en, {
+  replyTitle: "Message replies",
+  replyHelp: "Queued messages update here when the receiver accepts or denies them.",
+  replyHelpUnavailable: "This relay does not expose message replies yet, so sent messages can only show as queued here.",
+  replyEmpty: "No sent messages yet.",
+  replyUpdated: "Updated {time}",
+  replyStatusQueued: "Queued",
+  replyStatusAccepted: "Accepted",
+  replyStatusDenied: "Denied",
+  replyStatusNotFound: "Missing",
+  replyStatusUnsupported: "Unavailable"
+});
+
+Object.assign(TRANSLATIONS.tr, {
+  replyTitle: "Mesaj yanıtları",
+  replyHelp: "Sıradaki mesajlar, alıcı kabul ettiğinde veya reddettiğinde burada güncellenir.",
+  replyHelpUnavailable: "Bu röle henüz mesaj yanıtlarını sunmuyor, bu yüzden gönderilen mesajlar burada yalnızca kuyrukta olarak görünebilir.",
+  replyEmpty: "Henüz gönderilmiş mesaj yok.",
+  replyUpdated: "Güncellendi: {time}",
+  replyStatusQueued: "Kuyrukta",
+  replyStatusAccepted: "Kabul edildi",
+  replyStatusDenied: "Reddedildi",
+  replyStatusNotFound: "Bulunamadı",
+  replyStatusUnsupported: "Kullanılamıyor"
+});
+
+Object.assign(TRANSLATIONS.ar, {
+  replyTitle: "ردود الرسائل",
+  replyHelp: "تتحدث الرسائل الموضوعة في الانتظار هنا عندما يقبلها المستقبِل أو يرفضها.",
+  replyHelpUnavailable: "هذا المرحل لا يوفّر ردود الرسائل بعد، لذلك لن تظهر الرسائل المرسلة هنا إلا كأنها في الانتظار.",
+  replyEmpty: "لا توجد رسائل مرسلة بعد.",
+  replyUpdated: "تم التحديث {time}",
+  replyStatusQueued: "قيد الانتظار",
+  replyStatusAccepted: "تم القبول",
+  replyStatusDenied: "تم الرفض",
+  replyStatusNotFound: "غير موجودة",
+  replyStatusUnsupported: "غير متاح"
+});
+
+Object.assign(TRANSLATIONS.de, {
+  replyTitle: "Nachrichtenrückmeldungen",
+  replyHelp: "Eingereihte Nachrichten werden hier aktualisiert, wenn der Empfänger sie annimmt oder ablehnt.",
+  replyHelpUnavailable: "Dieses Relay stellt noch keine Nachrichtenrückmeldungen bereit, daher können gesendete Nachrichten hier nur als eingereiht angezeigt werden.",
+  replyEmpty: "Noch keine gesendeten Nachrichten.",
+  replyUpdated: "Aktualisiert {time}",
+  replyStatusQueued: "Eingereiht",
+  replyStatusAccepted: "Angenommen",
+  replyStatusDenied: "Abgelehnt",
+  replyStatusNotFound: "Fehlt",
+  replyStatusUnsupported: "Nicht verfügbar"
+});
+
+Object.assign(TRANSLATIONS.fr, {
+  replyTitle: "Réponses des messages",
+  replyHelp: "Les messages en file d'attente se mettent à jour ici lorsque le récepteur les accepte ou les refuse.",
+  replyHelpUnavailable: "Ce relais n'expose pas encore les réponses des messages, donc les messages envoyés ne peuvent apparaître ici qu'en attente.",
+  replyEmpty: "Aucun message envoyé pour l'instant.",
+  replyUpdated: "Mis à jour {time}",
+  replyStatusQueued: "En attente",
+  replyStatusAccepted: "Accepté",
+  replyStatusDenied: "Refusé",
+  replyStatusNotFound: "Introuvable",
+  replyStatusUnsupported: "Indisponible"
+});
+
 const RTL_LANGUAGES = new Set(["ar"]);
 const LANGUAGE_STORAGE_KEY = "flow.remote.sender.language";
+const MESSAGE_REPLY_POLL_MS = 2_500;
+const MESSAGE_REPLY_HISTORY_LIMIT = 8;
 
 const ui = {
-  languageLabel: document.querySelector("#languageLabel"), languageSelect: document.querySelector("#languageSelect"), pageKicker: document.querySelector("#pageKicker"), pageTitle: document.querySelector("#pageTitle"), pageSubtitle: document.querySelector("#pageSubtitle"), authForm: document.querySelector("#authForm"), authSessionIdLabel: document.querySelector("#authSessionIdLabel"), authSessionIdInput: document.querySelector("#authSessionIdInput"), authAccessPasswordLabel: document.querySelector("#authAccessPasswordLabel"), authAccessPasswordInput: document.querySelector("#authAccessPasswordInput"), authButton: document.querySelector("#authButton"), authStatus: document.querySelector("#authStatus"), composerSection: document.querySelector("#composerSection"), composerTitle: document.querySelector("#composerTitle"), sessionSummary: document.querySelector("#sessionSummary"), switchSessionButton: document.querySelector("#switchSessionButton"), form: document.querySelector("#remoteForm"), titleLabel: document.querySelector("#titleLabel"), titleInput: document.querySelector("#titleInput"), contentLabel: document.querySelector("#contentLabel"), contentInput: document.querySelector("#contentInput"), importanceLabel: document.querySelector("#importanceLabel"), importanceInput: document.querySelector("#importanceInput"), sendButton: document.querySelector("#sendButton"), cancelButton: document.querySelector("#cancelButton"), statusMessage: document.querySelector("#statusMessage"), importantNote: document.querySelector("#importantNote"), portForwardNote: document.querySelector("#portForwardNote")
+  languageLabel: document.querySelector("#languageLabel"), languageSelect: document.querySelector("#languageSelect"), pageKicker: document.querySelector("#pageKicker"), pageTitle: document.querySelector("#pageTitle"), pageSubtitle: document.querySelector("#pageSubtitle"), authForm: document.querySelector("#authForm"), authSessionIdLabel: document.querySelector("#authSessionIdLabel"), authSessionIdInput: document.querySelector("#authSessionIdInput"), authAccessPasswordLabel: document.querySelector("#authAccessPasswordLabel"), authAccessPasswordInput: document.querySelector("#authAccessPasswordInput"), authButton: document.querySelector("#authButton"), authStatus: document.querySelector("#authStatus"), composerSection: document.querySelector("#composerSection"), composerTitle: document.querySelector("#composerTitle"), sessionSummary: document.querySelector("#sessionSummary"), switchSessionButton: document.querySelector("#switchSessionButton"), form: document.querySelector("#remoteForm"), titleLabel: document.querySelector("#titleLabel"), titleInput: document.querySelector("#titleInput"), contentLabel: document.querySelector("#contentLabel"), contentInput: document.querySelector("#contentInput"), importanceLabel: document.querySelector("#importanceLabel"), importanceInput: document.querySelector("#importanceInput"), sendButton: document.querySelector("#sendButton"), cancelButton: document.querySelector("#cancelButton"), statusMessage: document.querySelector("#statusMessage"), replySection: document.querySelector("#replySection"), replyTitle: document.querySelector("#replyTitle"), replyHelp: document.querySelector("#replyHelp"), replyList: document.querySelector("#replyList"), importantNote: document.querySelector("#importantNote"), portForwardNote: document.querySelector("#portForwardNote")
 };
 
 let authenticatedSession = null;
 let currentLanguage = normalizeLanguage(localStorage.getItem(LANGUAGE_STORAGE_KEY) || navigator.language || "en");
 let authBusy = false;
 let sendBusy = false;
+let sentMessageReplies = [];
+let replyPollTimer = 0;
+let replyEndpointUnsupported = false;
 
 function normalizeLanguage(value) { const normalized = String(value || "en").toLowerCase().slice(0, 2); return Object.hasOwn(TRANSLATIONS, normalized) ? normalized : "en"; }
 function t(key, params = {}) { const template = TRANSLATIONS[currentLanguage]?.[key] ?? TRANSLATIONS.en[key] ?? key; return template.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? `{${name}}`)); }
+
+function normalizeReplyStatus(value) {
+  switch (String(value || "").trim()) {
+    case "accepted":
+      return "accepted";
+    case "denied":
+      return "denied";
+    case "notFound":
+      return "notFound";
+    case "unsupported":
+      return "unsupported";
+    default:
+      return "queued";
+  }
+}
+
+function getReplyStatusLabel(status) {
+  switch (normalizeReplyStatus(status)) {
+    case "accepted":
+      return t("replyStatusAccepted");
+    case "denied":
+      return t("replyStatusDenied");
+    case "notFound":
+      return t("replyStatusNotFound");
+    case "unsupported":
+      return t("replyStatusUnsupported");
+    default:
+      return t("replyStatusQueued");
+  }
+}
+
+function formatReplyTimestamp(value) {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) {
+    return "";
+  }
+
+  try {
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch (error) {
+    return "";
+  }
+}
+
+function getVisibleReplies() {
+  if (!authenticatedSession?.sessionId) {
+    return [];
+  }
+
+  return sentMessageReplies.filter((entry) => entry.sessionId === authenticatedSession.sessionId);
+}
+
+function stopReplyPolling() {
+  if (replyPollTimer) {
+    clearTimeout(replyPollTimer);
+    replyPollTimer = 0;
+  }
+}
+
+function renderReplyList() {
+  if (!ui.replyList || !ui.replyHelp || !ui.replyTitle) {
+    return;
+  }
+
+  ui.replyTitle.textContent = t("replyTitle");
+  ui.replyHelp.textContent = replyEndpointUnsupported ? t("replyHelpUnavailable") : t("replyHelp");
+
+  const replies = getVisibleReplies();
+  ui.replyList.replaceChildren();
+
+  if (replies.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "reply-empty";
+    empty.textContent = t("replyEmpty");
+    ui.replyList.appendChild(empty);
+    return;
+  }
+
+  replies.forEach((entry) => {
+    const item = document.createElement("article");
+    item.className = "reply-item";
+
+    const header = document.createElement("div");
+    header.className = "reply-item-header";
+
+    const title = document.createElement("strong");
+    title.className = "reply-item-title";
+    title.textContent = entry.title || entry.messageId;
+
+    const badge = document.createElement("span");
+    badge.className = "reply-badge";
+    badge.dataset.status = normalizeReplyStatus(entry.status);
+    badge.textContent = getReplyStatusLabel(entry.status);
+
+    header.append(title, badge);
+
+    const meta = document.createElement("p");
+    meta.className = "reply-item-meta";
+    const updatedAt = formatReplyTimestamp(entry.resolvedAtMs || entry.createdAtMs);
+    meta.textContent = updatedAt ? t("replyUpdated", { time: updatedAt }) : "";
+
+    item.append(header, meta);
+    ui.replyList.appendChild(item);
+  });
+}
+
+function upsertReplyEntry(entry) {
+  const nextEntry = {
+    sessionId: entry.sessionId,
+    messageId: entry.messageId,
+    title: entry.title || entry.messageId,
+    status: normalizeReplyStatus(entry.status),
+    createdAtMs: Number(entry.createdAtMs) || Date.now(),
+    resolvedAtMs: Number(entry.resolvedAtMs) || null
+  };
+  const existingIndex = sentMessageReplies.findIndex((item) => item.sessionId === nextEntry.sessionId && item.messageId === nextEntry.messageId);
+  if (existingIndex >= 0) {
+    sentMessageReplies[existingIndex] = { ...sentMessageReplies[existingIndex], ...nextEntry };
+  } else {
+    sentMessageReplies.unshift(nextEntry);
+  }
+
+  if (sentMessageReplies.length > MESSAGE_REPLY_HISTORY_LIMIT) {
+    sentMessageReplies = sentMessageReplies.slice(0, MESSAGE_REPLY_HISTORY_LIMIT);
+  }
+
+  renderReplyList();
+}
+
+function scheduleReplyPolling(delayMs = MESSAGE_REPLY_POLL_MS) {
+  stopReplyPolling();
+
+  if (replyEndpointUnsupported) {
+    return;
+  }
+
+  const hasPendingReplies = getVisibleReplies().some((entry) => normalizeReplyStatus(entry.status) === "queued");
+  if (!hasPendingReplies) {
+    return;
+  }
+
+  replyPollTimer = window.setTimeout(() => {
+    pollReplyStatuses().catch(console.error);
+  }, Math.max(delayMs, 0));
+}
+
+async function fetchMessageReplyStatus(sessionId, messageId) {
+  const response = await fetch(`/api/receiver/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/status`, {
+    headers: buildAuthHeaders(),
+    cache: "no-store"
+  });
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok && response.status === 404 && !data?.status) {
+    return { unsupported: true };
+  }
+
+  if (!response.ok && data?.status === "notFound") {
+    return data;
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.message || t("verifyFailed"));
+  }
+
+  return data;
+}
+
+async function pollReplyStatuses() {
+  const pendingReplies = getVisibleReplies().filter((entry) => normalizeReplyStatus(entry.status) === "queued");
+  if (!pendingReplies.length) {
+    stopReplyPolling();
+    renderReplyList();
+    return;
+  }
+
+  let shouldContinue = false;
+
+  for (const entry of pendingReplies) {
+    try {
+      const result = await fetchMessageReplyStatus(entry.sessionId, entry.messageId);
+      if (result?.unsupported) {
+        replyEndpointUnsupported = true;
+        renderReplyList();
+        stopReplyPolling();
+        return;
+      }
+
+      const nextStatus = normalizeReplyStatus(result?.status);
+      upsertReplyEntry({
+        sessionId: entry.sessionId,
+        messageId: result?.messageId || entry.messageId,
+        title: result?.title || entry.title,
+        status: nextStatus,
+        createdAtMs: result?.createdAtMs || entry.createdAtMs,
+        resolvedAtMs: result?.resolvedAtMs || null
+      });
+
+      if (nextStatus === "queued") {
+        shouldContinue = true;
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/auth|credential|password|access|unauthorized|forbidden/i.test(message)) {
+        leaveComposer(t("authExpired"));
+        setStatus(message, "error");
+        stopReplyPolling();
+        return;
+      }
+
+      shouldContinue = true;
+    }
+  }
+
+  renderReplyList();
+  if (shouldContinue) {
+    scheduleReplyPolling();
+  }
+}
 
 function applyTranslations() {
   document.documentElement.lang = currentLanguage;
@@ -59,6 +351,7 @@ function applyTranslations() {
   setAuthBusy(authBusy);
   setBusy(sendBusy);
   if (authenticatedSession?.sessionId) ui.sessionSummary.textContent = t("connectedTo", { id: authenticatedSession.sessionId });
+  renderReplyList();
 }
 
 function setStatus(message, tone = "") { ui.statusMessage.textContent = message; ui.statusMessage.className = `status${tone ? ` ${tone}` : ""}`; }
@@ -66,6 +359,23 @@ function setAuthStatus(message, tone = "") { ui.authStatus.textContent = message
 function setBusy(isBusy) { sendBusy = isBusy; ui.sendButton.disabled = isBusy; ui.sendButton.textContent = isBusy ? t("sendBusy") : t("sendIdle"); }
 function setAuthBusy(isBusy) { authBusy = isBusy; ui.authButton.disabled = isBusy; ui.authButton.textContent = isBusy ? t("authBusy") : t("authIdle"); }
 function buildAuthHeaders(auth = authenticatedSession) { return auth ? { "X-Flow-Access-Password": auth.accessPassword } : {}; }
+
+function getPresetAuthFromUrl(url = new URL(window.location.href)) {
+  return {
+    sessionId: url.searchParams.get("id")?.trim() || "",
+    accessPassword: url.searchParams.get("accessPassword")?.trim() || ""
+  };
+}
+
+function stripSensitiveAuthParamsFromUrl(url = new URL(window.location.href)) {
+  if (!url.searchParams.has("accessPassword")) {
+    return;
+  }
+
+  const sanitizedUrl = new URL(url.toString());
+  sanitizedUrl.searchParams.delete("accessPassword");
+  window.history.replaceState({}, "", sanitizedUrl.toString());
+}
 
 async function authenticateSession(payload) {
   const response = await fetch(`/api/receiver/${encodeURIComponent(payload.sessionId)}/auth`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accessPassword: payload.accessPassword }) });
@@ -92,22 +402,55 @@ function getAuthPayload() { return { sessionId: ui.authSessionIdInput.value.trim
 function getFormPayload() { return { sessionId: authenticatedSession?.sessionId || "", title: ui.titleInput.value.trim(), content: ui.contentInput.value.trim(), importance: ui.importanceInput.value }; }
 function resetForm() { ui.form.reset(); ui.importanceInput.value = "normal"; }
 
+async function tryAuthenticatePrefilledSession(payload, options = {}) {
+  const { inactiveMessage = t("uuidInactive"), inactiveTone = "error" } = options;
+  if (!payload?.sessionId || !payload?.accessPassword) {
+    return false;
+  }
+
+  setAuthBusy(true);
+  setAuthStatus(t("checkingAccess"));
+
+  try {
+    const result = await authenticateSession(payload);
+    if (!result.active) {
+      sessionStorage.removeItem("flow.remote.sender.auth");
+      setAuthStatus(inactiveMessage, inactiveTone);
+      return false;
+    }
+
+    enterComposer(payload);
+    return true;
+  } catch (error) {
+    setAuthStatus(error instanceof Error ? error.message : String(error), "error");
+    return false;
+  } finally {
+    setAuthBusy(false);
+  }
+}
+
 function enterComposer(auth) {
   authenticatedSession = auth;
+  replyEndpointUnsupported = false;
   sessionStorage.setItem("flow.remote.sender.auth", JSON.stringify(auth));
   ui.composerSection.classList.remove("hidden");
   ui.authForm.classList.add("hidden");
   ui.sessionSummary.textContent = t("connectedTo", { id: auth.sessionId });
   setAuthStatus(t("authenticatedReady"), "success");
   setStatus(t("readyToSend"));
+  renderReplyList();
+  scheduleReplyPolling(0);
 }
 
 function leaveComposer(message = "") {
   authenticatedSession = null;
+  replyEndpointUnsupported = false;
+  stopReplyPolling();
   sessionStorage.removeItem("flow.remote.sender.auth");
   ui.composerSection.classList.add("hidden");
   ui.authForm.classList.remove("hidden");
   resetForm();
+  renderReplyList();
   if (message) setAuthStatus(message);
 }
 
@@ -137,6 +480,18 @@ async function handleSubmit(event) {
     if (!activeCheck.active) { leaveComposer(t("uuidNoLongerActive")); setStatus(t("receiverOffline"), "error"); return; }
     setStatus(t("receiverLiveSending"));
     const result = await sendMessage(payload);
+    const queuedMessageId = result?.queuedMessageId || result?.queued_message_id;
+    if (queuedMessageId) {
+      upsertReplyEntry({
+        sessionId: payload.sessionId,
+        messageId: queuedMessageId,
+        title: payload.title,
+        status: "queued",
+        createdAtMs: Date.now(),
+        resolvedAtMs: null
+      });
+      scheduleReplyPolling(0);
+    }
     setStatus(result.message || t("messageSent"), "success");
     resetForm();
   } catch (error) {
@@ -150,8 +505,10 @@ async function handleSubmit(event) {
 window.addEventListener("DOMContentLoaded", async () => {
   applyTranslations();
   const url = new URL(window.location.href);
-  const presetId = url.searchParams.get("id");
-  if (presetId) ui.authSessionIdInput.value = presetId;
+  const presetAuth = getPresetAuthFromUrl(url);
+  if (presetAuth.sessionId) ui.authSessionIdInput.value = presetAuth.sessionId;
+  if (presetAuth.accessPassword) ui.authAccessPasswordInput.value = presetAuth.accessPassword;
+  stripSensitiveAuthParamsFromUrl(url);
 
   ui.languageSelect.addEventListener("change", () => {
     currentLanguage = normalizeLanguage(ui.languageSelect.value);
@@ -159,20 +516,25 @@ window.addEventListener("DOMContentLoaded", async () => {
     applyTranslations();
   });
 
-  const savedAuth = sessionStorage.getItem("flow.remote.sender.auth");
-  if (savedAuth) {
+  if (presetAuth.sessionId && presetAuth.accessPassword) {
+    await tryAuthenticatePrefilledSession(presetAuth);
+  } else {
+    const savedAuth = sessionStorage.getItem("flow.remote.sender.auth");
+    if (savedAuth) {
     try {
       const parsed = JSON.parse(savedAuth);
       if (parsed?.sessionId && parsed?.accessPassword) {
         ui.authSessionIdInput.value = parsed.sessionId;
         ui.authAccessPasswordInput.value = parsed.accessPassword;
-        const result = await authenticateSession(parsed);
-        if (result.active) enterComposer(parsed);
-        else { setAuthStatus(t("savedLoginOffline"), "warn"); sessionStorage.removeItem("flow.remote.sender.auth"); }
+        await tryAuthenticatePrefilledSession(parsed, {
+          inactiveMessage: t("savedLoginOffline"),
+          inactiveTone: "warn"
+        });
       }
     } catch (error) {
       console.error(error);
       sessionStorage.removeItem("flow.remote.sender.auth");
+    }
     }
   }
 

@@ -33,6 +33,15 @@ const POSITION_PADDING = 600;
 const APPLY_DELAY = 70;
 const TOP_CENTER_X_OFFSET = 32;
 const REMOTE_STATUS_REFRESH_MS = 20_000;
+const SOUND_INPUT_DEFAULT_DEVICE_ID = defaultState.appearance.soundInputDeviceId || "default";
+const SOUND_INPUT_DEFAULT_NOISE_GATE = Number(defaultState.appearance.soundInputNoiseGate) || 0.01;
+const SOUND_INPUT_DEFAULT_GAIN = Number(defaultState.appearance.soundInputGain) || 2;
+const SOUND_INPUT_MAX_NOISE_GATE = 0.08;
+const SOUND_INPUT_MIN_GAIN = 0.5;
+const SOUND_INPUT_MAX_GAIN = 4;
+const SOUND_INPUT_PREVIEW_FFT_SIZE = 1024;
+const SOUND_INPUT_LEVEL_SCALE = 4;
+const SOUND_INPUT_PREVIEW_INTERVAL_MS = 80;
 
 const tauriCore = window.__TAURI__?.core;
 const invoke = tauriCore?.invoke;
@@ -71,6 +80,15 @@ const ui = {
   voiceModelDownloadButton: document.querySelector("#voiceModelDownloadButton"),
   voiceStyleGroup: document.querySelector("#voiceStyleGroup"),
   voiceStyleSelect: document.querySelector("#voiceStyleSelect"),
+  soundInputDeviceSelect: document.querySelector("#soundInputDeviceSelect"),
+  soundInputLevelFill: document.querySelector("#soundInputLevelFill"),
+  soundInputLevelValue: document.querySelector("#soundInputLevelValue"),
+  soundInputStatus: document.querySelector("#soundInputStatus"),
+  soundInputNoiseGateInput: document.querySelector("#soundInputNoiseGateInput"),
+  soundInputNoiseGateValue: document.querySelector("#soundInputNoiseGateValue"),
+  soundInputGainInput: document.querySelector("#soundInputGainInput"),
+  soundInputGainValue: document.querySelector("#soundInputGainValue"),
+  soundInputRecommendedButton: document.querySelector("#soundInputRecommendedButton"),
   fontSelect: document.querySelector("#fontSelect"),
   appWideVoiceCommandsInput: document.querySelector("#appWideVoiceCommandsInput"),
   languageSelect: document.querySelector("#languageSelect"),
@@ -102,11 +120,15 @@ const ui = {
   remoteSessionId: document.querySelector("#remoteSessionId"),
   remoteAccessPasswordInput: document.querySelector("#remoteAccessPasswordInput"),
   remoteSenderUrl: document.querySelector("#remoteSenderUrl"),
+  remoteSenderQrCard: document.querySelector("#remoteSenderQrCard"),
+  remoteSenderQrCanvas: document.querySelector("#remoteSenderQrCanvas"),
+  remoteSenderQrStatus: document.querySelector("#remoteSenderQrStatus"),
   remoteLiveBadge: document.querySelector("#remoteLiveBadge"),
   remoteSessionStatus: document.querySelector("#remoteSessionStatus"),
   copySessionIdButton: document.querySelector("#copySessionIdButton"),
   copyAccessPasswordButton: document.querySelector("#copyAccessPasswordButton"),
   copySenderUrlButton: document.querySelector("#copySenderUrlButton"),
+  copySenderAuthUrlButton: document.querySelector("#copySenderAuthUrlButton"),
   closeWindowButton: document.querySelector("#closeWindowButton"),
   openTextButton: document.querySelector("#openTextButton")
 };
@@ -118,6 +140,299 @@ let remoteStatusTimer = null;
 let unlistenVoiceModelDownloads = null;
 let voiceModelStatuses = new Map();
 let activeVoiceModelDownload = null;
+let soundInputPreviewStream = null;
+let soundInputPreviewAudioContext = null;
+let soundInputPreviewSourceNode = null;
+let soundInputPreviewAnalyserNode = null;
+let soundInputPreviewTimer = 0;
+let soundInputPreviewBuffer = null;
+let soundInputPreviewSession = 0;
+let soundInputPreviewDeviceId = null;
+let soundInputStatusKey = ui.soundInputStatus?.dataset.i18n || "settings.soundInputPreviewIdle";
+let remoteSenderQr = null;
+
+function clampNumber(value, min, max, fallback) {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(numericValue, min), max);
+}
+
+function normalizeSoundInputDeviceId(value) {
+  const normalizedValue = String(value || "").trim();
+  return normalizedValue || SOUND_INPUT_DEFAULT_DEVICE_ID;
+}
+
+function normalizeSoundInputNoiseGate(value) {
+  return clampNumber(value, 0, SOUND_INPUT_MAX_NOISE_GATE, SOUND_INPUT_DEFAULT_NOISE_GATE);
+}
+
+function normalizeSoundInputGain(value) {
+  return clampNumber(value, SOUND_INPUT_MIN_GAIN, SOUND_INPUT_MAX_GAIN, SOUND_INPUT_DEFAULT_GAIN);
+}
+
+function formatSoundInputNoiseGate(value) {
+  const normalizedValue = normalizeSoundInputNoiseGate(value);
+  return normalizedValue.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function formatSoundInputGain(value) {
+  return `${normalizeSoundInputGain(value).toFixed(2)}x`;
+}
+
+function setSoundInputLevel(level = 0) {
+  const normalizedLevel = Math.min(Math.max(Number(level) || 0, 0), 1);
+  const percent = Math.round(normalizedLevel * 100);
+  ui.soundInputLevelFill.style.width = `${percent}%`;
+  ui.soundInputLevelValue.textContent = `${percent}%`;
+}
+
+function setSoundInputStatus(key) {
+  if (!ui.soundInputStatus) {
+    return;
+  }
+
+  soundInputStatusKey = key || "settings.soundInputPreviewIdle";
+  ui.soundInputStatus.dataset.i18n = soundInputStatusKey;
+  ui.soundInputStatus.textContent = t(soundInputStatusKey);
+}
+
+function getSelectedSoundInputDeviceId() {
+  return normalizeSoundInputDeviceId(ui.soundInputDeviceSelect?.value || state.appearance?.soundInputDeviceId);
+}
+
+function describeSoundInputDevice(device, index) {
+  const label = String(device?.label || "").trim();
+  if (label) {
+    return label;
+  }
+
+  return `${t("settings.soundInputDeviceUnnamed")} ${index + 1}`;
+}
+
+async function refreshSoundInputDevices(options = {}) {
+  const { preserveSelection = true } = options;
+
+  if (!ui.soundInputDeviceSelect || !navigator.mediaDevices?.enumerateDevices) {
+    ui.soundInputDeviceSelect.disabled = true;
+    return;
+  }
+
+  const selectedValue = preserveSelection
+    ? getSelectedSoundInputDeviceId()
+    : SOUND_INPUT_DEFAULT_DEVICE_ID;
+
+  const devices = await navigator.mediaDevices.enumerateDevices().catch((error) => {
+    console.error(error);
+    return [];
+  });
+  const audioInputs = devices.filter((device) => device.kind === "audioinput");
+  const optionDescriptors = [
+    {
+      value: SOUND_INPUT_DEFAULT_DEVICE_ID,
+      label: t("settings.soundInputDeviceDefault")
+    }
+  ];
+
+  audioInputs.forEach((device, index) => {
+    if (device.deviceId === SOUND_INPUT_DEFAULT_DEVICE_ID) {
+      return;
+    }
+
+    optionDescriptors.push({
+      value: device.deviceId,
+      label: describeSoundInputDevice(device, index)
+    });
+  });
+
+  if (selectedValue !== SOUND_INPUT_DEFAULT_DEVICE_ID && !optionDescriptors.some((option) => option.value === selectedValue)) {
+    optionDescriptors.push({
+      value: selectedValue,
+      label: t("settings.soundInputDeviceUnavailable")
+    });
+  }
+
+  ui.soundInputDeviceSelect.textContent = "";
+  optionDescriptors.forEach((option) => {
+    const element = document.createElement("option");
+    element.value = option.value;
+    element.textContent = option.label;
+    ui.soundInputDeviceSelect.append(element);
+  });
+
+  ui.soundInputDeviceSelect.value = optionDescriptors.some((option) => option.value === selectedValue)
+    ? selectedValue
+    : SOUND_INPUT_DEFAULT_DEVICE_ID;
+  ui.soundInputDeviceSelect.disabled = optionDescriptors.length <= 1 && !audioInputs.length;
+
+  if (!audioInputs.length && ui.settingsSectionSelect?.value === "sound-input") {
+    setSoundInputStatus("settings.soundInputNoDevices");
+  }
+}
+
+function stopSoundInputPreview(options = {}) {
+  const { resetStatus = false } = options;
+
+  soundInputPreviewSession += 1;
+
+  if (soundInputPreviewTimer) {
+    clearTimeout(soundInputPreviewTimer);
+    soundInputPreviewTimer = 0;
+  }
+
+  if (soundInputPreviewSourceNode) {
+    try {
+      soundInputPreviewSourceNode.disconnect();
+    } catch (error) {
+      // Node already disconnected.
+    }
+    soundInputPreviewSourceNode = null;
+  }
+
+  soundInputPreviewAnalyserNode = null;
+  soundInputPreviewBuffer = null;
+  soundInputPreviewDeviceId = null;
+
+  if (soundInputPreviewStream) {
+    soundInputPreviewStream.getTracks().forEach((track) => {
+      track.enabled = false;
+      track.stop();
+    });
+    soundInputPreviewStream = null;
+  }
+
+  if (soundInputPreviewAudioContext) {
+    soundInputPreviewAudioContext.close().catch(() => {});
+    soundInputPreviewAudioContext = null;
+  }
+
+  setSoundInputLevel(0);
+
+  if (resetStatus) {
+    setSoundInputStatus("settings.soundInputPreviewIdle");
+  }
+}
+
+function renderSoundInputPreviewLevel() {
+  if (!soundInputPreviewAnalyserNode || !soundInputPreviewBuffer) {
+    return;
+  }
+
+  soundInputPreviewAnalyserNode.getFloatTimeDomainData(soundInputPreviewBuffer);
+
+  let sumSquares = 0;
+  for (let index = 0; index < soundInputPreviewBuffer.length; index += 1) {
+    const sample = soundInputPreviewBuffer[index];
+    sumSquares += sample * sample;
+  }
+
+  const rawLevel = Math.sqrt(sumSquares / Math.max(soundInputPreviewBuffer.length, 1));
+  const noiseGate = normalizeSoundInputNoiseGate(ui.soundInputNoiseGateInput.value);
+  const gain = normalizeSoundInputGain(ui.soundInputGainInput.value);
+  const level = rawLevel < noiseGate
+    ? 0
+    : Math.min(rawLevel * gain * SOUND_INPUT_LEVEL_SCALE, 1);
+
+  setSoundInputLevel(level);
+  soundInputPreviewTimer = window.setTimeout(renderSoundInputPreviewLevel, SOUND_INPUT_PREVIEW_INTERVAL_MS);
+}
+
+async function startSoundInputPreview(options = {}) {
+  const { forceRestart = false } = options;
+
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setSoundInputStatus("settings.soundInputPreviewUnavailable");
+    setSoundInputLevel(0);
+    return;
+  }
+
+  await refreshSoundInputDevices();
+
+  const selectedDeviceId = getSelectedSoundInputDeviceId();
+  const shouldReusePreview = !forceRestart
+    && soundInputPreviewStream
+    && soundInputPreviewAudioContext
+    && soundInputPreviewAnalyserNode
+    && soundInputPreviewDeviceId === selectedDeviceId;
+
+  if (shouldReusePreview) {
+    setSoundInputStatus("settings.soundInputPreviewReady");
+    return;
+  }
+
+  stopSoundInputPreview();
+  const previewSession = soundInputPreviewSession;
+  const audioConstraints = {
+    channelCount: 1,
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false
+  };
+
+  if (selectedDeviceId !== SOUND_INPUT_DEFAULT_DEVICE_ID) {
+    audioConstraints.deviceId = { exact: selectedDeviceId };
+  }
+
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: audioConstraints
+    });
+
+    if (previewSession !== soundInputPreviewSession) {
+      mediaStream.getTracks().forEach((track) => {
+        track.enabled = false;
+        track.stop();
+      });
+      return;
+    }
+
+    soundInputPreviewStream = mediaStream;
+    soundInputPreviewDeviceId = selectedDeviceId;
+    soundInputPreviewAudioContext = new AudioContextClass();
+    soundInputPreviewSourceNode = soundInputPreviewAudioContext.createMediaStreamSource(mediaStream);
+    soundInputPreviewAnalyserNode = soundInputPreviewAudioContext.createAnalyser();
+    soundInputPreviewAnalyserNode.fftSize = SOUND_INPUT_PREVIEW_FFT_SIZE;
+    soundInputPreviewBuffer = new Float32Array(soundInputPreviewAnalyserNode.fftSize);
+    soundInputPreviewSourceNode.connect(soundInputPreviewAnalyserNode);
+
+    if (soundInputPreviewAudioContext.state === "suspended") {
+      await soundInputPreviewAudioContext.resume().catch(() => {});
+    }
+
+    await refreshSoundInputDevices();
+    setSoundInputStatus("settings.soundInputPreviewReady");
+    renderSoundInputPreviewLevel();
+  } catch (error) {
+    console.error(error);
+    setSoundInputLevel(0);
+    setSoundInputStatus(
+      /notallowed|permission|denied/i.test(String(error?.name || error?.message || error))
+        ? "settings.soundInputPermissionDenied"
+        : "settings.soundInputPreviewUnavailable"
+    );
+  }
+}
+
+async function syncSoundInputPreview(options = {}) {
+  if (ui.settingsSectionSelect?.value !== "sound-input") {
+    stopSoundInputPreview({ resetStatus: true });
+    return;
+  }
+
+  await startSoundInputPreview(options);
+}
+
+function applyRecommendedSoundInputSettings() {
+  ui.soundInputNoiseGateInput.value = String(SOUND_INPUT_DEFAULT_NOISE_GATE);
+  ui.soundInputGainInput.value = String(SOUND_INPUT_DEFAULT_GAIN);
+  updateValueLabels();
+  setSoundInputStatus("settings.soundInputRecommendedApplied");
+  scheduleApply();
+}
 
 function t(key, params = {}) {
   return translate(key, state.language, params);
@@ -363,6 +678,8 @@ function updateValueLabels() {
   ui.appOpacityValue.textContent = `${ui.appOpacityInput.value}%`;
   ui.textSizeValue.textContent = `${ui.textSizeInput.value}%`;
   ui.textOpacityValue.textContent = `${ui.textOpacityInput.value}%`;
+  ui.soundInputNoiseGateValue.textContent = formatSoundInputNoiseGate(ui.soundInputNoiseGateInput.value);
+  ui.soundInputGainValue.textContent = formatSoundInputGain(ui.soundInputGainInput.value);
 }
 
 function updatePositioningAvailability() {
@@ -403,6 +720,8 @@ function setActiveSettingsSection(section = ui.settingsSectionSelect?.value || "
     element.setAttribute("aria-hidden", selected ? "false" : "true");
   });
 
+  syncSoundInputPreview().catch(console.error);
+
   document.querySelector(".page-shell")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -436,6 +755,81 @@ function buildCloudSenderUrl(receiverId = state.remote?.receiverId || "") {
   }
 
   return `${base}/?id=${encodeURIComponent(receiverId)}`;
+}
+
+function buildCloudSenderAuthUrl(receiverId = state.remote?.receiverId || "", accessPassword = state.remote?.accessPassword || "") {
+  const base = CONFIGURED_CLOUD_RELAY_URL;
+  if (!base || !receiverId || !accessPassword) {
+    return "";
+  }
+
+  const url = new URL(`${base}/`);
+  url.searchParams.set("id", receiverId);
+  url.searchParams.set("accessPassword", accessPassword);
+  return url.toString();
+}
+
+function getRemoteSenderQrStatusKey(authUrl) {
+  if (!CONFIGURED_CLOUD_RELAY_URL) {
+    return "settings.remoteSenderQrUnavailable";
+  }
+
+  if (!authUrl) {
+    return "settings.remoteSenderQrPending";
+  }
+
+  return "settings.remoteSenderQrHelp";
+}
+
+function getRemoteSenderQrInstance() {
+  if (!ui.remoteSenderQrCanvas || typeof window.QRious !== "function") {
+    return null;
+  }
+
+  if (!remoteSenderQr) {
+    remoteSenderQr = new window.QRious({
+      element: ui.remoteSenderQrCanvas,
+      size: 220,
+      level: "M",
+      padding: 12,
+      background: "#ffffff",
+      foreground: "#0f172a",
+      value: "about:blank"
+    });
+  }
+
+  return remoteSenderQr;
+}
+
+function renderRemoteSenderQr() {
+  const authUrl = buildCloudSenderAuthUrl();
+  const statusKey = getRemoteSenderQrStatusKey(authUrl);
+  const qrious = getRemoteSenderQrInstance();
+  const canRender = Boolean(authUrl && qrious);
+
+  if (ui.remoteSenderQrStatus) {
+    ui.remoteSenderQrStatus.dataset.i18n = statusKey;
+    ui.remoteSenderQrStatus.textContent = t(statusKey);
+  }
+
+  if (ui.remoteSenderQrCanvas) {
+    ui.remoteSenderQrCanvas.classList.toggle("hidden", !canRender);
+    ui.remoteSenderQrCanvas.setAttribute("aria-label", t("settings.remoteSenderQrHelp"));
+  }
+
+  if (ui.copySenderAuthUrlButton) {
+    ui.copySenderAuthUrlButton.disabled = !authUrl;
+  }
+
+  if (ui.remoteSenderQrCard) {
+    ui.remoteSenderQrCard.dataset.copyValue = authUrl;
+  }
+
+  if (!qrious) {
+    return;
+  }
+
+  qrious.set({ value: canRender ? authUrl : "about:blank" });
 }
 
 async function getMainWindow() {
@@ -499,6 +893,9 @@ function fillForm() {
   ui.themeSelect.value = state.appearance?.theme || defaultState.appearance.theme;
   ui.autoHideToolbarInput.checked = Boolean(state.appearance?.autoHideToolbar);
   ui.speedRailEnabledInput.checked = state.appearance?.speedRailEnabled !== false;
+  ui.soundInputDeviceSelect.value = normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId || SOUND_INPUT_DEFAULT_DEVICE_ID);
+  setSliderValue(ui.soundInputNoiseGateInput, normalizeSoundInputNoiseGate(state.appearance?.soundInputNoiseGate));
+  setSliderValue(ui.soundInputGainInput, normalizeSoundInputGain(state.appearance?.soundInputGain));
   
   ui.voiceLanguageSelect.value = normalizeVoiceLanguage(state.appearance?.voiceLanguage || "en-US");
   ui.voiceStyleSelect.value = state.appearance?.voiceScrollStyle || defaultState.appearance.voiceScrollStyle;
@@ -523,7 +920,9 @@ function fillForm() {
     appOpacity: Number(ui.appOpacityInput.value)
   });
   applyTranslationsToDocument(ui.languageSelect.value);
+  setSoundInputStatus(soundInputStatusKey);
   renderLanguagePicker(ui.languageSelect.value, ui.languageSelect.value);
+  renderRemoteSenderQr();
   renderVoiceLanguageOptions();
   if (ui.modeSelect.value === "voice") {
     renderVoiceModelStatus(ui.voiceLanguageSelect.value);
@@ -589,6 +988,9 @@ function collectFormState() {
     voiceLanguage: ui.voiceLanguageSelect.value,
     voiceScrollStyle: ui.voiceStyleSelect.value,
     appWideVoiceCommands: ui.appWideVoiceCommandsInput.checked,
+    soundInputDeviceId: normalizeSoundInputDeviceId(ui.soundInputDeviceSelect.value),
+    soundInputNoiseGate: normalizeSoundInputNoiseGate(ui.soundInputNoiseGateInput.value),
+    soundInputGain: normalizeSoundInputGain(ui.soundInputGainInput.value),
     fontFamily: ui.fontSelect.value,
     appOpacity: Number(ui.appOpacityInput.value),
     textScale: Number(ui.textSizeInput.value),
@@ -722,6 +1124,7 @@ function renderCloudRemoteStatus(status) {
     ui.remoteLiveBadge.textContent = t("common.setup");
     ui.remoteLiveBadge.classList.add("is-offline");
     ui.remoteSessionStatus.textContent = t("settings.remoteStatusCloudNeedsBuild");
+    renderRemoteSenderQr();
     return;
   }
 
@@ -732,12 +1135,14 @@ function renderCloudRemoteStatus(status) {
 
   if (!exists) {
     ui.remoteSessionStatus.textContent = t("settings.remoteStatusCloudRegister");
+    renderRemoteSenderQr();
     return;
   }
 
   ui.remoteSessionStatus.textContent = active
     ? t("settings.remoteStatusCloudActive")
     : t("settings.remoteStatusCloudOffline");
+  renderRemoteSenderQr();
 }
 
 async function fetchCloudRemoteStatus() {
@@ -767,6 +1172,13 @@ window.addEventListener("DOMContentLoaded", async () => {
   await applyDesktopSettings().catch(console.error);
   await refreshRemoteStatus();
   await refreshVoiceModelStatuses();
+  await refreshSoundInputDevices().catch(console.error);
+
+  if (navigator.mediaDevices?.addEventListener) {
+    navigator.mediaDevices.addEventListener("devicechange", () => {
+      refreshSoundInputDevices().catch(console.error);
+    });
+  }
 
   if (tauriEvent?.listen) {
     unlistenVoiceModelDownloads = await tauriEvent.listen("flow-voice-model-download", (event) => {
@@ -774,11 +1186,11 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput].forEach((input) => {
+  [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput, ui.soundInputNoiseGateInput, ui.soundInputGainInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
   });
 
-  [ui.presetSelect, ui.modeSelect, ui.voiceLanguageSelect, ui.voiceStyleSelect, ui.fontSelect, ui.languageSelect, ui.themeSelect, ui.styleSelect, ui.textColorInput].forEach((input) => {
+  [ui.presetSelect, ui.modeSelect, ui.voiceLanguageSelect, ui.voiceStyleSelect, ui.soundInputDeviceSelect, ui.fontSelect, ui.languageSelect, ui.themeSelect, ui.styleSelect, ui.textColorInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
   });
@@ -795,6 +1207,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
   ui.voiceModelDownloadButton.addEventListener("click", () => {
     downloadSelectedVoiceModel().catch(console.error);
+  });
+  ui.soundInputDeviceSelect.addEventListener("change", () => {
+    syncSoundInputPreview({ forceRestart: true }).catch(console.error);
+  });
+  ui.soundInputRecommendedButton.addEventListener("click", () => {
+    applyRecommendedSoundInputSettings();
   });
 
   ui.languageTrigger.addEventListener("click", () => {
@@ -815,6 +1233,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       renderVoiceModelStatus(ui.voiceLanguageSelect.value);
       renderLanguagePicker(option.dataset.value, option.dataset.value);
       closeLanguageMenu();
+      refreshSoundInputDevices().catch(console.error);
       scheduleApply();
     });
   });
@@ -850,6 +1269,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   ui.copySenderUrlButton.addEventListener("click", () => {
     copyText(ui.remoteSenderUrl.dataset.copyValue || "", t("settings.copiedSenderLink"));
   });
+  ui.copySenderAuthUrlButton?.addEventListener("click", () => {
+    copyText(ui.remoteSenderQrCard?.dataset.copyValue || "", t("settings.copiedSenderLink"));
+  });
 
   await readCurrentWindow().catch(console.error);
   setActiveSettingsSection(ui.settingsSectionSelect?.value || "remote");
@@ -868,26 +1290,38 @@ window.addEventListener("DOMContentLoaded", async () => {
     await readCurrentWindow().catch(console.error);
     fillForm();
     await refreshVoiceModelStatuses();
+    await refreshSoundInputDevices().catch(console.error);
     await refreshRemoteStatus().catch(console.error);
   });
   window.addEventListener("storage", () => {
+    const previousSoundInputDeviceId = normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId);
     Object.assign(state, loadState());
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
     refreshVoiceModelStatuses().catch(console.error);
+    if (previousSoundInputDeviceId !== normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId)) {
+      refreshSoundInputDevices().catch(console.error);
+      syncSoundInputPreview({ forceRestart: true }).catch(console.error);
+    }
     applyDesktopSettings().catch(console.error);
   });
   window.addEventListener("flow-state-updated", () => {
+    const previousSoundInputDeviceId = normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId);
     Object.assign(state, loadState());
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
     refreshVoiceModelStatuses().catch(console.error);
+    if (previousSoundInputDeviceId !== normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId)) {
+      refreshSoundInputDevices().catch(console.error);
+      syncSoundInputPreview({ forceRestart: true }).catch(console.error);
+    }
     applyDesktopSettings().catch(console.error);
   });
   window.addEventListener("beforeunload", () => {
     if (remoteStatusTimer) {
       clearInterval(remoteStatusTimer);
     }
+    stopSoundInputPreview();
     unlistenVoiceModelDownloads?.();
   });
 });

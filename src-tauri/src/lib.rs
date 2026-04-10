@@ -57,6 +57,8 @@ const RATE_LIMIT_WINDOW: Duration = Duration::from_secs(20);
 const RATE_LIMIT_MAX_MESSAGES: usize = 3;
 #[allow(dead_code)]
 const MAX_PENDING_MESSAGES: usize = 24;
+#[allow(dead_code)]
+const MAX_MESSAGE_STATUS_HISTORY: usize = 64;
 const VOICE_MODEL_DOWNLOAD_EVENT: &str = "flow-voice-model-download";
 
 #[derive(Clone, Copy, Debug)]
@@ -122,6 +124,16 @@ struct RemoteMessage {
     importance: String,
     preview: String,
     created_at_ms: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteMessageReplyStatus {
+    message_id: String,
+    title: String,
+    status: String,
+    created_at_ms: u64,
+    resolved_at_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -201,6 +213,20 @@ struct SenderApiResponse {
     retry_after_seconds: Option<u64>,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RemoteMessageStatusResponse {
+    ok: bool,
+    message: String,
+    active: bool,
+    message_id: Option<String>,
+    title: Option<String>,
+    status: Option<String>,
+    created_at_ms: Option<u64>,
+    resolved_at_ms: Option<u64>,
+}
+
 #[derive(Debug, Clone, Default)]
 struct RemoteAccessCredentials {
     public_host: String,
@@ -248,6 +274,7 @@ struct VoiceModelDownloads {
 struct ReceiverSession {
     last_seen: Instant,
     pending_messages: VecDeque<RemoteMessage>,
+    message_statuses: VecDeque<RemoteMessageReplyStatus>,
     recent_attempts: VecDeque<Instant>,
     recent_by_ip: HashMap<String, VecDeque<Instant>>,
 }
@@ -258,6 +285,7 @@ impl ReceiverSession {
         Self {
             last_seen: Instant::now(),
             pending_messages: VecDeque::new(),
+            message_statuses: VecDeque::new(),
             recent_attempts: VecDeque::new(),
             recent_by_ip: HashMap::new(),
         }
@@ -466,7 +494,31 @@ impl RemoteRelay {
             .unwrap_or_default()
     }
 
-    fn resolve_current_message(&self, message_id: &str) -> bool {
+    fn current_message_status(
+        &self,
+        session_id: &str,
+        message_id: &str,
+    ) -> Option<RemoteMessageReplyStatus> {
+        let sessions = self
+            .inner
+            .sessions
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+        let session = sessions.get(session_id)?;
+
+        if let Some(message) = session.pending_messages.iter().find(|message| message.id == message_id) {
+            return Some(build_remote_message_reply_status(message, "queued", None));
+        }
+
+        session
+            .message_statuses
+            .iter()
+            .find(|status| status.message_id == message_id)
+            .cloned()
+    }
+
+    fn resolve_current_message(&self, message_id: &str, action: &str) -> bool {
         self.ensure_current_session();
 
         let mut sessions = self
@@ -488,7 +540,19 @@ impl RemoteRelay {
             return false;
         };
 
-        session.pending_messages.remove(index);
+        let Some(message) = session.pending_messages.remove(index) else {
+            return false;
+        };
+
+        upsert_remote_message_reply_status(
+            session,
+            build_remote_message_reply_status(
+                &message,
+                normalize_remote_message_resolution(action),
+                Some(now_unix_ms()),
+            ),
+        );
+
         true
     }
 
@@ -559,7 +623,54 @@ impl RemoteRelay {
         };
 
         session.pending_messages.push_back(message.clone());
+        upsert_remote_message_reply_status(
+            session,
+            build_remote_message_reply_status(&message, "queued", None),
+        );
         Ok(message)
+    }
+}
+
+#[allow(dead_code)]
+fn build_remote_message_reply_status(
+    message: &RemoteMessage,
+    status: &str,
+    resolved_at_ms: Option<u64>,
+) -> RemoteMessageReplyStatus {
+    RemoteMessageReplyStatus {
+        message_id: message.id.clone(),
+        title: message.title.clone(),
+        status: status.to_string(),
+        created_at_ms: message.created_at_ms,
+        resolved_at_ms,
+    }
+}
+
+#[allow(dead_code)]
+fn upsert_remote_message_reply_status(
+    session: &mut ReceiverSession,
+    status: RemoteMessageReplyStatus,
+) {
+    if let Some(existing) = session
+        .message_statuses
+        .iter_mut()
+        .find(|entry| entry.message_id == status.message_id)
+    {
+        *existing = status;
+    } else {
+        session.message_statuses.push_back(status);
+        while session.message_statuses.len() > MAX_MESSAGE_STATUS_HISTORY {
+            session.message_statuses.pop_front();
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn normalize_remote_message_resolution(action: &str) -> &'static str {
+    match action {
+        "accept" => "accepted",
+        "deny" => "denied",
+        _ => "queued",
     }
 }
 
@@ -997,7 +1108,7 @@ fn resolve_remote_message(
     action: String,
 ) -> Result<bool, String> {
     match action.as_str() {
-        "accept" | "deny" => Ok(relay.resolve_current_message(&message_id)),
+        "accept" | "deny" => Ok(relay.resolve_current_message(&message_id, &action)),
         _ => Err("Unknown message action".into()),
     }
 }
@@ -1245,6 +1356,10 @@ fn spawn_remote_relay_server(relay: RemoteRelay) {
             .route("/api/receiver/:session_id/auth", post(authenticate_remote_sender))
             .route("/api/receiver/:session_id/active", get(receiver_active))
             .route("/api/receiver/:session_id/messages", post(send_remote_message))
+            .route(
+                "/api/receiver/:session_id/messages/:message_id/status",
+                get(remote_message_status),
+            )
             .with_state(relay);
 
         let listener = match tokio::net::TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], REMOTE_RELAY_PORT))).await {
@@ -1375,6 +1490,52 @@ async fn receiver_active(
 
     match relay.authenticate_sender(&session_id, &access_password) {
         Ok(active) => (StatusCode::OK, Json(ActiveReceiverResponse { active })).into_response(),
+        Err(error) => remote_access_error_response(error).into_response(),
+    }
+}
+
+#[allow(dead_code)]
+async fn remote_message_status(
+    State(relay): State<RemoteRelay>,
+    Path((session_id, message_id)): Path<(String, String)>,
+    headers: HeaderMap,
+) -> Response {
+    let access_password = extract_sender_access_password(&headers);
+
+    match relay.authenticate_sender(&session_id, &access_password) {
+        Ok(active) => {
+            if let Some(status) = relay.current_message_status(&session_id, &message_id) {
+                return (
+                    StatusCode::OK,
+                    Json(RemoteMessageStatusResponse {
+                        ok: true,
+                        message: format!("Message status: {}.", status.status),
+                        active,
+                        message_id: Some(status.message_id.clone()),
+                        title: Some(status.title.clone()),
+                        status: Some(status.status.clone()),
+                        created_at_ms: Some(status.created_at_ms),
+                        resolved_at_ms: status.resolved_at_ms,
+                    }),
+                )
+                    .into_response();
+            }
+
+            (
+                StatusCode::NOT_FOUND,
+                Json(RemoteMessageStatusResponse {
+                    ok: false,
+                    message: "Message status was not found for this receiver.".into(),
+                    active,
+                    message_id: Some(message_id),
+                    title: None,
+                    status: Some("notFound".into()),
+                    created_at_ms: None,
+                    resolved_at_ms: None,
+                }),
+            )
+                .into_response()
+        }
         Err(error) => remote_access_error_response(error).into_response(),
     }
 }

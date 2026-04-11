@@ -59,6 +59,14 @@ function syncTextDirections() {
   applyTextDirection(ui.groqUserContextInput, ui.groqUserContextInput.value);
 }
 
+function isEditableElement(element) {
+  if (!element || !(element instanceof HTMLElement)) {
+    return false;
+  }
+
+  return element.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName);
+}
+
 function getGroqSettingsFromForm() {
   return {
     personality: ui.groqPersonalitySelect.value,
@@ -564,7 +572,13 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   window.addEventListener("focus", syncFromStorage);
   window.addEventListener("storage", syncFromStorage);
-  window.addEventListener("flow-state-updated", syncFromStorage);
+  window.addEventListener("flow-state-updated", () => {
+    if (isEditableElement(document.activeElement)) {
+      return;
+    }
+
+    syncFromStorage();
+  });
 });
 
 window.addEventListener("beforeunload", () => {

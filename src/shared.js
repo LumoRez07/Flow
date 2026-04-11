@@ -1689,7 +1689,7 @@ function normalizeGroqText(value, fallback = "", maxLength = 2000) {
     return fallback;
   }
 
-  return value.trim().slice(0, maxLength);
+  return value.slice(0, maxLength);
 }
 
 export function normalizeGroqSettings(value = {}, fallback = defaultState.groq) {

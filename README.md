@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.4.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.4.1</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.4.0-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.4.1-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -40,7 +40,7 @@
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.4.0
+## What's New in 1.4.1
 
 - Added dedicated sound input controls with microphone selection, live level preview, noise gate, and input gain tuning.
 - Improved voice tracking and app-wide voice commands with better wake handling, health recovery, and clearer microphone failure states.
@@ -142,7 +142,7 @@ This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
 
 Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
 
-### 1.4.0 Sürümündeki Yenilikler
+### 1.4.1 Sürümündeki Yenilikler
 
 - Mikrofon seçimi, canlı seviye önizlemesi, gürültü kapısı ve giriş kazancı içeren özel ses girişi ayarları eklendi.
 - Ses takibi ve uygulama geneli sesli komutlar; daha iyi uyandırma yönetimi, sağlık kontrolü ve daha açık mikrofon hata durumlarıyla iyileştirildi.
@@ -211,7 +211,7 @@ Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderic
 
 Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
 
-### الجديد في 1.4.0
+### الجديد في 1.4.1
 
 - تمت إضافة إعدادات مخصصة لإدخال الصوت تشمل اختيار الميكروفون، ومعاينة المستوى مباشرة، وبوابة الضوضاء، والتحكم في كسب الإدخال.
 - تم تحسين تتبع الصوت والأوامر الصوتية على مستوى التطبيق عبر إدارة أفضل لعبارة التنبيه، واستعادة الخدمة، ورسائل أوضح لأعطال الميكروفون.
@@ -280,7 +280,7 @@ npm run tauri build
 
 Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
 
-### Nouveautes de la version 1.4.0
+### Nouveautes de la version 1.4.1
 
 - Ajout de reglages dedies a l'entree audio avec selection du microphone, apercu du niveau en direct, noise gate et gain d'entree.
 - Amelioration du suivi vocal et des commandes vocales globales avec une meilleure gestion du reveil, de la reprise et des erreurs micro plus claires.
@@ -349,7 +349,7 @@ Flow inclut un emetteur distant et une boite de reception pour envoyer du texte 
 
 Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
 
-### Neu in 1.4.0
+### Neu in 1.4.1
 
 - Eigene Audioeingabe-Einstellungen mit Mikrofonwahl, Live-Pegelvorschau, Noise Gate und Eingangsverstaerkung hinzugefuegt.
 - Sprachverfolgung und app-weite Sprachbefehle mit besserer Wake-Logik, Wiederherstellung und klareren Mikrofonfehlern verbessert.
@@ -418,7 +418,7 @@ Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufend
 
 Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
 
-### Novedades en 1.4.0
+### Novedades en 1.4.1
 
 - Se agregaron controles dedicados de entrada de audio con seleccion de microfono, vista previa del nivel en vivo, puerta de ruido y ajuste de ganancia.
 - Se mejoraron el seguimiento por voz y los comandos de voz globales con mejor manejo de activacion, recuperacion y estados de error mas claros para el microfono.

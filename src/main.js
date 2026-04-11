@@ -3681,7 +3681,7 @@ async function showMainWindowFromTray() {
   await appWindow.setAlwaysOnTop?.(true).catch?.(() => {});
   await appWindow.setFocus?.().catch?.(() => {});
 }
-``
+
 function handleVoiceCommandAction(action) {
   switch (action) {
     case "open-about":

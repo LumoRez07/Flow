@@ -1,6 +1,6 @@
 [package]
 name = "flow"
-version = "1.4.1"
+version = "1.5.0"
 description = "A lightweight Windows teleprompter built with Tauri, featuring a minimal always-on-top reading UI, tray controls, script editing, and Groq-powered prompt generation."
 authors = ["lumorez"]
 edition = "2021"
@@ -15,12 +15,13 @@ name = "flow_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2", features = [] }
+tauri-build = { version = "=2.5.6", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "image-ico", "image-png", "protocol-asset"] }
+tauri = { version = "=2.10.1", features = ["tray-icon", "image-ico", "image-png", "protocol-asset"] }
 tauri-plugin-opener = "2"
 tauri-plugin-global-shortcut = "2"
+tauri-plugin-updater = "2"
 axum = { version = "0.7", features = ["macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

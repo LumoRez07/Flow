@@ -72,6 +72,7 @@ const VOICE_COMMAND_BUFFER_TOKEN_LIMIT = 12;
 const VOICE_COMMAND_LOOKBACK_TOKENS = 10;
 const VOSK_COMMAND_BUFFER_SIZE = 4096;
 const VOSK_SCRIPT_PROCESSOR_FALLBACK_BUFFER_SIZE = 1024;
+const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const VOSK_COMMAND_MODEL_URL = new URL("./assets/vosk-model-small-en-us-0.15.tar.gz", import.meta.url).href;
 const VOICE_CAPTURE_WORKLET_URL = new URL("./assets/vendor/voice-capture-worklet.js", import.meta.url).href;
 const VOICE_WAKE_VISUAL_MS = 2400;
@@ -108,6 +109,7 @@ const ENGLISH_VOICE_LANGUAGE = "en-US";
 const tauriCore = window.__TAURI__?.core;
 const invoke = tauriCore?.invoke;
 const convertFileSrc = tauriCore?.convertFileSrc;
+const tauriApp = window.__TAURI__?.app;
 const tauriWindow = window.__TAURI__?.window;
 const tauriDpi = window.__TAURI__?.dpi;
 const tauriEvent = window.__TAURI__?.event;
@@ -221,6 +223,9 @@ let lastResponsiveViewportWidth = 0;
 let lastResponsiveViewportHeight = 0;
 let frozenReadingViewportWidth = 0;
 let frozenReadingViewportHeight = 0;
+let autoUpdateCheckTimer = null;
+let isAutoUpdateChecking = false;
+let isAutoUpdateInstalling = false;
 const voiceModelStatusCache = new Map();
 const voiceCaptureWorkletModulePromises = new WeakMap();
 let promptFeedbackState = null;
@@ -709,6 +714,106 @@ function rotateRemoteAccessPasswordForLaunch() {
 
 function t(key, params = {}) {
   return translate(key, state.language, params);
+}
+
+function getAutoUpdaterAvailable() {
+  return Boolean(invoke && tauriCore?.Channel);
+}
+
+function setAutoUpdaterStatus(key, params = {}) {
+  if (!ui.statusLabel) {
+    return;
+  }
+
+  ui.statusLabel.textContent = t(key, params);
+}
+
+function handleAutomaticUpdateDownloadEvent(version, event) {
+  if (!event?.event || !ui.statusLabel) {
+    return;
+  }
+
+  if (event.event === "Started") {
+    handleAutomaticUpdateDownloadEvent.totalBytes = Math.max(Number(event.data?.contentLength) || 0, 0);
+    handleAutomaticUpdateDownloadEvent.downloadedBytes = 0;
+    setAutoUpdaterStatus("tele.updaterInstalling", { version });
+    return;
+  }
+
+  if (event.event === "Progress") {
+    const totalBytes = handleAutomaticUpdateDownloadEvent.totalBytes || 0;
+    const chunkLength = Math.max(Number(event.data?.chunkLength) || 0, 0);
+    handleAutomaticUpdateDownloadEvent.downloadedBytes = (handleAutomaticUpdateDownloadEvent.downloadedBytes || 0) + chunkLength;
+    const percent = totalBytes > 0
+      ? Math.min(Math.round((handleAutomaticUpdateDownloadEvent.downloadedBytes / totalBytes) * 100), 100)
+      : 0;
+    setAutoUpdaterStatus("tele.updaterDownloading", { version, progress: percent });
+    return;
+  }
+
+  if (event.event === "Finished") {
+    setAutoUpdaterStatus("tele.updaterInstalling", { version });
+  }
+}
+
+async function runAutomaticUpdateCheck(options = {}) {
+  const { announceNoUpdate = false, announceErrors = false } = options;
+
+  if (!getAutoUpdaterAvailable() || isAutoUpdateChecking || isAutoUpdateInstalling) {
+    return null;
+  }
+
+  isAutoUpdateChecking = true;
+  handleAutomaticUpdateDownloadEvent.downloadedBytes = 0;
+
+  try {
+    const metadata = await invoke("plugin:updater|check", {
+      allowDowngrades: true
+    });
+
+    if (!metadata) {
+      if (announceNoUpdate) {
+        setAutoUpdaterStatus("tele.updaterCurrent");
+      }
+      return null;
+    }
+
+    isAutoUpdateInstalling = true;
+    setAutoUpdaterStatus("tele.updaterInstalling", { version: metadata.version || (await tauriApp?.getVersion?.().catch(() => "")) || "" });
+
+    const channel = new tauriCore.Channel();
+    channel.onmessage = (event) => {
+      handleAutomaticUpdateDownloadEvent(metadata.version, event);
+    };
+
+    await invoke("plugin:updater|download_and_install", {
+      rid: metadata.rid,
+      onEvent: channel
+    });
+
+    return metadata;
+  } catch (error) {
+    console.error("Automatic updater failed", error);
+    if (announceErrors) {
+      setAutoUpdaterStatus("tele.updaterFailed", { error: error?.message || String(error) });
+    }
+    return null;
+  } finally {
+    isAutoUpdateChecking = false;
+    isAutoUpdateInstalling = false;
+  }
+}
+
+function startAutomaticUpdater() {
+  runAutomaticUpdateCheck().catch(console.error);
+
+  if (autoUpdateCheckTimer) {
+    clearInterval(autoUpdateCheckTimer);
+  }
+
+  autoUpdateCheckTimer = window.setInterval(() => {
+    runAutomaticUpdateCheck().catch(console.error);
+  }, AUTO_UPDATE_CHECK_INTERVAL_MS);
 }
 
 function cacheUi() {
@@ -5854,6 +5959,11 @@ function wireEvents() {
     if (remoteInboxTimer) {
       clearInterval(remoteInboxTimer);
     }
+
+    if (autoUpdateCheckTimer) {
+      clearInterval(autoUpdateCheckTimer);
+      autoUpdateCheckTimer = null;
+    }
   });
 
   resizeObserver = new ResizeObserver(() => {
@@ -5904,6 +6014,7 @@ window.addEventListener("DOMContentLoaded", () => {
   updatePlayButtons();
   syncVoiceCommandListener();
   applyStoredWindowSettings().catch(console.error);
+  startAutomaticUpdater();
 });
 
 

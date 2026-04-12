@@ -41,6 +41,7 @@
             <option value="positioning" data-i18n="settings.section.positioning">Positioning</option>
             <option value="appearance" data-i18n="settings.section.appearance">Appearance</option>
             <option value="sound-input" data-i18n="settings.section.soundInput">Sound input settings</option>
+            <option value="updates" data-i18n="settings.section.updates">Updates</option>
             <option value="privacy" data-i18n="settings.section.privacy">Privacy & system</option>
             <option value="usability" data-i18n="settings.section.usability">Usability</option>
           </select>
@@ -411,6 +412,62 @@
               <input id="soundInputGainInput" class="slider-input" type="range" min="0.5" max="4" step="0.05" />
             </label>
             <span class="helper-text" data-i18n="settings.soundInputGainHelp">Boosts the selected microphone before the Vosk recognizer processes it.</span>
+          </div>
+        </div>
+
+        <div class="settings-group hidden" data-settings-section="updates">
+          <div>
+            <p class="page-kicker" data-i18n="settings.updates">Updates</p>
+            <h2 data-i18n="settings.updaterTitle">App updates</h2>
+          </div>
+
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.updaterChannelTitle">Installed build</h3>
+              <div class="page-actions">
+                <button class="secondary-action compact-action" id="updaterCheckButton" type="button" data-i18n="settings.updaterCheckAction">Check and update</button>
+              </div>
+            </div>
+
+            <div class="remote-session-grid">
+              <div class="remote-session-card">
+                <span class="remote-session-label" data-i18n="settings.updaterCurrentVersion">Current version</span>
+                <div class="remote-session-row">
+                  <span class="remote-session-value" id="updaterCurrentVersion" data-i18n="common.loading">Loading…</span>
+                </div>
+              </div>
+
+              <div class="remote-session-card">
+                <span class="remote-session-label" data-i18n="settings.updaterAvailableVersion">Available version</span>
+                <div class="remote-session-row">
+                  <span class="remote-session-value" id="updaterAvailableVersion" data-i18n="settings.updaterNotChecked">Not checked yet</span>
+                </div>
+              </div>
+
+              <div class="remote-session-card">
+                <span class="remote-session-label" data-i18n="settings.updaterPublishedAt">Published</span>
+                <div class="remote-session-row">
+                  <span class="remote-session-value" id="updaterPublishedAt" data-i18n="settings.updaterNoDate">Not published yet</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="remote-status-line">
+              <span class="status-pill" id="updaterStatusBadge" data-i18n="settings.updaterStatusIdle">Ready</span>
+              <span class="helper-text remote-status-text" id="updaterStatusText" data-i18n="settings.updaterIdle">Check Flow's signed release feed for a newer build.</span>
+            </div>
+
+            <div class="voice-model-progress hidden" id="updaterProgress" aria-live="polite">
+              <div class="voice-model-progress-bar" aria-hidden="true">
+                <span id="updaterProgressFill"></span>
+              </div>
+              <div class="voice-model-progress-meta">
+                <span id="updaterProgressLabel">0%</span>
+                <span id="updaterProgressStats" data-i18n="settings.updaterProgressIdle">Waiting to start</span>
+              </div>
+            </div>
+
+            <p class="helper-text" id="updaterReleaseNotes" data-i18n="settings.updaterNoNotes">Release notes appear here when an update is found.</p>
           </div>
         </div>
 

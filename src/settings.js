@@ -45,6 +45,7 @@ const SOUND_INPUT_PREVIEW_INTERVAL_MS = 80;
 
 const tauriCore = window.__TAURI__?.core;
 const invoke = tauriCore?.invoke;
+const tauriApp = window.__TAURI__?.app;
 const tauriWindow = window.__TAURI__?.window;
 const tauriDpi = window.__TAURI__?.dpi;
 const tauriEvent = window.__TAURI__?.event;
@@ -116,6 +117,17 @@ const ui = {
   settingsSectionSelect: document.querySelector("#settingsSectionSelect"),
   settingsSections: document.querySelectorAll("[data-settings-section]"),
   windowStatus: document.querySelector("#windowStatus"),
+  updaterCurrentVersion: document.querySelector("#updaterCurrentVersion"),
+  updaterAvailableVersion: document.querySelector("#updaterAvailableVersion"),
+  updaterPublishedAt: document.querySelector("#updaterPublishedAt"),
+  updaterStatusBadge: document.querySelector("#updaterStatusBadge"),
+  updaterStatusText: document.querySelector("#updaterStatusText"),
+  updaterProgress: document.querySelector("#updaterProgress"),
+  updaterProgressFill: document.querySelector("#updaterProgressFill"),
+  updaterProgressLabel: document.querySelector("#updaterProgressLabel"),
+  updaterProgressStats: document.querySelector("#updaterProgressStats"),
+  updaterReleaseNotes: document.querySelector("#updaterReleaseNotes"),
+  updaterCheckButton: document.querySelector("#updaterCheckButton"),
   cloudRemoteFields: document.querySelector("#cloudRemoteFields"),
   remoteSessionId: document.querySelector("#remoteSessionId"),
   remoteAccessPasswordInput: document.querySelector("#remoteAccessPasswordInput"),
@@ -150,6 +162,16 @@ let soundInputPreviewSession = 0;
 let soundInputPreviewDeviceId = null;
 let soundInputStatusKey = ui.soundInputStatus?.dataset.i18n || "settings.soundInputPreviewIdle";
 let remoteSenderQr = null;
+let updaterState = {
+  currentVersion: "",
+  update: null,
+  checking: false,
+  installing: false,
+  progress: null,
+  badgeKey: "settings.updaterStatusIdle",
+  messageKey: "settings.updaterIdle",
+  messageParams: {}
+};
 
 function clampNumber(value, min, max, fallback) {
   const numericValue = Number(value);
@@ -459,6 +481,278 @@ function formatDownloadSpeed(bytesPerSecond) {
   return `${(Math.max(Number(bytesPerSecond) || 0, 0) / (1024 * 1024)).toFixed(1)} MB/s`;
 }
 
+function formatPublishedDate(value) {
+  if (!value) {
+    return t("settings.updaterNoDate");
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+
+  try {
+    return new Intl.DateTimeFormat(state.language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit"
+    }).format(date);
+  } catch (_error) {
+    return date.toLocaleString();
+  }
+}
+
+function getUpdaterApiAvailable() {
+  return Boolean(invoke && tauriCore?.Channel);
+}
+
+function setUpdaterProgress(progress = null) {
+  if (!ui.updaterProgress) {
+    return;
+  }
+
+  if (!progress) {
+    ui.updaterProgress.classList.add("hidden");
+    ui.updaterProgressFill.style.width = "0%";
+    ui.updaterProgressLabel.textContent = "0%";
+    ui.updaterProgressStats.textContent = t("settings.updaterProgressIdle");
+    return;
+  }
+
+  const totalBytes = Math.max(Number(progress.totalBytes) || 0, 0);
+  const downloadedBytes = Math.max(Number(progress.downloadedBytes) || 0, 0);
+  const ratio = totalBytes > 0 ? Math.min(downloadedBytes / totalBytes, 1) : 0;
+  const percent = totalBytes > 0 ? Math.round(ratio * 100) : 0;
+
+  ui.updaterProgress.classList.remove("hidden");
+  ui.updaterProgressFill.style.width = `${percent}%`;
+  ui.updaterProgressLabel.textContent = totalBytes > 0 ? `${percent}%` : formatMegabytes(downloadedBytes);
+  ui.updaterProgressStats.textContent = t("settings.updaterProgressStats", {
+    downloaded: formatMegabytes(downloadedBytes),
+    total: totalBytes > 0 ? formatMegabytes(totalBytes) : t("common.unavailable")
+  });
+}
+
+function renderUpdaterCard() {
+  if (!ui.updaterCurrentVersion) {
+    return;
+  }
+
+  const update = updaterState.update;
+  const hasUpdate = Boolean(update?.version);
+  const canUseUpdater = getUpdaterApiAvailable();
+
+  ui.updaterCurrentVersion.textContent = updaterState.currentVersion || t("common.unavailable");
+  ui.updaterAvailableVersion.textContent = hasUpdate
+    ? update.version
+    : (updaterState.checking ? t("common.loading") : t("settings.updaterNotChecked"));
+  ui.updaterPublishedAt.textContent = hasUpdate
+    ? formatPublishedDate(update.date)
+    : t("settings.updaterNoDate");
+  ui.updaterStatusBadge.dataset.i18n = updaterState.badgeKey;
+  ui.updaterStatusBadge.textContent = t(updaterState.badgeKey);
+  ui.updaterStatusBadge.classList.toggle("is-offline", [
+    "settings.updaterStatusError",
+    "settings.updaterStatusCurrent",
+    "settings.updaterStatusUnavailable"
+  ].includes(updaterState.badgeKey));
+  ui.updaterStatusText.dataset.i18n = updaterState.messageKey;
+  ui.updaterStatusText.textContent = t(updaterState.messageKey, updaterState.messageParams);
+  ui.updaterReleaseNotes.textContent = hasUpdate
+    ? String(update.body || "").trim() || t("settings.updaterNoNotes")
+    : t("settings.updaterNoNotes");
+  ui.updaterCheckButton.disabled = updaterState.checking || updaterState.installing || !canUseUpdater;
+  ui.updaterCheckButton.textContent = updaterState.installing
+    ? t("settings.updaterInstallingAction")
+    : (updaterState.checking
+      ? t("settings.updaterCheckingAction")
+      : (hasUpdate ? t("settings.updaterInstallAction") : t("settings.updaterCheckAction")));
+
+  setUpdaterProgress(updaterState.progress);
+}
+
+function setUpdaterState(nextState = {}) {
+  updaterState = {
+    ...updaterState,
+    ...nextState
+  };
+  renderUpdaterCard();
+}
+
+async function ensureCurrentAppVersion() {
+  if (updaterState.currentVersion) {
+    return updaterState.currentVersion;
+  }
+
+  const version = await tauriApp?.getVersion?.().catch(() => "") || "";
+  setUpdaterState({ currentVersion: version });
+  return version;
+}
+
+function handleUpdaterDownloadEvent(event) {
+  if (!event?.event) {
+    return;
+  }
+
+  if (event.event === "Started") {
+    setUpdaterState({
+      progress: {
+        totalBytes: Number(event.data?.contentLength) || 0,
+        downloadedBytes: 0
+      }
+    });
+    return;
+  }
+
+  if (event.event === "Progress") {
+    const previousProgress = updaterState.progress || { totalBytes: 0, downloadedBytes: 0 };
+    setUpdaterState({
+      progress: {
+        totalBytes: previousProgress.totalBytes,
+        downloadedBytes: previousProgress.downloadedBytes + (Number(event.data?.chunkLength) || 0)
+      }
+    });
+    return;
+  }
+
+  if (event.event === "Finished") {
+    const previousProgress = updaterState.progress || { totalBytes: 0, downloadedBytes: 0 };
+    setUpdaterState({
+      progress: {
+        totalBytes: previousProgress.totalBytes,
+        downloadedBytes: previousProgress.totalBytes || previousProgress.downloadedBytes
+      }
+    });
+  }
+}
+
+async function checkForAppUpdates(options = {}) {
+  const { silentNoUpdate = false, installIfAvailable = false } = options;
+  await ensureCurrentAppVersion();
+
+  if (!getUpdaterApiAvailable()) {
+    setUpdaterState({
+      update: null,
+      checking: false,
+      installing: false,
+      progress: null,
+      badgeKey: "settings.updaterStatusUnavailable",
+      messageKey: "settings.updaterUnavailable",
+      messageParams: {}
+    });
+    return null;
+  }
+
+  setUpdaterState({
+    checking: true,
+    progress: null,
+    badgeKey: "settings.updaterStatusChecking",
+    messageKey: "settings.updaterChecking",
+    messageParams: {}
+  });
+
+  try {
+    const metadata = await invoke("plugin:updater|check", {
+      allowDowngrades: true
+    });
+
+    if (!metadata) {
+      setUpdaterState({
+        update: null,
+        checking: false,
+        installing: false,
+        progress: null,
+        badgeKey: "settings.updaterStatusCurrent",
+        messageKey: silentNoUpdate ? "settings.updaterIdle" : "settings.updaterCurrent",
+        messageParams: { version: updaterState.currentVersion || t("common.unavailable") }
+      });
+      return null;
+    }
+
+    setUpdaterState({
+      update: metadata,
+      checking: false,
+      installing: false,
+      progress: null,
+      currentVersion: metadata.currentVersion || updaterState.currentVersion,
+      badgeKey: "settings.updaterStatusAvailable",
+      messageKey: "settings.updaterAvailable",
+      messageParams: { version: metadata.version }
+    });
+
+    if (installIfAvailable) {
+      await installAvailableUpdate();
+    }
+
+    return metadata;
+  } catch (error) {
+    console.error(error);
+    const message = String(error?.message || error || "");
+    const unavailableKey = /404|not found/i.test(message)
+      ? "settings.updaterFeedUnavailable"
+      : "settings.updaterFailed";
+
+    setUpdaterState({
+      update: null,
+      checking: false,
+      installing: false,
+      progress: null,
+      badgeKey: "settings.updaterStatusError",
+      messageKey: unavailableKey,
+      messageParams: { error: message }
+    });
+    return null;
+  }
+}
+
+async function installAvailableUpdate() {
+  if (!updaterState.update?.version || updaterState.installing || updaterState.checking || !getUpdaterApiAvailable()) {
+    return;
+  }
+
+  const targetVersion = updaterState.update.version;
+  setUpdaterState({
+    installing: true,
+    progress: {
+      totalBytes: 0,
+      downloadedBytes: 0
+    },
+    badgeKey: "settings.updaterStatusInstalling",
+    messageKey: "settings.updaterInstalling",
+    messageParams: { version: targetVersion }
+  });
+  ui.windowStatus.textContent = t("settings.updaterInstallingWindow", { version: targetVersion });
+
+  try {
+    const channel = new tauriCore.Channel();
+    channel.onmessage = handleUpdaterDownloadEvent;
+    await invoke("plugin:updater|download_and_install", {
+      rid: updaterState.update.rid,
+      onEvent: channel
+    });
+
+    setUpdaterState({
+      installing: false,
+      badgeKey: "settings.updaterStatusInstalling",
+      messageKey: "settings.updaterInstallingWindow",
+      messageParams: { version: targetVersion }
+    });
+  } catch (error) {
+    console.error(error);
+    const message = String(error?.message || error || "");
+    setUpdaterState({
+      installing: false,
+      progress: null,
+      badgeKey: "settings.updaterStatusError",
+      messageKey: "settings.updaterInstallFailed",
+      messageParams: { error: message }
+    });
+    ui.windowStatus.textContent = t("settings.updaterInstallFailed", { error: message });
+  }
+}
+
 function setVoiceModelProgress(progress = null) {
   if (!progress) {
     ui.voiceModelProgress.classList.add("hidden");
@@ -722,6 +1016,10 @@ function setActiveSettingsSection(section = ui.settingsSectionSelect?.value || "
 
   syncSoundInputPreview().catch(console.error);
 
+  if (activeSection === "updates") {
+    checkForAppUpdates({ silentNoUpdate: true }).catch(console.error);
+  }
+
   document.querySelector(".page-shell")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -927,6 +1225,7 @@ function fillForm() {
   if (ui.modeSelect.value === "voice") {
     renderVoiceModelStatus(ui.voiceLanguageSelect.value);
   }
+  renderUpdaterCard();
   isSyncingForm = false;
 }
 
@@ -1173,6 +1472,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   await refreshRemoteStatus();
   await refreshVoiceModelStatuses();
   await refreshSoundInputDevices().catch(console.error);
+  await ensureCurrentAppVersion();
+  await checkForAppUpdates({ silentNoUpdate: true });
 
   if (navigator.mediaDevices?.addEventListener) {
     navigator.mediaDevices.addEventListener("devicechange", () => {
@@ -1208,6 +1509,14 @@ window.addEventListener("DOMContentLoaded", async () => {
   ui.voiceModelDownloadButton.addEventListener("click", () => {
     downloadSelectedVoiceModel().catch(console.error);
   });
+  ui.updaterCheckButton?.addEventListener("click", () => {
+    if (updaterState.update?.rid) {
+      installAvailableUpdate().catch(console.error);
+      return;
+    }
+
+    checkForAppUpdates({ installIfAvailable: true }).catch(console.error);
+  });
   ui.soundInputDeviceSelect.addEventListener("change", () => {
     syncSoundInputPreview({ forceRestart: true }).catch(console.error);
   });
@@ -1231,6 +1540,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       applyTranslationsToDocument(state.language);
       renderVoiceLanguageOptions();
       renderVoiceModelStatus(ui.voiceLanguageSelect.value);
+      renderUpdaterCard();
       renderLanguagePicker(option.dataset.value, option.dataset.value);
       closeLanguageMenu();
       refreshSoundInputDevices().catch(console.error);

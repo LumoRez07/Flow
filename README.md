@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.6.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.6.1</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.6.0-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.6.1-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -40,7 +40,7 @@
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.6.0
+## What's New in 1.6.1
 
 - Rebuilt voice tracking and command recognition on a native Vosk engine for faster, more reliable speech handling.
 - Optimized the app which decreased the RAM usage by around 2000 MBs while tracking (Varies based on the model used, but generally around 500-1500 MBs less while tracking).
@@ -126,7 +126,7 @@ npm run tauri build
 
 Publish these files from `src-tauri/target/release/bundle` to the GitHub release:
 
-- `msi/flow_1.6.0_x64_en-US.msi`
+- `msi/flow_1.6.1_x64_en-US.msi`
 - `latest.json`
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.
@@ -159,7 +159,7 @@ This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
 
 Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
 
-### 1.6.0 Sürümündeki Yenilikler
+### 1.6.1 Sürümündeki Yenilikler
 
 - Ses takibi ve komut algılama, daha hızlı ve daha güvenilir konuşma işleme için yerel Vosk motoru üzerine yeniden yazıldı.
 - Mikrofon seçimi, canlı izleme, gürültü kapısı ve giriş kazancı ayarları içeren özel ses girişi denetimleri eklendi.
@@ -229,7 +229,7 @@ Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderic
 
 Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
 
-### الجديد في 1.6.0
+### الجديد في 1.6.1
 
 - أُعيد بناء تتبع الصوت والتعرّف على الأوامر فوق محرك Vosk أصلي لتحسين السرعة والثبات.
 - أُضيفت عناصر تحكم مخصصة لإدخال الصوت تشمل اختيار الميكروفون والمراقبة الحية وبوابة الضوضاء والتحكم في الكسب.
@@ -299,7 +299,7 @@ npm run tauri build
 
 Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
 
-### Nouveautes de la version 1.6.0
+### Nouveautes de la version 1.6.1
 
 - Refonte du suivi vocal et de la reconnaissance des commandes autour d'un moteur Vosk natif pour un traitement plus rapide et plus fiable.
 - Ajout de reglages dedies a l'entree audio avec selection du microphone, monitoring en direct, noise gate et controle du gain.
@@ -369,7 +369,7 @@ Flow inclut un emetteur distant et une boite de reception pour envoyer du texte 
 
 Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
 
-### Neu in 1.6.0
+### Neu in 1.6.1
 
 - Sprachverfolgung und Befehlserkennung wurden auf eine native Vosk-Engine umgestellt, um Sprache schneller und zuverlaessiger zu verarbeiten.
 - Dedizierte Audioeingabe-Regler mit Mikrofonwahl, Live-Monitoring, Noise Gate und Gain-Steuerung wurden hinzugefuegt.
@@ -439,7 +439,7 @@ Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufend
 
 Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
 
-### Novedades en 1.6.0
+### Novedades en 1.6.1
 
 - Se reescribio el seguimiento de voz y el reconocimiento de comandos sobre un motor Vosk nativo para un procesamiento mas rapido y mas fiable.
 - Se agregaron controles dedicados de entrada de audio con seleccion de microfono, monitoreo en vivo, puerta de ruido y control de ganancia.

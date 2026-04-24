@@ -749,6 +749,8 @@ body[data-page="teleprompter"].speed-rail-visible .teleprompter-speed-rail {
 .teleprompter-footer {
   display: flex;
   align-items: center;
+  grid-column: 1;
+  justify-self: stretch;
   width: 100%;
   min-width: 0;
   gap: 8px;
@@ -756,16 +758,16 @@ body[data-page="teleprompter"].speed-rail-visible .teleprompter-speed-rail {
   padding: 8px;
   overflow: clip;
   isolation: isolate;
+}
+
+.teleprompter-toolbar {
+  justify-content: center;
   transition:
     opacity 320ms ease,
     transform var(--teleprompter-notch-duration) var(--teleprompter-notch-ease),
     max-height var(--teleprompter-notch-duration) var(--teleprompter-notch-ease),
     padding var(--teleprompter-notch-duration) var(--teleprompter-notch-ease),
     border-color 220ms ease;
-}
-
-.teleprompter-toolbar {
-  justify-content: center;
 }
 
 .teleprompter-footer {
@@ -778,6 +780,7 @@ body[data-page="teleprompter"].speed-rail-visible .teleprompter-speed-rail {
   min-height: 44px;
   gap: 0;
   padding: 0;
+  transition: opacity 320ms ease, transform var(--teleprompter-notch-duration) var(--teleprompter-notch-ease);
 }
 
 .teleprompter-stage {

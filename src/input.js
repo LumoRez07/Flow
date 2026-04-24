@@ -8,7 +8,9 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, loadState, saveState, splitWords, translate } from "./shared.js";
+import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, initializePersistentStorage, loadState, saveState, splitWords, translate } from "./shared.js";
+
+await initializePersistentStorage();
 
 const invoke = window.__TAURI__?.core?.invoke;
 const tauriWindow = window.__TAURI__?.window;
@@ -83,8 +85,8 @@ function syncFromStorage() {
   const latest = loadState();
   state.script = latest.script ?? "";
   state.speed = latest.speed ?? state.speed;
-  state.groqKey = latest.groqKey ?? latest.geminiKey ?? "";
-  state.groqPrompt = latest.groqPrompt ?? latest.geminiPrompt ?? "";
+  state.groqKey = latest.groqKey ?? "";
+  state.groqPrompt = latest.groqPrompt ?? "";
   state.groq = latest.groq ?? structuredClone(defaultState.groq);
   state.appearance = latest.appearance ?? state.appearance;
   state.language = latest.language ?? state.language;
@@ -475,7 +477,7 @@ async function useGroq() {
   }
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+function bootInputPage() {
   syncFromStorage();
   setActiveInputSection(ui.inputSectionSelect?.value || "editor");
   registerNativeFileDrop().catch(console.error);
@@ -513,6 +515,7 @@ window.addEventListener("DOMContentLoaded", () => {
       if (event.dataTransfer) {
         event.dataTransfer.dropEffect = "copy";
       }
+
       showDropTarget();
     });
   });
@@ -579,9 +582,15 @@ window.addEventListener("DOMContentLoaded", () => {
 
     syncFromStorage();
   });
-});
+}
 
 window.addEventListener("beforeunload", () => {
   nativeDropUnlisten?.();
   nativeDropUnlisten = null;
 });
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", bootInputPage, { once: true });
+} else {
+  bootInputPage();
+}

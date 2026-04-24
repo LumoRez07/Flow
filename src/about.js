@@ -8,7 +8,9 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTranslationsToDocument, loadState } from "./shared.js";
+import { applyAppearanceToDocument, applyTranslationsToDocument, initializePersistentStorage, loadState } from "./shared.js";
+
+await initializePersistentStorage();
 
 const invoke = window.__TAURI__?.core?.invoke;
 const openUrl = window.__TAURI__?.opener?.openUrl;
@@ -19,7 +21,7 @@ function syncTheme() {
   applyTranslationsToDocument(state.language);
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+function bootAboutPage() {
   syncTheme();
 
   document.querySelector("#closeWindowButton")?.addEventListener("click", () => {
@@ -47,4 +49,10 @@ window.addEventListener("DOMContentLoaded", () => {
   window.addEventListener("focus", syncTheme);
   window.addEventListener("storage", syncTheme);
   window.addEventListener("flow-state-updated", syncTheme);
-});
+}
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", bootAboutPage, { once: true });
+} else {
+  bootAboutPage();
+}

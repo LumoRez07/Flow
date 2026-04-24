@@ -502,7 +502,7 @@ async function handleSubmit(event) {
   } finally { setBusy(false); }
 }
 
-window.addEventListener("DOMContentLoaded", async () => {
+async function bootRemoteSenderPage() {
   applyTranslations();
   const url = new URL(window.location.href);
   const presetAuth = getPresetAuthFromUrl(url);
@@ -542,4 +542,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   ui.form.addEventListener("submit", handleSubmit);
   ui.cancelButton.addEventListener("click", () => { resetForm(); setStatus(t("draftCleared")); });
   ui.switchSessionButton.addEventListener("click", () => { leaveComposer(t("signInDifferent")); });
-});
+}
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", () => {
+    bootRemoteSenderPage().catch(console.error);
+  }, { once: true });
+} else {
+  bootRemoteSenderPage().catch(console.error);
+}

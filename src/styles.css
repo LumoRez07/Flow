@@ -528,6 +528,8 @@ a:active {
 .teleprompter-app {
   display: grid;
   grid-template-rows: auto 1fr auto;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: stretch;
   gap: 8px;
   transition: gap var(--teleprompter-notch-duration) var(--teleprompter-notch-ease);
 }
@@ -747,9 +749,13 @@ body[data-page="teleprompter"].speed-rail-visible .teleprompter-speed-rail {
 .teleprompter-footer {
   display: flex;
   align-items: center;
+  width: 100%;
+  min-width: 0;
   gap: 8px;
   border-radius: 18px;
   padding: 8px;
+  overflow: clip;
+  isolation: isolate;
   transition:
     opacity 320ms ease,
     transform var(--teleprompter-notch-duration) var(--teleprompter-notch-ease),
@@ -1732,9 +1738,7 @@ body.reading-mode .remote-inbox {
 .teleprompter-toolbar,
 .teleprompter-stage,
 .teleprompter-viewport,
-.teleprompter-footer,
-.top-hover-trigger,
-.floating-controls {
+.top-hover-trigger {
   transition:
     opacity 360ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -1742,8 +1746,7 @@ body.reading-mode .remote-inbox {
     padding 420ms cubic-bezier(0.22, 1, 0.36, 1),
     margin 420ms cubic-bezier(0.22, 1, 0.36, 1),
     border-color 220ms ease,
-    min-height 420ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 420ms cubic-bezier(0.22, 1, 0.36, 1);
+    min-height 420ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: opacity, transform, max-height;
   transform-origin: bottom center;
 }

@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.5.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.6.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.5.0-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.6.0-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -40,13 +40,13 @@
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.5.0
+## What's New in 1.6.0
 
-- Integrated the official Tauri updater with GitHub release-feed support and signed Windows installer artifacts.
-- Added an Updates section in Settings so published releases can be checked and installed from inside the app.
-- Added automatic background update checks in the main window for supported builds.
-- Enabled signed release-feed checks that can install whichever version is published, including downgrade paths when needed.
-- Expanded translation coverage for the updater, sound input, and new settings states across the supported languages.
+- Rebuilt voice tracking and command recognition on a native Vosk engine for faster, more reliable speech handling.
+- Optimized the app which decreased the RAM usage by around 2000 MBs while tracking (Varies based on the model used, but generally around 500-1500 MBs less while tracking).
+- Improved cross-window syncing so script and settings changes reach the teleprompter more reliably.
+- Hardened app-wide voice command matching to reduce accidental triggers and multilingual misfires (still somewhat unstable).
+- Fixed several teleprompter, remote workflow, and settings stability issues across the desktop app.
 
 ## Preview
 
@@ -126,14 +126,14 @@ npm run tauri build
 
 Publish these files from `src-tauri/target/release/bundle` to the GitHub release:
 
-- `msi/flow_1.5.0_x64_en-US.msi`
+- `msi/flow_1.6.0_x64_en-US.msi`
 - `latest.json`
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.
 
 ## Voice and AI
 
-- Voice command wake phrase is fixed to English: `Hey Flow`.
+- Voice command wake phrase is available in all languages. "Hey Flow", "Selam Flow", "مرحباً Flow", "Hallo Flow", "Salut Flow", and "Hola Flow" will all work as wake phrases for their respective languages, but voice command recognition is still somewhat unstable and may require multiple tries to trigger.
 - Voice tracking currently supports English, Turkish, Arabic, German, French, and Spanish.
 - Settings now include microphone selection, live level preview, noise gate, and gain tuning for voice features.
 - English is bundled; the other Vosk models are downloaded on demand from Settings.
@@ -159,13 +159,13 @@ This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
 
 Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
 
-### 1.5.0 Sürümündeki Yenilikler
+### 1.6.0 Sürümündeki Yenilikler
 
-- Resmi Tauri güncelleyicisi; GitHub release akışı ve imzalı Windows paketleri desteğiyle entegre edildi.
-- Ayarlar ekranına, yayınlanan sürümleri uygulama içinden denetleyip kurabilen Güncellemeler bölümü eklendi.
-- Uyumlu sürümlerde ana pencerede otomatik arka plan güncelleme denetimleri eklendi.
-- İmzalı yayın akışında bulunan sürümü kurabilen ve gerektiğinde düşürmeyi de destekleyen güncelleme denetimleri etkinleştirildi.
-- Güncelleyici, ses girişi ve yeni ayar durumları için çeviriler genişletildi.
+- Ses takibi ve komut algılama, daha hızlı ve daha güvenilir konuşma işleme için yerel Vosk motoru üzerine yeniden yazıldı.
+- Mikrofon seçimi, canlı izleme, gürültü kapısı ve giriş kazancı ayarları içeren özel ses girişi denetimleri eklendi.
+- Metin ve ayar değişikliklerinin teleprompter penceresine daha güvenilir ulaşması için pencereler arası senkronizasyon iyileştirildi.
+- Yanlışlıkla tetiklenmeleri ve çok dilli hatalı algılamaları azaltmak için uygulama genelindeki sesli komut eşleştirmesi sıkılaştırıldı.
+- Teleprompter, uzaktan gönderici/gelen kutusu ve ayarlar ekranlarında çeşitli kararlılık sorunları giderildi.
 
 ### Öne Çıkanlar
 
@@ -206,7 +206,7 @@ npm run tauri build
 
 ### Ses ve Yapay Zekâ
 
-- Sesli komutlar için uyandırma ifadesi sabittir: `Hey Flow`.
+- Sesli komutlar için uyandırma ifadesi tüm dillerde mevcuttur. İngilizce için "Hey Flow", Türkçe için "Selam Flow", Arapça için "مرحباً Flow", Almanca için "Hallo Flow", Fransızca için "Salut Flow" ve İspanyolca için "Hola Flow" uyandırma ifadeleri kullanılabilir, ancak sesli komut tanıma hâlâ biraz kararsızdır ve tetiklemek için birden fazla deneme gerekebilir.
 - Ses takibi İngilizce, Türkçe, Arapça, Almanca, Fransızca ve İspanyolca destekler.
 - Ayarlar ekranında mikrofon seçimi, canlı seviye önizlemesi, gürültü kapısı ve giriş kazancı araçları bulunur.
 - İngilizce model gömülüdür; diğer Vosk modelleri Ayarlar ekranından indirilebilir.
@@ -229,13 +229,13 @@ Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderic
 
 Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
 
-### الجديد في 1.5.0
+### الجديد في 1.6.0
 
-- تم دمج المُحدِّث الرسمي لـ Tauri مع دعم موجز GitHub Releases وحزم Windows الموقعة.
-- تمت إضافة قسم التحديثات داخل الإعدادات مع إمكانية التحقق والتثبيت من داخل التطبيق.
-- تمت إضافة فحوصات تحديث تلقائية في الخلفية داخل النافذة الرئيسية للإصدارات المتوافقة.
-- تم تفعيل فحوصات موجز الإصدار الموقّع بحيث يمكن تثبيت أي إصدار منشور، بما في ذلك الرجوع إلى إصدار أقدم عند الحاجة.
-- تم توسيع الترجمة لتشمل المُحدِّث وإدخال الصوت وحالات الإعدادات الجديدة.
+- أُعيد بناء تتبع الصوت والتعرّف على الأوامر فوق محرك Vosk أصلي لتحسين السرعة والثبات.
+- أُضيفت عناصر تحكم مخصصة لإدخال الصوت تشمل اختيار الميكروفون والمراقبة الحية وبوابة الضوضاء والتحكم في الكسب.
+- تم تحسين المزامنة بين النوافذ بحيث تصل تغييرات النص والإعدادات إلى شاشة التلقين بشكل أكثر موثوقية.
+- تم تشديد مطابقة الأوامر الصوتية على مستوى التطبيق لتقليل التشغيل الخاطئ والأخطاء متعددة اللغات.
+- تم إصلاح عدة مشكلات ثبات في شاشة التلقين وصفحات الإرسال والاستقبال عن بُعد والإعدادات.
 
 ### أبرز الميزات
 
@@ -276,7 +276,7 @@ npm run tauri build
 
 ### الصوت والذكاء الاصطناعي
 
-- عبارة التنبيه للأوامر الصوتية ثابتة بالإنجليزية: `Hey Flow`.
+- عبارة التنبيه للأوامر الصوتية متاحة بجميع اللغات: "Hey Flow" للإنجليزية، "Selam Flow" للتركية، "مرحباً Flow" للعربية، "Hallo Flow" للألمانية، "Salut Flow" للفرنسية، و "Hola Flow" للإسبانية. ومع ذلك، فإن التعرف على الأوامر الصوتية لا يزال غير مستقر بعض الشيء وقد يتطلب عدة محاولات للتفعيل.
 - يدعم تتبع الصوت الإنجليزية والتركية والعربية والألمانية والفرنسية والإسبانية.
 - تتضمن الإعدادات الآن اختيار الميكروفون، ومعاينة المستوى مباشرة، وبوابة الضوضاء، وضبط كسب الإدخال.
 - اللغة الإنجليزية مدمجة؛ ويمكن تنزيل بقية نماذج Vosk من الإعدادات.
@@ -299,13 +299,13 @@ npm run tauri build
 
 Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
 
-### Nouveautes de la version 1.5.0
+### Nouveautes de la version 1.6.0
 
-- Integration du programme officiel de mise a jour Tauri avec prise en charge du flux GitHub Releases et des artefacts Windows signes.
-- Ajout d'une section Mises a jour dans les parametres avec verification et installation depuis l'application.
-- Ajout de verifications automatiques en arriere-plan dans la fenetre principale pour les builds compatibles.
-- Activation des verifications du flux de release signe permettant d'installer la version publiee, y compris un retour en arriere si necessaire.
-- Traductions etendues pour la mise a jour, l'entree audio et les nouveaux etats des parametres.
+- Refonte du suivi vocal et de la reconnaissance des commandes autour d'un moteur Vosk natif pour un traitement plus rapide et plus fiable.
+- Ajout de reglages dedies a l'entree audio avec selection du microphone, monitoring en direct, noise gate et controle du gain.
+- Amelioration de la synchronisation entre fenetres pour que les changements de texte et de parametres atteignent le teleprompter plus fiablement.
+- Renforcement de la correspondance des commandes vocales globales afin de reduire les declenchements accidentels et les erreurs multilingues.
+- Correction de plusieurs problemes de stabilite dans le teleprompter, les pages distantes et l'ecran des parametres.
 
 ### Points forts
 
@@ -346,7 +346,7 @@ npm run tauri build
 
 ### Voix et IA
 
-- L'expression de reveil des commandes vocales est fixe en anglais : `Hey Flow`.
+- L'expression de reveil des commandes vocales est disponible dans toutes les langues : "Hey Flow" pour l'anglais, "Selam Flow" pour le turc, "مرحباً Flow" pour l'arabe, "Hallo Flow" pour l'allemand, "Salut Flow" pour le français et "Hola Flow" pour l'espagnol. Cependant, la reconnaissance des commandes vocales reste quelque peu instable et peut nécessiter plusieurs tentatives pour se déclencher.
 - Le suivi vocal prend en charge l'anglais, le turc, l'arabe, l'allemand, le francais et l'espagnol.
 - Les parametres incluent maintenant la selection du microphone, un apercu du niveau en direct, un noise gate et le reglage du gain.
 - L'anglais est integre; les autres modeles Vosk peuvent etre telecharges depuis les parametres.
@@ -369,13 +369,13 @@ Flow inclut un emetteur distant et une boite de reception pour envoyer du texte 
 
 Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
 
-### Neu in 1.5.0
+### Neu in 1.6.0
 
-- Offiziellen Tauri-Updater mit GitHub-Release-Feed und signierten Windows-Artefakten integriert.
-- Updates-Bereich in den Einstellungen mit Pruefen und Installieren direkt in der App hinzugefuegt.
-- Automatische Hintergrundpruefungen im Hauptfenster fuer kompatible Builds hinzugefuegt.
-- Signierte Release-Feed-Pruefungen aktiviert, die die veroeffentlichte Version installieren und bei Bedarf auch Downgrades erlauben.
-- Uebersetzungen fuer Updater, Audioeingabe und neue Einstellungszustaende erweitert.
+- Sprachverfolgung und Befehlserkennung wurden auf eine native Vosk-Engine umgestellt, um Sprache schneller und zuverlaessiger zu verarbeiten.
+- Dedizierte Audioeingabe-Regler mit Mikrofonwahl, Live-Monitoring, Noise Gate und Gain-Steuerung wurden hinzugefuegt.
+- Die Synchronisierung zwischen Fenstern wurde verbessert, damit Text- und Einstellungsaenderungen zuverlaessiger im Teleprompter ankommen.
+- Die app-weite Sprachbefehlserkennung wurde verstaerkt, um versehentliche Ausloeser und mehrsprachige Fehltrigger zu reduzieren.
+- Mehrere Stabilitaetsprobleme im Teleprompter, in den Remote-Seiten und in den Einstellungen wurden behoben.
 
 ### Highlights
 
@@ -416,7 +416,7 @@ npm run tauri build
 
 ### Sprache und KI
 
-- Die Aktivierungsphrase fuer Sprachbefehle ist fest auf Englisch: `Hey Flow`.
+- Die Aktivierungsphrase fuer Sprachbefehle ist in allen Sprachen verfuegbar: "Hey Flow" fuer Englisch, "Selam Flow" fuer Tuerkisch, "مرحباً Flow" fuer Arabisch, "Hallo Flow" fuer Deutsch, "Salut Flow" fuer Franzoesisch und "Hola Flow" fuer Espanol. Die Spracherkennung ist jedoch noch etwas instabil und kann mehrere Versuche erfordern, um ausgelöst zu werden.
 - Sprachverfolgung unterstuetzt Englisch, Tuerkisch, Arabisch, Deutsch, Franzoesisch und Spanisch.
 - Die Einstellungen enthalten jetzt Mikrofonwahl, Live-Pegelvorschau, Noise Gate und Eingangsverstaerkung fuer Sprachfunktionen.
 - Englisch ist integriert; die anderen Vosk-Modelle koennen in den Einstellungen heruntergeladen werden.
@@ -439,13 +439,13 @@ Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufend
 
 Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
 
-### Novedades en 1.5.0
+### Novedades en 1.6.0
 
-- Se integro el actualizador oficial de Tauri con soporte para GitHub Releases y artefactos firmados de Windows.
-- Se agrego una seccion de Actualizaciones en Configuracion con comprobacion e instalacion dentro de la app.
-- Se agregaron comprobaciones automaticas en segundo plano en la ventana principal para compilaciones compatibles.
-- Se habilitaron comprobaciones del feed firmado para instalar la version publicada, incluidos descensos de version cuando haga falta.
-- Se amplio la traduccion para el actualizador, la entrada de audio y los nuevos estados de configuracion.
+- Se reescribio el seguimiento de voz y el reconocimiento de comandos sobre un motor Vosk nativo para un procesamiento mas rapido y mas fiable.
+- Se agregaron controles dedicados de entrada de audio con seleccion de microfono, monitoreo en vivo, puerta de ruido y control de ganancia.
+- Se mejoro la sincronizacion entre ventanas para que los cambios de texto y configuracion lleguen al teleprompter con mas fiabilidad.
+- Se reforzo la coincidencia de comandos de voz en toda la aplicacion para reducir activaciones accidentales y fallos multilingues.
+- Se corrigieron varios problemas de estabilidad en el teleprompter, las paginas remotas y la pantalla de configuracion.
 
 ### Puntos destacados
 
@@ -486,7 +486,7 @@ npm run tauri build
 
 ### Voz e IA
 
-- La frase de activacion para los comandos de voz esta fija en ingles: `Hey Flow`.
+- La frase de activacion para los comandos de voz esta disponible en todos los idiomas: "Hey Flow" para ingles, "Selam Flow" para turco, "مرحباً Flow" para arabe, "Hallo Flow" para aleman, "Salut Flow" para frances y "Hola Flow" para espanol. Sin embargo, el reconocimiento de comandos de voz sigue siendo algo inestable y puede requerir varios intentos para activarse.
 - El seguimiento por voz admite ingles, turco, arabe, aleman, frances y espanol.
 - Configuracion ahora incluye seleccion de microfono, vista previa de nivel en vivo, puerta de ruido y ajuste de ganancia para las funciones de voz.
 - Ingles viene integrado; los demas modelos Vosk se pueden descargar desde Configuracion.

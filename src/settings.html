@@ -202,6 +202,8 @@
                   <span class="voice-model-badge" id="voiceModelBadge" data-state="checking" data-i18n="settings.voiceModelChecking">Checking model…</span>
                   <span class="voice-model-label" id="voiceModelSelectedLabel">English</span>
                 </div>
+                <label class="field-label" for="voiceModelSelect" data-i18n="settings.voiceModelSelector">Voice model</label>
+                <select id="voiceModelSelect" class="page-input"></select>
                 <p class="helper-text voice-model-copy" id="voiceModelHint" data-i18n="settings.voiceModelCheckingHelp">Flow checks whether the selected Vosk model is already stored locally.</p>
                 <p class="voice-model-path" id="voiceModelPath" data-i18n="settings.voiceModelPathPending">Checking local model path…</p>
                 <div class="voice-model-progress hidden" id="voiceModelProgress" aria-live="polite">
@@ -480,7 +482,7 @@
           <label class="toggle-field" for="appWideVoiceCommandsInput">
             <span>
               <strong data-i18n="settings.appWideVoiceCommands">App-wide Flow voice commands</strong>
-              <small class="toggle-help" data-i18n="settings.appWideVoiceCommandsHelp">Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too.</small>
+              <small class="toggle-help" data-i18n="settings.appWideVoiceCommandsHelp">Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too. Currently unstable and may not work reliably.</small>
             </span>
             <input id="appWideVoiceCommandsInput" class="toggle-input" type="checkbox" />
           </label>

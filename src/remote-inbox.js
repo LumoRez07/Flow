@@ -8,7 +8,9 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTranslationsToDocument, loadState, saveState, translate } from "./shared.js";
+import { applyAppearanceToDocument, applyTranslationsToDocument, initializePersistentStorage, loadState, saveState, translate } from "./shared.js";
+
+await initializePersistentStorage();
 
 const invoke = window.__TAURI__?.core?.invoke;
 const tauriWindow = window.__TAURI__?.window;
@@ -251,7 +253,7 @@ async function denyRemoteMessage(messageId) {
   await applyWindowLayout();
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+function bootRemoteInboxPage() {
   applyAppearanceToDocument(loadState().appearance);
   applyTranslationsToDocument(loadState().language);
   applyWindowLayout().catch(console.error);
@@ -282,4 +284,10 @@ window.addEventListener("DOMContentLoaded", () => {
     applyTranslationsToDocument(loadState().language);
     renderRemoteInbox();
   });
-});
+}
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", bootRemoteInboxPage, { once: true });
+} else {
+  bootRemoteInboxPage();
+}

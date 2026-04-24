@@ -13,6 +13,11 @@ export const defaultState = {
   speed: 120,
   groqKey: "",
   groqPrompt: "",
+  googleCloud: {
+    textToSpeechApiKey: "",
+    translationApiKey: "",
+    translationProjectId: ""
+  },
   groq: {
     personality: "natural",
     grammarLevel: "standard",
@@ -60,6 +65,7 @@ export const defaultState = {
     voiceScrollStyle: "highlight",
     appWideVoiceCommands: false,
     soundInputDeviceId: "default",
+    soundInputDeviceLabel: "",
     soundInputNoiseGate: 0.01,
     soundInputGain: 2
   }
@@ -67,6 +73,15 @@ export const defaultState = {
 
 const STORAGE_KEY = "flow.teleprompter.state.v2";
 const VOICE_MODEL_REGISTRY_KEY = "flow.voice.models.v1";
+const STORAGE_WRITE_DEBOUNCE_MS = 140;
+
+const tauriInvoke = window.__TAURI__?.core?.invoke;
+
+let stateCache = null;
+let voiceModelRegistryCache = null;
+let storageInitPromise = null;
+let persistedStateWriteTimer = 0;
+let persistedVoiceModelRegistryWriteTimer = 0;
 
 export const LANGUAGE_OPTIONS = [
   { value: "en", label: "English" },
@@ -289,7 +304,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "Line highlight",
     "settings.voiceStyle.plain": "Plain text",
     "settings.appWideVoiceCommands": "App-wide Flow voice commands",
-    "settings.appWideVoiceCommandsHelp": "Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too.",
+    "settings.appWideVoiceCommandsHelp": "Lets English voice commands like 'Hey Flow pause' or 'Hey Flow down' work outside voice tracking too. Currently unstable and may not work reliably.",
     "settings.font": "Font",
     "settings.textSize": "Text size",
     "settings.style": "Style",
@@ -304,7 +319,9 @@ const UI_STRINGS = {
     "settings.voiceLanguage": "Voice Language",
     "settings.voiceModeHelp": "Uses the selected language for voice tracking and app-wide Flow commands.",
     "settings.voiceModelChecking": "Checking model…",
+    "settings.voiceModelSelector": "Voice model",
     "settings.voiceModelCheckingHelp": "Flow checks whether the selected Vosk model is already stored locally.",
+    "settings.voiceModelNoOptions": "No public models found for this language.",
     "settings.voiceModelPathPending": "Checking local model path…",
     "settings.voiceModelProgressIdle": "Waiting to download",
     "settings.voiceModelProgressStats": "{remaining} left · {speed}",
@@ -527,7 +544,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "Satır vurgusu",
     "settings.voiceStyle.plain": "Düz metin",
     "settings.appWideVoiceCommands": "Uygulama genelinde Flow ses komutları",
-    "settings.appWideVoiceCommandsHelp": "'Hey Flow duraklat' veya 'Hey Flow aşağı' gibi İngilizce Flow komutlarının ses takibi dışında da çalışmasını sağlar.",
+    "settings.appWideVoiceCommandsHelp": "'Hey Flow duraklat' veya 'Hey Flow aşağı' gibi İngilizce Flow komutlarının ses takibi dışında da çalışmasını sağlar. Şu anda kararsızdır ve güvenilir çalışmayabilir.",
     "settings.font": "Yazı tipi",
     "settings.textSize": "Metin boyutu",
     "settings.style": "Stil",
@@ -706,7 +723,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "تمييز السطر",
     "settings.voiceStyle.plain": "نص عادي",
     "settings.appWideVoiceCommands": "أوامر Flow الصوتية على مستوى التطبيق",
-    "settings.appWideVoiceCommandsHelp": "يسمح لأوامر Flow الإنجليزية مثل 'Hey Flow pause' أو 'Hey Flow down' بالعمل حتى خارج تتبع الصوت.",
+    "settings.appWideVoiceCommandsHelp": "يسمح لأوامر Flow الإنجليزية مثل 'Hey Flow pause' أو 'Hey Flow down' بالعمل حتى خارج تتبع الصوت. هذه الميزة غير مستقرة حاليًا وقد لا تعمل بشكل موثوق.",
     "settings.font": "الخط",
     "settings.textSize": "حجم النص",
     "settings.style": "الأسلوب",
@@ -885,7 +902,7 @@ const UI_STRINGS = {
     "settings.voiceStyle.line": "Zeilenhervorhebung",
     "settings.voiceStyle.plain": "Klartext",
     "settings.appWideVoiceCommands": "App-weite Flow-Sprachbefehle",
-    "settings.appWideVoiceCommandsHelp": "Erlaubt englische Flow-Befehle wie 'Hey Flow pause' oder 'Hey Flow down' auch außerhalb der Sprachverfolgung.",
+    "settings.appWideVoiceCommandsHelp": "Erlaubt englische Flow-Befehle wie 'Hey Flow pause' oder 'Hey Flow down' auch außerhalb der Sprachverfolgung. Aktuell instabil und funktioniert eventuell nicht zuverlässig.",
     "settings.font": "Schriftart",
     "settings.textSize": "Textgröße",
     "settings.style": "Stil",
@@ -2325,8 +2342,8 @@ export function normalizeState(rawState = {}) {
   const normalized = {
     ...defaults,
     ...rawState,
-    groqKey: rawState.groqKey ?? rawState.geminiKey ?? defaults.groqKey,
-    groqPrompt: rawState.groqPrompt ?? rawState.geminiPrompt ?? defaults.groqPrompt,
+    groqKey: rawState.groqKey ?? defaults.groqKey,
+    groqPrompt: rawState.groqPrompt ?? defaults.groqPrompt,
     groq: {
       ...defaults.groq,
       ...(rawState.groq || {})
@@ -2613,9 +2630,25 @@ export function splitWords(text) {
     .map((token) => token.text);
 }
 
-export function loadState() {
+function readBrowserStorage(key) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeBrowserStorage(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore browser storage failures and continue with in-memory state.
+  }
+}
+
+function readCachedStateFromBrowser() {
+  try {
+    const raw = readBrowserStorage(STORAGE_KEY);
     if (!raw) {
       return createDefaults();
     }
@@ -2626,32 +2659,203 @@ export function loadState() {
   }
 }
 
-export function saveState(nextState) {
-  const mergedState = mergeState(loadState(), nextState);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedState));
-  window.dispatchEvent(new CustomEvent("flow-state-updated", { detail: mergedState }));
-  return mergedState;
+function normalizeVoiceModelRegistry(rawRegistry = {}) {
+  if (!rawRegistry || typeof rawRegistry !== "object" || Array.isArray(rawRegistry)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(rawRegistry).map(([language, entry]) => {
+      const normalizedLanguage = normalizeVoiceLanguage(language);
+      const nextEntry = entry && typeof entry === "object" && !Array.isArray(entry)
+        ? { ...entry }
+        : {};
+      const models = nextEntry.models && typeof nextEntry.models === "object" && !Array.isArray(nextEntry.models)
+        ? Object.fromEntries(
+            Object.entries(nextEntry.models).map(([modelId, modelEntry]) => [
+              String(modelId || "").trim(),
+              modelEntry && typeof modelEntry === "object" && !Array.isArray(modelEntry)
+                ? { ...modelEntry, modelId: String(modelId || "").trim() }
+                : { modelId: String(modelId || "").trim() }
+            ]).filter(([modelId]) => Boolean(modelId))
+          )
+        : {};
+
+      return [normalizedLanguage, {
+        ...nextEntry,
+        language: normalizedLanguage,
+        selectedModelId: typeof nextEntry.selectedModelId === "string" && nextEntry.selectedModelId.trim()
+          ? nextEntry.selectedModelId.trim()
+          : "",
+        models
+      }];
+    })
+  );
 }
 
-export function loadVoiceModelRegistry() {
+function readCachedVoiceModelRegistryFromBrowser() {
   try {
-    const raw = localStorage.getItem(VOICE_MODEL_REGISTRY_KEY);
+    const raw = readBrowserStorage(VOICE_MODEL_REGISTRY_KEY);
     if (!raw) {
       return {};
     }
 
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
+    return normalizeVoiceModelRegistry(JSON.parse(raw));
   } catch {
     return {};
   }
 }
 
+function hasBrowserStorageValue(key) {
+  return Boolean(readBrowserStorage(key));
+}
+
+function cacheState(nextState) {
+  stateCache = normalizeState(nextState);
+  return stateCache;
+}
+
+function setStateCache(nextState) {
+  cacheState(nextState);
+  writeBrowserStorage(STORAGE_KEY, stateCache);
+  return stateCache;
+}
+
+function cacheVoiceModelRegistry(nextRegistry) {
+  voiceModelRegistryCache = normalizeVoiceModelRegistry(nextRegistry);
+  return voiceModelRegistryCache;
+}
+
+function setVoiceModelRegistryCache(nextRegistry) {
+  cacheVoiceModelRegistry(nextRegistry);
+  writeBrowserStorage(VOICE_MODEL_REGISTRY_KEY, voiceModelRegistryCache);
+  return voiceModelRegistryCache;
+}
+
+function schedulePersistedStateWrite(nextState) {
+  if (!tauriInvoke) {
+    return;
+  }
+
+  window.clearTimeout(persistedStateWriteTimer);
+  persistedStateWriteTimer = window.setTimeout(() => {
+    tauriInvoke("save_persisted_app_state", { state: nextState }).catch((error) => {
+      console.error("Persisted app state save failed", error);
+    });
+  }, STORAGE_WRITE_DEBOUNCE_MS);
+}
+
+function schedulePersistedVoiceModelRegistryWrite(nextRegistry) {
+  if (!tauriInvoke) {
+    return;
+  }
+
+  window.clearTimeout(persistedVoiceModelRegistryWriteTimer);
+  persistedVoiceModelRegistryWriteTimer = window.setTimeout(() => {
+    tauriInvoke("save_persisted_voice_model_registry", { registry: nextRegistry }).catch((error) => {
+      console.error("Persisted voice model registry save failed", error);
+    });
+  }, STORAGE_WRITE_DEBOUNCE_MS);
+}
+
+export async function initializePersistentStorage() {
+  if (storageInitPromise) {
+    return storageInitPromise;
+  }
+
+  storageInitPromise = (async () => {
+    const hasBrowserState = hasBrowserStorageValue(STORAGE_KEY);
+    const hasBrowserVoiceModelRegistry = hasBrowserStorageValue(VOICE_MODEL_REGISTRY_KEY);
+    const browserState = readCachedStateFromBrowser();
+    const browserVoiceModelRegistry = readCachedVoiceModelRegistryFromBrowser();
+    setStateCache(browserState);
+    setVoiceModelRegistryCache(browserVoiceModelRegistry);
+
+    if (!tauriInvoke) {
+      return {
+        state: stateCache,
+        voiceModelRegistry: voiceModelRegistryCache
+      };
+    }
+
+    try {
+      const payload = await tauriInvoke("load_persisted_app_data");
+      const persistedStateRaw = payload?.state;
+      const persistedRegistryRaw = payload?.voiceModelRegistry;
+      const hasPersistedState = persistedStateRaw && typeof persistedStateRaw === "object" && Object.keys(persistedStateRaw).length > 0;
+      const hasPersistedRegistry = persistedRegistryRaw && typeof persistedRegistryRaw === "object" && Object.keys(persistedRegistryRaw).length > 0;
+
+      if (hasPersistedState) {
+        setStateCache(persistedStateRaw);
+      } else if (hasBrowserState) {
+        setStateCache(browserState);
+        schedulePersistedStateWrite(browserState);
+      }
+
+      if (hasPersistedRegistry) {
+        setVoiceModelRegistryCache(persistedRegistryRaw);
+      } else if (hasBrowserVoiceModelRegistry) {
+        setVoiceModelRegistryCache(browserVoiceModelRegistry);
+        schedulePersistedVoiceModelRegistryWrite(browserVoiceModelRegistry);
+      }
+    } catch (error) {
+      console.error("Persistent storage initialization failed", error);
+    }
+
+    return {
+      state: stateCache,
+      voiceModelRegistry: voiceModelRegistryCache
+    };
+  })();
+
+  return storageInitPromise;
+}
+
+export function loadState() {
+  const browserState = readCachedStateFromBrowser();
+
+  if (!stateCache || JSON.stringify(stateCache) !== JSON.stringify(browserState)) {
+    return cacheState(browserState);
+  }
+
+  return normalizeState(stateCache);
+}
+
+export function saveState(nextState) {
+  const mergedState = mergeState(loadState(), nextState);
+  setStateCache(mergedState);
+  schedulePersistedStateWrite(mergedState);
+  window.dispatchEvent(new CustomEvent("flow-state-updated", { detail: mergedState }));
+  return mergedState;
+}
+
+export function loadVoiceModelRegistry() {
+  const browserRegistry = readCachedVoiceModelRegistryFromBrowser();
+
+  if (!voiceModelRegistryCache || JSON.stringify(voiceModelRegistryCache) !== JSON.stringify(browserRegistry)) {
+    return cacheVoiceModelRegistry(browserRegistry);
+  }
+
+  return normalizeVoiceModelRegistry(voiceModelRegistryCache);
+}
+
 export function saveVoiceModelRegistry(nextRegistry = {}) {
-  const registry = nextRegistry && typeof nextRegistry === "object" ? nextRegistry : {};
-  localStorage.setItem(VOICE_MODEL_REGISTRY_KEY, JSON.stringify(registry));
+  const registry = setVoiceModelRegistryCache(nextRegistry && typeof nextRegistry === "object" ? nextRegistry : {});
+  schedulePersistedVoiceModelRegistryWrite(registry);
   window.dispatchEvent(new CustomEvent("flow-voice-models-updated", { detail: registry }));
   return registry;
+}
+
+export function getVoiceModelRegistryEntry(language, registry = loadVoiceModelRegistry()) {
+  const normalizedLanguage = normalizeVoiceLanguage(language);
+  return registry?.[normalizedLanguage] || null;
+}
+
+export function getSelectedVoiceModelId(language, registry = loadVoiceModelRegistry()) {
+  const selectedModelId = getVoiceModelRegistryEntry(language, registry)?.selectedModelId;
+  return typeof selectedModelId === "string" && selectedModelId.trim()
+    ? selectedModelId.trim()
+    : null;
 }
 
 export function updateVoiceModelRegistry(language, patch = {}) {

@@ -19,6 +19,8 @@ import {
   estimateMinutes,
   generateRemoteAccessPassword,
   generateWithGroq,
+  getSelectedVoiceModelId,
+  initializePersistentStorage,
   loadState,
   normalizeVoiceLanguage,
   parseFormattedScript,
@@ -28,6 +30,8 @@ import {
   translate,
   VOICE_LANGUAGE_OPTIONS
 } from "./shared.js";
+
+await initializePersistentStorage();
 
 function setButtonIcon(element, iconClassName) {
   const icon = element?.querySelector(".ph");
@@ -58,7 +62,9 @@ const VOICE_WORD_VIEWPORT_OFFSET = 0.42;
 const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
 const VOICE_SCROLL_EASING = 0.1;
 const VOICE_SCROLL_MAX_STEP = 10;
-const VOICE_TRACKING_PARTIAL_MIN_INTERVAL_MS = 180;
+const VOICE_TRACKING_PARTIAL_MIN_INTERVAL_MS = 90;
+const VOICE_TRACKING_PARTIAL_REPEAT_GUARD_MS = 180;
+const VOICE_TRACKING_MATCH_RADIUS = 2;
 const VOICE_FORWARD_SKIP_CONFIRM_MS = 2500;
 const VOICE_COMMAND_SOUND_URL = new URL("./assets/voice-command-recognized.mp3", import.meta.url).href;
 const VOICE_COMMAND_SOUND_REPEAT_GUARD_MS = 700;
@@ -70,11 +76,13 @@ const VOICE_COMMAND_ACTION_REPEAT_GUARD_MS = 520;
 const VOICE_COMMAND_MIN_CONFIDENCE = 0.35;
 const VOICE_COMMAND_BUFFER_TOKEN_LIMIT = 12;
 const VOICE_COMMAND_LOOKBACK_TOKENS = 10;
+const VOICE_DEBUG_HISTORY_LIMIT = 160;
 const VOSK_COMMAND_BUFFER_SIZE = 4096;
 const VOSK_SCRIPT_PROCESSOR_FALLBACK_BUFFER_SIZE = 1024;
 const AUTO_UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const VOSK_COMMAND_MODEL_URL = new URL("./assets/vosk-model-small-en-us-0.15.tar.gz", import.meta.url).href;
 const VOICE_CAPTURE_WORKLET_URL = new URL("./assets/vendor/voice-capture-worklet.js", import.meta.url).href;
+const NATIVE_VOICE_EVENT_NAME = "flow-native-voice-event";
 const VOICE_WAKE_VISUAL_MS = 2400;
 const VOICE_WAKE_COMMAND_WINDOW_MS = 3200;
 const VOICE_WAKE_COOLDOWN_MS = 2000;
@@ -195,6 +203,8 @@ let voiceTrackingAudioContext = null;
 let voiceTrackingSourceNode = null;
 let voiceTrackingProcessorNode = null;
 let voiceTrackingSilenceNode = null;
+let voiceTrackingStartPromise = null;
+let isVoiceTrackingStarting = false;
 let voiceTrackingSession = 0;
 let activeVoiceTrackingLanguageTag = null;
 let lastVoiceTrackingAudioProcessAt = 0;
@@ -229,6 +239,14 @@ let isAutoUpdateInstalling = false;
 const voiceModelStatusCache = new Map();
 const voiceCaptureWorkletModulePromises = new WeakMap();
 let promptFeedbackState = null;
+let unlistenNativeVoiceEvents = null;
+const voiceDebugState = {
+  enabled: true,
+  history: [],
+  lastTrackingEvent: null,
+  lastCommandEvent: null,
+  lastEventAt: null
+};
 
 const VOICE_COMMAND_ACTION_DEDUPE_ACTIONS = new Set([
   "up",
@@ -239,6 +257,14 @@ const VOICE_COMMAND_ACTION_DEDUPE_ACTIONS = new Set([
   "expand",
   "free-drag",
   "top-center"
+]);
+
+const VOICE_COMMAND_EXACT_SINGLE_TOKEN_ACTIONS = new Set([
+  "hide",
+  "show",
+  "minimize",
+  "expand",
+  "exit"
 ]);
 
 function mergeVoiceActionAliases(baseAliases, localizedAliases = {}) {
@@ -417,7 +443,7 @@ function getVoiceLanguageTag() {
 }
 
 function getVoiceCommandLanguageTag() {
-  return ENGLISH_VOICE_LANGUAGE;
+  return getVoiceLanguageTag();
 }
 
 function armVoiceCommandListener(durationMs = VOICE_COMMAND_IDLE_ARM_MS) {
@@ -450,10 +476,15 @@ function normalizeSoundInputDeviceId(value) {
   return normalizedValue || defaultState.appearance.soundInputDeviceId;
 }
 
+function normalizeSoundInputDeviceLabel(value) {
+  return String(value || "").trim();
+}
+
 function getSoundInputSettings(appearance = state.appearance) {
   const source = appearance || defaultState.appearance;
   return {
     deviceId: normalizeSoundInputDeviceId(source.soundInputDeviceId || defaultState.appearance.soundInputDeviceId),
+    deviceLabel: normalizeSoundInputDeviceLabel(source.soundInputDeviceLabel || defaultState.appearance.soundInputDeviceLabel),
     noiseGate: clampSoundInputNumber(source.soundInputNoiseGate, 0, 0.08, defaultState.appearance.soundInputNoiseGate),
     inputGain: clampSoundInputNumber(source.soundInputGain, 0.5, 4, defaultState.appearance.soundInputGain)
   };
@@ -461,6 +492,261 @@ function getSoundInputSettings(appearance = state.appearance) {
 
 function getVoiceCaptureSettingsSignature(appearance = state.appearance) {
   return JSON.stringify(getSoundInputSettings(appearance));
+}
+
+function cloneVoiceDebugValue(value) {
+  if (typeof globalThis.structuredClone === "function") {
+    return globalThis.structuredClone(value);
+  }
+
+  return JSON.parse(JSON.stringify(value));
+}
+
+function sanitizeVoiceDebugWords(words) {
+  if (!Array.isArray(words) || !words.length) {
+    return [];
+  }
+
+  return words.map((word) => ({
+    word: String(word?.word || "").trim(),
+    start: Number.isFinite(word?.start) ? word.start : null,
+    end: Number.isFinite(word?.end) ? word.end : null,
+    confidence: Number.isFinite(word?.confidence) ? word.confidence : null
+  }));
+}
+
+function buildVoiceDebugEntry(payload) {
+  const debug = payload?.debug || null;
+  return {
+    at: new Date().toISOString(),
+    channel: String(payload?.channel || ""),
+    stage: String(payload?.stage || ""),
+    language: String(payload?.language || ""),
+    text: typeof payload?.text === "string" ? payload.text : null,
+    rawText: typeof debug?.rawText === "string" ? debug.rawText : null,
+    confidence: Number.isFinite(payload?.confidence) ? payload.confidence : null,
+    wordCount: Number.isFinite(debug?.wordCount) ? debug.wordCount : sanitizeVoiceDebugWords(payload?.words).length,
+    sampleCount: Number.isFinite(debug?.sampleCount) ? debug.sampleCount : null,
+    words: sanitizeVoiceDebugWords(payload?.words),
+    error: typeof payload?.error === "string" ? payload.error : null
+  };
+}
+
+function recordVoiceDebugEvent(payload) {
+  if (!voiceDebugState.enabled || !payload?.channel || !payload?.stage) {
+    return;
+  }
+
+  const entry = buildVoiceDebugEntry(payload);
+  voiceDebugState.history.push(entry);
+  if (voiceDebugState.history.length > VOICE_DEBUG_HISTORY_LIMIT) {
+    voiceDebugState.history.splice(0, voiceDebugState.history.length - VOICE_DEBUG_HISTORY_LIMIT);
+  }
+
+  voiceDebugState.lastEventAt = entry.at;
+  if (entry.channel === "tracking") {
+    voiceDebugState.lastTrackingEvent = entry;
+  } else if (entry.channel === "commands") {
+    voiceDebugState.lastCommandEvent = entry;
+  }
+}
+
+function getVoiceDebugSnapshot() {
+  return cloneVoiceDebugValue({
+    enabled: voiceDebugState.enabled,
+    lastEventAt: voiceDebugState.lastEventAt,
+    listenerAttached: Boolean(unlistenNativeVoiceEvents),
+    voiceRecognitionEngine: voiceRecognition?.engine || null,
+    isVoiceTrackingStarting,
+    activeVoiceTrackingLanguageTag,
+    isPlaying,
+    lastTrackingEvent: voiceDebugState.lastTrackingEvent,
+    lastCommandEvent: voiceDebugState.lastCommandEvent,
+    history: voiceDebugState.history
+  });
+}
+
+function installVoiceDebugTools() {
+  window.__flowVoiceDebug = {
+    enable() {
+      voiceDebugState.enabled = true;
+      return getVoiceDebugSnapshot();
+    },
+    disable() {
+      voiceDebugState.enabled = false;
+      return getVoiceDebugSnapshot();
+    },
+    clear() {
+      voiceDebugState.history = [];
+      voiceDebugState.lastTrackingEvent = null;
+      voiceDebugState.lastCommandEvent = null;
+      voiceDebugState.lastEventAt = null;
+      return getVoiceDebugSnapshot();
+    },
+    getState() {
+      return getVoiceDebugSnapshot();
+    },
+    async getEngineState() {
+      if (!invoke) {
+        return null;
+      }
+
+      return await invoke("get_voice_engine_debug_state");
+    },
+    printRecent(limit = 12, channel = null) {
+      const safeLimit = Math.max(1, Number(limit) || 12);
+      const filtered = channel
+        ? voiceDebugState.history.filter((entry) => entry.channel === channel)
+        : voiceDebugState.history;
+      const recent = filtered.slice(-safeLimit);
+      console.table(recent.map((entry) => ({
+        at: entry.at,
+        channel: entry.channel,
+        stage: entry.stage,
+        text: entry.text,
+        rawText: entry.rawText,
+        wordCount: entry.wordCount,
+        sampleCount: entry.sampleCount,
+        confidence: entry.confidence,
+        error: entry.error
+      })));
+      return cloneVoiceDebugValue(recent);
+    }
+  };
+}
+
+installVoiceDebugTools();
+
+function buildNativeVoicePayload(languageTag = getVoiceLanguageTag(), options = {}) {
+  const soundInput = getSoundInputSettings();
+  const modelId = getSelectedVoiceModelId(languageTag);
+  return {
+    language: normalizeVoiceLanguage(languageTag),
+    modelId,
+    soundInput: {
+      deviceId: soundInput.deviceId,
+      deviceLabel: soundInput.deviceLabel,
+      noiseGate: soundInput.noiseGate,
+      inputGain: soundInput.inputGain
+    },
+    ...options
+  };
+}
+
+function getVoiceModelStatusCacheKey(languageTag = getVoiceLanguageTag(), modelId = getSelectedVoiceModelId(languageTag)) {
+  const normalizedLanguage = normalizeVoiceLanguage(languageTag);
+  const normalizedModelId = String(modelId || "").trim();
+  return normalizedModelId ? `${normalizedLanguage}::${normalizedModelId}` : normalizedLanguage;
+}
+
+function handleNativeVoiceEvent(payload) {
+  if (!payload?.channel || !payload?.stage) {
+    return;
+  }
+
+  recordVoiceDebugEvent(payload);
+
+  if (payload.channel === "commands") {
+    if (payload.stage === "partial") {
+      lastVoiceCommandAudioProcessAt = performance.now();
+      handleOfflineVoiceCommandTranscript(payload.text, {
+        isFinal: false,
+        confidence: payload.confidence ?? 1,
+        wakeConfidence: payload.confidence ?? 1
+      });
+      return;
+    }
+
+    if (payload.stage === "final") {
+      lastVoiceCommandAudioProcessAt = performance.now();
+      handleOfflineVoiceCommandTranscript(payload.text, {
+        isFinal: true,
+        confidence: payload.confidence ?? 0,
+        wakeConfidence: payload.confidence ?? 0
+      });
+      return;
+    }
+
+    if (payload.stage === "error") {
+      lastVoiceCommandError = getVoiceCommandErrorMessage(payload.error || "Voice commands unavailable");
+      isVoiceCommandRecognitionBlocked = true;
+      voiceCommandRecognition = null;
+      voiceCommandSharedWithTracking = Boolean(voiceRecognition);
+      updateVoiceCommandIndicator();
+      return;
+    }
+
+    if (payload.stage === "stopped" && !isVoiceCommandRecognitionStarting) {
+      voiceCommandRecognition = null;
+      voiceCommandSharedWithTracking = false;
+      updateVoiceCommandIndicator();
+    }
+
+    return;
+  }
+
+  if (payload.channel === "tracking") {
+    if (payload.stage === "started") {
+      lastVoiceTrackingAudioProcessAt = performance.now();
+      if (isPlaying && getActiveMode() === "voice" && ui.statusLabel) {
+        ui.statusLabel.textContent = "🎤 Listening...";
+      }
+      return;
+    }
+
+    if (payload.stage === "partial") {
+      lastVoiceTrackingAudioProcessAt = performance.now();
+      applyVoiceTrackingTranscript(payload.text, { isFinal: false, confidence: payload.confidence ?? 0 });
+      return;
+    }
+
+    if (payload.stage === "final") {
+      lastVoiceTrackingAudioProcessAt = performance.now();
+      applyVoiceTrackingTranscript(payload.text, { isFinal: true, confidence: payload.confidence ?? 0 });
+      return;
+    }
+
+    if (payload.stage === "stopped") {
+      lastVoiceTrackingAudioProcessAt = 0;
+      lastVoiceTrackingPartialHandledAt = 0;
+      lastVoiceTrackingPartialKey = "";
+      clearPendingForwardVoiceSkip();
+      if (voiceRecognition?.engine === "native") {
+        voiceRecognition = null;
+      }
+      if (!isPlaying || getActiveMode() !== "voice") {
+        activeVoiceTrackingLanguageTag = null;
+      }
+      return;
+    }
+
+    if (payload.stage === "error") {
+      console.error("Native voice tracking failed", payload.error || payload);
+      if (isPlaying && getActiveMode() === "voice") {
+        if (ui.statusLabel) {
+          ui.statusLabel.textContent = getVoiceTrackingFailureStatus(new Error(payload.error || "Voice tracking unavailable"));
+        }
+        stopPlayback();
+      } else if (voiceRecognition?.engine === "native") {
+        voiceRecognition = null;
+        activeVoiceTrackingLanguageTag = null;
+        lastVoiceTrackingAudioProcessAt = 0;
+        lastVoiceTrackingPartialHandledAt = 0;
+        lastVoiceTrackingPartialKey = "";
+        clearPendingForwardVoiceSkip();
+      }
+    }
+  }
+}
+
+async function ensureNativeVoiceEventListener() {
+  if (!tauriEvent?.listen || unlistenNativeVoiceEvents) {
+    return;
+  }
+
+  unlistenNativeVoiceEvents = await tauriEvent.listen(NATIVE_VOICE_EVENT_NAME, (event) => {
+    handleNativeVoiceEvent(event.payload);
+  });
 }
 
 function buildVoiceCaptureAudioConstraints(soundInputSettings = getSoundInputSettings()) {
@@ -623,8 +909,22 @@ async function requestVoiceCaptureMediaStream(soundInputSettings = getSoundInput
 }
 
 function getVoiceTrackingFailureStatus(error) {
-  if (/Missing Vosk model/i.test(String(error?.message || error || ""))) {
+  const message = String(error?.message || error || "").trim();
+
+  if (/Missing Vosk model/i.test(message)) {
     return `🎤 Download ${getVoiceLanguageLabel()} model first`;
+  }
+
+  if (/No microphone detected/i.test(message)) {
+    return t("tele.status.noMic");
+  }
+
+  if (/Microphone unavailable|Failed to read microphone config|Failed to enumerate microphone formats/i.test(message)) {
+    return t("tele.status.micUnavailable");
+  }
+
+  if (/Failed to start microphone capture|Failed to activate microphone capture|Microphone stream error/i.test(message)) {
+    return `🎤 ${message}`;
   }
 
   switch (error?.code) {
@@ -635,11 +935,21 @@ function getVoiceTrackingFailureStatus(error) {
     case VOICE_CAPTURE_ERROR_UNAVAILABLE:
       return t("tele.status.micUnavailable");
     default:
-      return "🎤 Mic Request Failed";
+      return message ? `🎤 ${message}` : "🎤 Mic Request Failed";
   }
 }
 
 function getVoiceTrackingFeedbackKey(error) {
+  const message = String(error?.message || error || "").trim();
+
+  if (/No microphone detected/i.test(message)) {
+    return "tele.voiceFeedback.noMic";
+  }
+
+  if (/Microphone unavailable|Failed to read microphone config|Failed to enumerate microphone formats/i.test(message)) {
+    return "tele.voiceFeedback.micUnavailable";
+  }
+
   switch (error?.code) {
     case VOICE_CAPTURE_ERROR_PERMISSION_DENIED:
       return "tele.voiceFeedback.micBlocked";
@@ -2360,7 +2670,7 @@ function clearPlayback() {
   resetVoiceCommandTranscript();
   stopViewportScrollAnimation();
 
-  if (voiceRecognition?.remove || voiceTrackingMediaStream || voiceTrackingAudioContext) {
+  if (voiceRecognition?.engine === "native" || voiceRecognition?.remove || voiceTrackingMediaStream || voiceTrackingAudioContext) {
     stopVoiceTracking().catch(console.error);
   }
 }
@@ -2897,7 +3207,16 @@ function getVoiceCommandActionFromTokens(candidateTokens, languageTag = getVoice
         continue;
       }
 
-      const matches = aliasTokens.every((aliasToken, index) => isVoiceAliasTokenFuzzyMatch(candidateTokens[index], aliasToken));
+      const requiresExactSingleTokenMatch = (
+        aliasTokens.length === 1
+        && VOICE_COMMAND_EXACT_SINGLE_TOKEN_ACTIONS.has(action)
+      );
+      const matches = aliasTokens.every((aliasToken, index) => {
+        const candidateToken = candidateTokens[index];
+        return requiresExactSingleTokenMatch
+          ? candidateToken === aliasToken
+          : isVoiceAliasTokenFuzzyMatch(candidateToken, aliasToken);
+      });
       if (!matches) {
         continue;
       }
@@ -2909,10 +3228,18 @@ function getVoiceCommandActionFromTokens(candidateTokens, languageTag = getVoice
     }
   }
 
-  const singleTokenAction = getVoiceCommandAction(candidateTokens[0], languageTag) || getVoiceCommandActionFuzzy(candidateTokens[0], languageTag);
-  if (singleTokenAction) {
+  const exactSingleTokenAction = getVoiceCommandAction(candidateTokens[0], languageTag);
+  if (exactSingleTokenAction) {
     return {
-      action: singleTokenAction,
+      action: exactSingleTokenAction,
+      matchedPhrase: candidateTokens[0]
+    };
+  }
+
+  const fuzzySingleTokenAction = getVoiceCommandActionFuzzy(candidateTokens[0], languageTag);
+  if (fuzzySingleTokenAction && !VOICE_COMMAND_EXACT_SINGLE_TOKEN_ACTIONS.has(fuzzySingleTokenAction)) {
+    return {
+      action: fuzzySingleTokenAction,
       matchedPhrase: candidateTokens[0]
     };
   }
@@ -2962,7 +3289,7 @@ function extractVoiceCommandWithoutWake(text, languageTag = getVoiceCommandLangu
 }
 
 function hasSpeechRecognitionSupport() {
-  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+  return false;
 }
 
 function getVoskResultText(message) {
@@ -3010,11 +3337,7 @@ function getWakePhraseConfidence(message, languageTag = getVoiceCommandLanguageT
 }
 
 function hasOfflineVoiceCommandSupport() {
-  return Boolean(
-    window.Vosk?.createModel
-    && navigator.mediaDevices?.getUserMedia
-    && (window.AudioContext || window.webkitAudioContext)
-  );
+  return Boolean(invoke);
 }
 
 function getOfflineVoiceCommandGrammar(languageTag = getVoiceCommandLanguageTag()) {
@@ -3034,13 +3357,15 @@ function getOfflineVoiceCommandGrammar(languageTag = getVoiceCommandLanguageTag(
 
 function shouldBlockVoiceCommandRecognition(error) {
   const message = String(error?.message || error || "").trim();
-  return /permission|denied|notallowederror|missing vosk model|offline voice command model failed to load|failed to fetch|networkerror|asset/i.test(message);
+  return /permission|denied|notallowederror|missing vosk model|failed to fetch|networkerror|asset|no microphone|microphone unavailable|failed to start microphone capture|failed to activate microphone capture/i.test(message);
 }
 
 async function resolveVoiceModelStatus(languageTag = getVoiceLanguageTag(), options = {}) {
   const normalizedLanguage = normalizeVoiceLanguage(languageTag);
-  if (!options.force && voiceModelStatusCache.has(normalizedLanguage)) {
-    return voiceModelStatusCache.get(normalizedLanguage);
+  const modelId = options.modelId ?? getSelectedVoiceModelId(normalizedLanguage);
+  const cacheKey = getVoiceModelStatusCacheKey(normalizedLanguage, modelId);
+  if (!options.force && voiceModelStatusCache.has(cacheKey)) {
+    return voiceModelStatusCache.get(cacheKey);
   }
 
   if (!invoke) {
@@ -3048,12 +3373,12 @@ async function resolveVoiceModelStatus(languageTag = getVoiceLanguageTag(), opti
   }
 
   try {
-    const status = await invoke("get_voice_model_status", { language: normalizedLanguage });
+    const status = await invoke("get_voice_model_status", { language: normalizedLanguage, modelId });
     const normalizedStatus = status ? {
       ...status,
       language: normalizeVoiceLanguage(status.language || normalizedLanguage)
     } : null;
-    voiceModelStatusCache.set(normalizedLanguage, normalizedStatus);
+    voiceModelStatusCache.set(cacheKey, normalizedStatus);
     return normalizedStatus;
   } catch (error) {
     console.error("Voice model status lookup failed", error);
@@ -3064,13 +3389,14 @@ async function resolveVoiceModelStatus(languageTag = getVoiceLanguageTag(), opti
 async function getVoiceModelSourceUrl(languageTag = getVoiceLanguageTag(), options = {}) {
   const normalizedLanguage = normalizeVoiceLanguage(languageTag);
   const { preferBundledEnglish = false } = options;
+  const modelId = options.modelId ?? getSelectedVoiceModelId(normalizedLanguage);
 
   if (preferBundledEnglish && normalizedLanguage === ENGLISH_VOICE_LANGUAGE) {
     return VOSK_COMMAND_MODEL_URL;
   }
 
   if (invoke && convertFileSrc) {
-    const status = await resolveVoiceModelStatus(normalizedLanguage, { force: true });
+    const status = await resolveVoiceModelStatus(normalizedLanguage, { force: true, modelId });
     if (status?.installed && status.path) {
       return convertFileSrc(status.path);
     }
@@ -3087,13 +3413,15 @@ async function getVoiceModelSourceUrl(languageTag = getVoiceLanguageTag(), optio
 
 async function ensureOfflineVoiceCommandModel(languageTag = getVoiceLanguageTag()) {
   const normalizedLanguage = normalizeVoiceLanguage(languageTag);
+  const modelId = getSelectedVoiceModelId(normalizedLanguage);
+  const cacheKey = getVoiceModelStatusCacheKey(normalizedLanguage, modelId);
 
-  if (voiceModels.has(normalizedLanguage)) {
-    return voiceModels.get(normalizedLanguage);
+  if (voiceModels.has(cacheKey)) {
+    return voiceModels.get(cacheKey);
   }
 
-  if (voiceModelPromises.has(normalizedLanguage)) {
-    return voiceModelPromises.get(normalizedLanguage);
+  if (voiceModelPromises.has(cacheKey)) {
+    return voiceModelPromises.get(cacheKey);
   }
 
   if (!hasOfflineVoiceCommandSupport()) {
@@ -3101,6 +3429,7 @@ async function ensureOfflineVoiceCommandModel(languageTag = getVoiceLanguageTag(
   }
 
   const modelUrl = await getVoiceModelSourceUrl(normalizedLanguage, {
+    modelId,
     preferBundledEnglish: normalizedLanguage === ENGLISH_VOICE_LANGUAGE
   });
   if (!modelUrl) {
@@ -3109,20 +3438,20 @@ async function ensureOfflineVoiceCommandModel(languageTag = getVoiceLanguageTag(
 
   const modelPromise = window.Vosk.createModel(modelUrl, -1)
     .then((model) => {
-      voiceModels.set(normalizedLanguage, model);
-      voiceModelPromises.delete(normalizedLanguage);
+      voiceModels.set(cacheKey, model);
+      voiceModelPromises.delete(cacheKey);
       isVoiceCommandRecognitionBlocked = false;
       return model;
     })
     .catch((error) => {
       console.error("Offline voice command model failed to load", error);
       isVoiceCommandRecognitionBlocked = true;
-      voiceModels.delete(normalizedLanguage);
-      voiceModelPromises.delete(normalizedLanguage);
+      voiceModels.delete(cacheKey);
+      voiceModelPromises.delete(cacheKey);
       throw error;
     });
 
-  voiceModelPromises.set(normalizedLanguage, modelPromise);
+  voiceModelPromises.set(cacheKey, modelPromise);
   return modelPromise;
 }
 
@@ -3253,7 +3582,9 @@ function isVoiceCommandRecognizerActive() {
   return Boolean(
     voiceCommandRecognition
       && (
-        voiceCommandRecognition.engine === "web-speech"
+        voiceCommandRecognition.engine === "native"
+        || voiceCommandRecognition.engine === "pending"
+        || voiceCommandRecognition.engine === "web-speech"
         || voiceCommandSharedWithTracking
         || (voiceCommandMediaStream && voiceCommandAudioContext)
       )
@@ -3871,8 +4202,7 @@ function ensureVoiceCommandRecognition() {
 }
 
 async function stopVoiceCommandListener(options = {}) {
-  const { preserveError = false, preserveModel = false } = options;
-  const usingWebSpeech = voiceCommandRecognition?.engine === "web-speech";
+  const { preserveError = false } = options;
   voiceCommandListenerSession += 1;
   isVoiceCommandRecognitionStarting = false;
   resetVoiceCommandTranscript();
@@ -3885,7 +4215,13 @@ async function stopVoiceCommandListener(options = {}) {
 
   disconnectOfflineVoiceCommandAudioGraph();
 
-  if (voiceCommandRecognition?.engine === "web-speech") {
+  if (voiceCommandRecognition?.engine === "native" && invoke) {
+    try {
+      await invoke("stop_voice_command_listener");
+    } catch (error) {
+      console.error("Native voice command listener failed to stop", error);
+    }
+  } else if (voiceCommandRecognition?.engine === "web-speech") {
     voiceCommandRecognition.onresult = null;
     voiceCommandRecognition.onerror = null;
     voiceCommandRecognition.onend = null;
@@ -3918,19 +4254,6 @@ async function stopVoiceCommandListener(options = {}) {
 
   await disposeOfflineVoiceCommandAudioContext();
 
-  const voiceTrackingUsesCommandLanguage = Boolean(voiceRecognition)
-    && normalizeVoiceLanguage(getVoiceLanguageTag()) === normalizeVoiceLanguage(getVoiceCommandLanguageTag());
-  if (!preserveModel && !voiceTrackingUsesCommandLanguage) {
-    releaseOfflineVoiceModel(getVoiceCommandLanguageTag());
-  }
-
-  releaseUnusedVoiceModels([
-    voiceRecognition ? getVoiceLanguageTag() : null,
-    (!usingWebSpeech && (preserveModel || isVoiceCommandRecognizerActive() || shouldEnableVoiceCommandListener()))
-      ? getVoiceCommandLanguageTag()
-      : null
-  ]);
-
   updateVoiceCommandIndicator();
 }
 
@@ -3957,120 +4280,27 @@ async function startVoiceCommandListener() {
   isVoiceCommandRecognitionStarting = true;
 
   try {
-    if (hasSpeechRecognitionSupport()) {
-      const SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const recognizer = new SpeechRecognitionClass();
-      recognizer.engine = "web-speech";
-      recognizer.lang = getVoiceCommandLanguageTag();
-      recognizer.continuous = true;
-      recognizer.interimResults = true;
-      recognizer.maxAlternatives = 3;
-      recognizer.onaudiostart = () => {
-        lastVoiceCommandAudioProcessAt = performance.now();
-      };
-      recognizer.onaudioend = () => {
-        lastVoiceCommandAudioProcessAt = performance.now();
-      };
-      recognizer.onresult = (event) => {
-        lastVoiceCommandAudioProcessAt = performance.now();
-        handleBrowserSpeechRecognitionResult(event);
-      };
-      recognizer.onerror = (event) => {
-        if (listenerSession !== voiceCommandListenerSession) {
-          return;
-        }
-
-        const error = event?.error || event;
-        lastVoiceCommandError = getVoiceCommandErrorMessage(error);
-        isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
-        updateVoiceCommandIndicator();
-      };
-      recognizer.onend = () => {
-        if (listenerSession !== voiceCommandListenerSession || voiceCommandRecognition !== recognizer) {
-          return;
-        }
-
-        voiceCommandRecognition = null;
-        updateVoiceCommandIndicator();
-
-        if (shouldEnableVoiceCommandListener() && !isVoiceCommandRecognitionBlocked) {
-          scheduleVoiceCommandListenerRestart(180);
-        }
-      };
-
-      voiceCommandRecognition = recognizer;
-      lastVoiceCommandAudioProcessAt = performance.now();
-      releaseUnusedVoiceModels([
-        voiceRecognition ? getVoiceLanguageTag() : null
-      ]);
-      recognizer.start();
-      isVoiceCommandRecognitionBlocked = false;
-      updateVoiceCommandIndicator();
-      return;
-    }
-
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    const soundInputSettings = getSoundInputSettings();
-    const mediaStream = await requestVoiceCaptureMediaStream(soundInputSettings);
-    if (!shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
-      stopMediaStreamTracks(mediaStream);
-      return;
-    }
-
+    await ensureNativeVoiceEventListener();
     const languageTag = getVoiceCommandLanguageTag();
-    let model = null;
-    try {
-      model = await ensureOfflineVoiceCommandModel(languageTag);
-    } catch (error) {
-      stopMediaStreamTracks(mediaStream);
-      throw error;
-    }
-
-    if (!model || !shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
-      stopMediaStreamTracks(mediaStream);
+    const grammar = JSON.parse(getOfflineVoiceCommandGrammar(languageTag));
+    await invoke("start_voice_command_listener", buildNativeVoicePayload(languageTag, { grammar }));
+    if (!shouldEnableVoiceCommandListener() || listenerSession !== voiceCommandListenerSession) {
+      await invoke("stop_voice_command_listener").catch(() => {});
       return;
     }
 
-    voiceCommandMediaStream = mediaStream;
-    voiceCommandSharedWithTracking = false;
-    voiceCommandAudioContext = new AudioContextClass({ sampleRate: 16000 });
-    if (listenerSession !== voiceCommandListenerSession) {
-      stopMediaStreamTracks(mediaStream);
-      await voiceCommandAudioContext.close().catch(() => {});
-      voiceCommandAudioContext = null;
-      return;
-    }
-
-    await resumeOfflineVoiceCommandAudioContext();
-    installOfflineVoiceCommandResumeListeners();
-
-    voiceCommandRecognition = createVoiceCommandRecognizer(model, voiceCommandAudioContext.sampleRate, languageTag);
+    voiceCommandRecognition = { engine: "native" };
+    voiceCommandSharedWithTracking = Boolean(voiceRecognition);
     lastVoiceCommandAudioProcessAt = performance.now();
-
-    const captureNodes = await createVoiceCaptureNode(voiceCommandAudioContext, mediaStream, (samples, sampleRate) => {
-      acceptVoiceCommandSamples(samples, sampleRate);
-    }, {
-      soundInputSettings,
-      preferScriptProcessor: true
-    });
-
-    voiceCommandSourceNode = captureNodes.sourceNode;
-    voiceCommandProcessorNode = captureNodes.processorNode;
-    voiceCommandSilenceNode = captureNodes.silenceNode;
-
-    if (listenerSession !== voiceCommandListenerSession || !shouldEnableVoiceCommandListener()) {
-      await stopVoiceCommandListener();
-      return;
-    }
-
     isVoiceCommandRecognitionBlocked = false;
     updateVoiceCommandIndicator();
   } catch (error) {
-    console.error("Offline voice command listener failed to start", error);
+    console.error("Native voice command listener failed to start", error);
     lastVoiceCommandError = getVoiceCommandErrorMessage(error);
     isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
+    voiceCommandRecognition = null;
+    voiceCommandSharedWithTracking = false;
     await stopVoiceCommandListener({ preserveError: true });
-    isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
     if (!isVoiceCommandRecognitionBlocked) {
       scheduleVoiceCommandListenerRestart(VOICE_COMMAND_RESTART_DELAY_MS + 120);
     }
@@ -4089,24 +4319,10 @@ function syncVoiceCommandListener(options = {}) {
     .catch(() => {})
     .then(async () => {
       if (forceReset) {
-        await stopVoiceCommandListener({ preserveModel: shouldEnableVoiceCommandListener() });
+        await stopVoiceCommandListener();
       }
 
       if (shouldEnableVoiceCommandListener()) {
-        if (isPlaying && getActiveMode() === "voice") {
-          if (voiceTrackingAudioContext && voiceTrackingMediaStream && voiceRecognition?.acceptWaveformFloat) {
-            await attachVoiceCommandRecognizerToTracking(voiceTrackingAudioContext.sampleRate);
-            return;
-          }
-
-          if (!forceReset && voiceCommandSharedWithTracking) {
-            return;
-          }
-
-          await stopVoiceCommandListener({ preserveModel: true });
-          return;
-        }
-
         await startVoiceCommandListener();
         return;
       }
@@ -4140,96 +4356,21 @@ function scheduleVoiceHealthCheck(delayMs = VOICE_HEALTH_IDLE_CHECK_MS) {
 
 function startVoiceCommandHealthMonitor() {
   if (!shouldMonitorVoiceHealth()) {
-    if (voiceCommandRecognition || voiceCommandMediaStream || voiceCommandAudioContext) {
+    if (voiceCommandRecognition) {
       stopVoiceCommandListener().catch(console.error);
     }
     scheduleVoiceHealthCheck(VOICE_HEALTH_IDLE_CHECK_MS);
     return;
   }
 
-  if (isPlaying && getActiveMode() === "voice") {
-    if (!voiceRecognition || !voiceTrackingAudioContext || !voiceTrackingMediaStream) {
-      playVoiceMode();
-      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-      return;
-    }
-
-    const trackingTracks = voiceTrackingMediaStream.getAudioTracks();
-    if (trackingTracks.length === 0 || trackingTracks.some((track) => track.readyState === "ended")) {
-      stopVoiceTracking()
-        .catch(console.error)
-        .finally(() => {
-          if (isPlaying && getActiveMode() === "voice") {
-            playVoiceMode();
-          }
-        });
-      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-      return;
-    }
-
-    if (lastVoiceTrackingAudioProcessAt > 0 && performance.now() - lastVoiceTrackingAudioProcessAt > 3000) {
-      stopVoiceTracking()
-        .catch(console.error)
-        .finally(() => {
-          if (isPlaying && getActiveMode() === "voice") {
-            playVoiceMode();
-          }
-        });
-      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-      return;
-    }
+  if (isPlaying && getActiveMode() === "voice" && !voiceRecognition && !isVoiceTrackingStarting) {
+    playVoiceMode();
+    scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
+    return;
   }
 
   if (shouldEnableVoiceCommandListener() && !isVoiceCommandRecognitionStarting) {
-    const usingWebSpeech = voiceCommandRecognition?.engine === "web-speech";
-
-    if (isPlaying && getActiveMode() === "voice" && voiceTrackingAudioContext && voiceTrackingMediaStream && voiceRecognition?.acceptWaveformFloat) {
-      if (!isVoiceCommandRecognizerActive()) {
-        attachVoiceCommandRecognizerToTracking(voiceTrackingAudioContext.sampleRate)
-          .catch(console.error)
-          .finally(() => {
-            scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-          });
-        return;
-      }
-    } else if (!isVoiceCommandRecognizerActive()) {
-      syncVoiceCommandListener({ forceReset: true });
-      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-      return;
-    }
-
-    if (usingWebSpeech) {
-      scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-      return;
-    }
-
-    if (!voiceCommandSharedWithTracking) {
-      const tracks = voiceCommandMediaStream?.getAudioTracks() || [];
-      if (tracks.length === 0 || tracks.some((track) => track.readyState === "ended")) {
-        syncVoiceCommandListener({ forceReset: true });
-        scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-        return;
-      }
-
-      if (voiceCommandAudioContext?.state === "suspended") {
-        resumeOfflineVoiceCommandAudioContext().catch(() => {});
-        scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-        return;
-      }
-
-      if (voiceCommandAudioContext && voiceCommandAudioContext.state === "closed") {
-        syncVoiceCommandListener({ forceReset: true });
-        scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
-        return;
-      }
-    }
-
-    if (
-      !voiceCommandSharedWithTracking
-      && voiceCommandAudioContext?.state === "running"
-      && lastVoiceCommandAudioProcessAt > 0
-      && performance.now() - lastVoiceCommandAudioProcessAt > VOICE_COMMAND_STALL_RESET_MS
-    ) {
+    if (!isVoiceCommandRecognizerActive()) {
       syncVoiceCommandListener({ forceReset: true });
       scheduleVoiceHealthCheck(VOICE_HEALTH_ACTIVE_CHECK_MS);
       return;
@@ -4240,7 +4381,9 @@ function startVoiceCommandHealthMonitor() {
 }
 
 function installVoiceCommandDebugHelpers() {
+  const existingDebugTools = window.__flowVoiceDebug || {};
   window.__flowVoiceDebug = {
+    ...existingDebugTools,
     extractCommand(text) {
       return extractVoiceCommand(text);
     },
@@ -4259,7 +4402,7 @@ function installVoiceCommandDebugHelpers() {
         command
       };
     },
-    getState() {
+    getCommandState() {
       return {
         appWideVoiceCommands: shouldEnableVoiceCommandListener(),
         voiceCommandListening: isVoiceCommandRecognizerActive(),
@@ -4274,7 +4417,7 @@ function installVoiceCommandDebugHelpers() {
         lastVoiceCommandSoundAt
       };
     },
-    reset() {
+    resetCommands() {
       voiceCommandCooldownUntil = 0;
       lastVoiceCommandKey = "";
       lastVoiceCommandAt = 0;
@@ -4818,8 +4961,9 @@ async function disposeVoiceTrackingAudioContext() {
 }
 
 async function stopVoiceTracking() {
-  const trackingLanguageTag = activeVoiceTrackingLanguageTag || getVoiceLanguageTag();
   voiceTrackingSession += 1;
+  isVoiceTrackingStarting = false;
+  voiceTrackingStartPromise = null;
   activeVoiceTrackingLanguageTag = null;
   lastVoiceTrackingAudioProcessAt = 0;
   lastVoiceTrackingPartialHandledAt = 0;
@@ -4828,7 +4972,13 @@ async function stopVoiceTracking() {
 
   disconnectVoiceTrackingAudioGraph();
 
-  if (voiceRecognition?.remove) {
+  if (voiceRecognition?.engine === "native" && invoke) {
+    try {
+      await invoke("stop_voice_tracking");
+    } catch (error) {
+      console.error("Native voice tracking failed to stop", error);
+    }
+  } else if (voiceRecognition?.remove) {
     try {
       voiceRecognition.remove();
     } catch (error) {
@@ -4838,19 +4988,14 @@ async function stopVoiceTracking() {
 
   voiceRecognition = null;
 
-  if (voiceCommandSharedWithTracking && voiceCommandRecognition?.remove) {
-    try {
-      voiceCommandRecognition.remove();
-    } catch (error) {
-      // Recognizer already removed.
-    }
-  }
-
   if (voiceCommandSharedWithTracking) {
-    voiceCommandRecognition = null;
     voiceCommandSharedWithTracking = false;
     lastVoiceCommandAudioProcessAt = 0;
     updateVoiceCommandIndicator();
+  }
+
+  if (shouldEnableVoiceCommandListener()) {
+    syncVoiceCommandListener({ forceReset: true });
   }
 
   if (voiceTrackingMediaStream) {
@@ -4862,19 +5007,6 @@ async function stopVoiceTracking() {
   }
 
   await disposeVoiceTrackingAudioContext();
-
-  const trackingModelNeededForCommands = isVoiceCommandRecognizerActive()
-    && normalizeVoiceLanguage(trackingLanguageTag) === normalizeVoiceLanguage(getVoiceCommandLanguageTag());
-  if (!trackingModelNeededForCommands) {
-    releaseOfflineVoiceModel(trackingLanguageTag);
-  }
-
-  releaseUnusedVoiceModels([
-    voiceCommandRecognition?.engine && voiceCommandRecognition.engine !== "web-speech"
-      ? getVoiceCommandLanguageTag()
-      : null,
-    voiceRecognition ? getVoiceLanguageTag() : null
-  ]);
 }
 
 function applyVoiceTrackingTranscript(transcript, options = {}) {
@@ -4897,7 +5029,7 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
       return;
     }
 
-    if (partialKey === lastVoiceTrackingPartialKey && now - lastVoiceTrackingPartialHandledAt < 400) {
+    if (partialKey === lastVoiceTrackingPartialKey && now - lastVoiceTrackingPartialHandledAt < VOICE_TRACKING_PARTIAL_REPEAT_GUARD_MS) {
       return;
     }
 
@@ -4924,7 +5056,7 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
   const bestLineMatch = clampVoiceTrackingMatchToAdjacentLine(resolveForwardVoiceSkipMatch(
     spokenTokens,
     (isFinal ? findVoiceDistantPhraseMatch(spokenTokens) : null)
-      || findVoiceLineMatch(spokenTokens, isFinal ? { radius: 1, allowExact: true } : { radius: 1, allowExact: false })
+      || findVoiceLineMatch(spokenTokens, { radius: VOICE_TRACKING_MATCH_RADIUS, allowExact: true })
   ));
   const bestMatchIndex = bestLineMatch?.matchedWordIndex ?? -1;
 
@@ -4950,157 +5082,51 @@ async function startVoiceTracking() {
     throw new Error("Vosk voice recognition is not supported");
   }
 
-  if (voiceRecognition?.remove && voiceTrackingAudioContext && voiceTrackingMediaStream) {
+  if (voiceRecognition?.engine === "native") {
     return;
+  }
+
+  if (voiceTrackingStartPromise) {
+    return voiceTrackingStartPromise;
   }
 
   const session = ++voiceTrackingSession;
-  syncStateFromStorage();
-  const languageTag = getVoiceLanguageTag();
-  rebuildNormalizedScriptTokenMap(languageTag);
-  const soundInputSettings = getSoundInputSettings();
-  const mediaStream = await requestVoiceCaptureMediaStream(soundInputSettings);
-  if (session !== voiceTrackingSession) {
-    stopMediaStreamTracks(mediaStream);
-    return;
-  }
-
-  let model = null;
-  try {
-    model = await ensureOfflineVoiceCommandModel(languageTag);
-  } catch (error) {
-    stopMediaStreamTracks(mediaStream);
-    throw error;
-  }
-
-  if (session !== voiceTrackingSession) {
-    stopMediaStreamTracks(mediaStream);
-    releaseUnusedVoiceModels([
-      voiceCommandRecognition?.engine && voiceCommandRecognition.engine !== "web-speech"
-        ? getVoiceCommandLanguageTag()
-        : null,
-      voiceRecognition ? activeVoiceTrackingLanguageTag : null
-    ]);
-    return;
-  }
-
-  if (!model) {
-    stopMediaStreamTracks(mediaStream);
-    throw new Error(`Missing Vosk model for ${getVoiceLanguageLabel(languageTag)}`);
-  }
-
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-
-  voiceTrackingMediaStream = mediaStream;
-  voiceTrackingAudioContext = new AudioContextClass({ sampleRate: 16000 });
-  if (session !== voiceTrackingSession) {
-    stopMediaStreamTracks(mediaStream);
-    await disposeVoiceTrackingAudioContext();
-    return;
-  }
-
-  if (voiceTrackingAudioContext.state === "suspended") {
-    try {
-      await voiceTrackingAudioContext.resume();
-    } catch (error) {
-      // Resume may require a user gesture in some webviews.
-    }
-
+  isVoiceTrackingStarting = true;
+  const startPromise = (async () => {
+    syncStateFromStorage();
+    const languageTag = getVoiceLanguageTag();
+    rebuildNormalizedScriptTokenMap(languageTag);
+    await ensureNativeVoiceEventListener();
+    await invoke("start_voice_tracking", buildNativeVoicePayload(languageTag));
     if (session !== voiceTrackingSession) {
-      stopMediaStreamTracks(mediaStream);
-      await disposeVoiceTrackingAudioContext();
-      return;
-    }
-  }
-
-  const recognizer = new model.KaldiRecognizer(voiceTrackingAudioContext.sampleRate);
-  recognizer.on("partialresult", (message) => {
-    applyVoiceTrackingTranscript(message?.result?.partial, { isFinal: false });
-  });
-  recognizer.on("result", (message) => {
-    applyVoiceTrackingTranscript(getVoskResultText(message), {
-      isFinal: true,
-      confidence: getAverageVoskWordConfidence(getVoskResultWords(message)),
-      wakeConfidence: getWakePhraseConfidence(message, languageTag)
-    });
-  });
-
-  voiceRecognition = recognizer;
-  activeVoiceTrackingLanguageTag = languageTag;
-  lastVoiceTrackingAudioProcessAt = performance.now();
-
-  if (shouldEnableVoiceCommandListener() || (isPlaying && getActiveMode() === "voice")) {
-    try {
-      await attachVoiceCommandRecognizerToTracking(voiceTrackingAudioContext.sampleRate);
-    } catch (error) {
-      console.error("Offline voice command recognizer failed to attach to tracking", error);
-      lastVoiceCommandError = getVoiceCommandErrorMessage(error);
-      isVoiceCommandRecognitionBlocked = shouldBlockVoiceCommandRecognition(error);
-      updateVoiceCommandIndicator();
-    }
-
-    if (session !== voiceTrackingSession) {
-      stopMediaStreamTracks(mediaStream);
-      await disposeVoiceTrackingAudioContext();
-      return;
-    }
-  }
-
-  const captureNodes = await createVoiceCaptureNode(voiceTrackingAudioContext, mediaStream, (samples, sampleRate) => {
-    if (!voiceRecognition?.acceptWaveformFloat) {
+      await invoke("stop_voice_tracking").catch(() => {});
       return;
     }
 
+    voiceRecognition = { engine: "native" };
+    activeVoiceTrackingLanguageTag = languageTag;
     lastVoiceTrackingAudioProcessAt = performance.now();
 
-    try {
-      voiceRecognition.acceptWaveformFloat(samples, sampleRate);
-    } catch (error) {
-      console.error("Vosk voice tracking audio processing failed", error);
+    if (isVoiceCommandRecognizerActive() || isVoiceCommandRecognitionStarting) {
+      await stopVoiceCommandListener();
     }
 
-    if (voiceCommandSharedWithTracking) {
-      acceptVoiceCommandSamples(samples, sampleRate);
-    }
-  }, { soundInputSettings });
+    voiceCommandSharedWithTracking = false;
+    updateVoiceCommandIndicator();
+  })();
 
-  if (session !== voiceTrackingSession) {
-    if (captureNodes.sourceNode) {
-      try {
-        captureNodes.sourceNode.disconnect();
-      } catch (error) {
-        // Node already disconnected.
-      }
-    }
+  voiceTrackingStartPromise = startPromise;
 
-    if (captureNodes.processorNode) {
-      try {
-        captureNodes.processorNode.disconnect();
-      } catch (error) {
-        // Node already disconnected.
-      }
-      if (captureNodes.processorNode.port) {
-        captureNodes.processorNode.port.onmessage = null;
-      }
-      captureNodes.processorNode.onaudioprocess = null;
+  try {
+    await startPromise;
+  } finally {
+    if (voiceTrackingStartPromise === startPromise) {
+      voiceTrackingStartPromise = null;
     }
-
-    if (captureNodes.silenceNode) {
-      try {
-        captureNodes.silenceNode.disconnect();
-      } catch (error) {
-        // Node already disconnected.
-      }
+    if (session === voiceTrackingSession) {
+      isVoiceTrackingStarting = false;
     }
-
-    stopMediaStreamTracks(mediaStream);
-    await disposeVoiceTrackingAudioContext();
-    return;
   }
-
-  voiceTrackingSourceNode = captureNodes.sourceNode;
-  voiceTrackingProcessorNode = captureNodes.processorNode;
-  voiceTrackingSilenceNode = captureNodes.silenceNode;
 }
 
 function playVoiceMode() {
@@ -5319,7 +5345,14 @@ async function syncRemoteMessages() {
       })
     });
     const payload = await response.json().catch(() => ({}));
+    const serverMessage = String(payload.message || "").trim();
     if (!response.ok) {
+      if (response.status === 401 && /receiver not found/i.test(serverMessage)) {
+        remoteMessages = [];
+        renderRemoteInbox();
+        return { ok: true, messageCount: 0 };
+      }
+
       throw new Error(payload.message || t("remote.fetchFailed"));
     }
 
@@ -5721,6 +5754,7 @@ function handlePlaybackHotkeys(event) {
 
 function refreshFromStorage() {
   const previousVoiceLanguage = getVoiceLanguageTag();
+  const previousVoiceModelId = getSelectedVoiceModelId(previousVoiceLanguage);
   const previousAppWideVoiceCommands = Boolean(state.appearance?.appWideVoiceCommands);
   const previousVoiceCaptureSettings = getVoiceCaptureSettingsSignature();
   const previousState = {
@@ -5736,10 +5770,15 @@ function refreshFromStorage() {
   syncStateFromStorage();
   state.desktop = state.desktop || structuredClone(defaultState.desktop);
   const nextVoiceLanguage = getVoiceLanguageTag();
+  const nextVoiceModelId = getSelectedVoiceModelId(nextVoiceLanguage);
   const voiceLanguageChanged = previousVoiceLanguage !== nextVoiceLanguage;
+  const voiceModelChanged = previousVoiceModelId !== nextVoiceModelId;
   const appWideVoiceCommandsChanged = previousAppWideVoiceCommands !== Boolean(state.appearance?.appWideVoiceCommands);
   const voiceCaptureSettingsChanged = previousVoiceCaptureSettings !== getVoiceCaptureSettingsSignature();
-  syncVoiceCommandListener({ forceReset: voiceLanguageChanged || appWideVoiceCommandsChanged || voiceCaptureSettingsChanged });
+  if (voiceModelChanged) {
+    voiceModelStatusCache.clear();
+  }
+  syncVoiceCommandListener({ forceReset: voiceLanguageChanged || voiceModelChanged || appWideVoiceCommandsChanged || voiceCaptureSettingsChanged });
 
   if (previousState.speed !== state.speed) {
     updateSpeedLabel();
@@ -5760,7 +5799,7 @@ function refreshFromStorage() {
     updatePlayButtons();
     applyStoredWindowSettings().catch(console.error);
 
-    if ((voiceLanguageChanged || voiceCaptureSettingsChanged) && isPlaying && getActiveMode() === "voice") {
+    if ((voiceLanguageChanged || voiceModelChanged || voiceCaptureSettingsChanged) && isPlaying && getActiveMode() === "voice") {
       stopVoiceTracking()
         .catch(console.error)
         .finally(() => {
@@ -5937,6 +5976,7 @@ function wireEvents() {
   }, true);
   window.addEventListener("storage", refreshFromStorage);
   window.addEventListener("flow-state-updated", refreshFromStorage);
+  window.addEventListener("flow-voice-models-updated", refreshFromStorage);
   window.addEventListener("keydown", handlePlaybackHotkeys);
   window.addEventListener("beforeunload", () => {
     if (speedPersistTimer) {
@@ -5945,6 +5985,8 @@ function wireEvents() {
     stopVoiceCommandListener();
     stopVoiceTracking();
     disarmVoiceCommandListener();
+    unlistenNativeVoiceEvents?.();
+    unlistenNativeVoiceEvents = null;
     unlistenClickthroughChanged?.();
     unlistenClickthroughChanged = null;
     if (voiceCommandHealthTimer) {
@@ -5991,31 +6033,64 @@ async function applyStoredWindowSettings() {
   await positionWindowForCurrentLayout(appWindow);
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-  syncStateFromStorage();
-  state.desktop = state.desktop || structuredClone(defaultState.desktop);
-  rotateRemoteAccessPasswordForLaunch();
-  applyDesktopPreferences().catch(console.error);
-  applyTranslationsToDocument(state.language);
-  cacheUi();
-  setSpeedRailGutter(SPEED_RAIL_WINDOW_GUTTER);
-  installVoiceCommandDebugHelpers();
-  applyAppearanceSettings();
-  updateCollapseButton();
-  updateDragControls();
-  updateSpeedLabel();
-  updateSpeedInputMode();
-  renderScript();
-  applyResponsiveText();
-  bindDesktopEventListeners().catch(console.error);
-  wireEvents();
-  startVoiceCommandHealthMonitor();
-  startRemoteReceiverLoop();
-  updatePlayButtons();
-  syncVoiceCommandListener();
-  applyStoredWindowSettings().catch(console.error);
-  startAutomaticUpdater();
-});
+function bootFlowApp() {
+  try {
+    syncStateFromStorage();
+    state.desktop = state.desktop || structuredClone(defaultState.desktop);
+
+    ensureNativeVoiceEventListener().catch(console.error);
+
+    rotateRemoteAccessPasswordForLaunch();
+
+    applyDesktopPreferences().catch(console.error);
+
+    applyTranslationsToDocument(state.language);
+
+    cacheUi();
+
+    setSpeedRailGutter(SPEED_RAIL_WINDOW_GUTTER);
+
+    installVoiceCommandDebugHelpers();
+
+    applyAppearanceSettings();
+
+    updateCollapseButton();
+
+    updateDragControls();
+
+    updateSpeedLabel();
+
+    updateSpeedInputMode();
+
+    renderScript();
+
+    applyResponsiveText();
+
+    bindDesktopEventListeners().catch(console.error);
+
+    wireEvents();
+
+    startVoiceCommandHealthMonitor();
+
+    startRemoteReceiverLoop();
+
+    updatePlayButtons();
+
+    syncVoiceCommandListener();
+
+    applyStoredWindowSettings().catch(console.error);
+
+    startAutomaticUpdater();
+  } catch (error) {
+    console.error("Flow boot failed", error);
+  }
+}
+
+if (document.readyState === "loading") {
+  window.addEventListener("DOMContentLoaded", bootFlowApp, { once: true });
+} else {
+  bootFlowApp();
+}
 
 
 

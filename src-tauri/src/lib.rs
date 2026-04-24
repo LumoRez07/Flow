@@ -11,8 +11,9 @@
 use std::{
     collections::{HashMap, HashSet, VecDeque},
     fs,
+    io::Cursor,
     net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
-    path::PathBuf,
+    path::{Path as FsPath, PathBuf},
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
@@ -24,6 +25,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use flate2::read::GzDecoder;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -34,8 +36,13 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_prevent_default::Flags;
+use tar::Archive;
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
+use vosk::{set_log_level, LogLevel};
+use zip::ZipArchive;
+
+mod voice_engine;
 
 #[cfg(windows)]
 use windows::Win32::System::Power::{
@@ -60,60 +67,389 @@ const MAX_PENDING_MESSAGES: usize = 24;
 #[allow(dead_code)]
 const MAX_MESSAGE_STATUS_HISTORY: usize = 64;
 const VOICE_MODEL_DOWNLOAD_EVENT: &str = "flow-voice-model-download";
+const APP_STATE_FILE_NAME: &str = "state.json";
+const VOICE_MODEL_REGISTRY_FILE_NAME: &str = "voice-model-registry.json";
+const BUNDLED_ENGLISH_VOSK_MODEL: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../src/assets/vosk-model-small-en-us-0.15.tar.gz"
+));
 
-#[derive(Clone, Copy, Debug)]
-struct VoiceModelSpec {
-    language: &'static str,
-    label: &'static str,
-    archive_name: &'static str,
-    download_url: &'static str,
-    download_size_mb: u64,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum BundledVoiceArchiveKind {
+    TarGz,
 }
 
-const VOICE_MODEL_SPECS: [VoiceModelSpec; 6] = [
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct VoiceModelSpec {
+    model_id: &'static str,
+    language: &'static str,
+    label: &'static str,
+    family: &'static str,
+    archive_name: &'static str,
+    install_dir_name: &'static str,
+    download_url: &'static str,
+    download_size_mb: u64,
+    runtime_memory_mb: u64,
+    license: &'static str,
+    description: &'static str,
+    recommended: bool,
+    bundled_archive_kind: Option<BundledVoiceArchiveKind>,
+}
+
+const VOICE_MODEL_SPECS: [VoiceModelSpec; 23] = [
     VoiceModelSpec {
+        model_id: "vosk-model-small-en-us-0.15",
         language: "en-US",
         label: "English",
+        family: "Small",
         archive_name: "vosk-model-small-en-us-0.15.zip",
+        install_dir_name: "vosk-model-small-en-us-0.15",
         download_url: "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip",
         download_size_mb: 40,
+        runtime_memory_mb: 300,
+        license: "Apache 2.0",
+        description: "Lightweight wideband model for desktop and mobile use.",
+        recommended: true,
+        bundled_archive_kind: Some(BundledVoiceArchiveKind::TarGz),
     },
     VoiceModelSpec {
+        model_id: "vosk-model-en-us-0.22",
+        language: "en-US",
+        label: "English",
+        family: "Large",
+        archive_name: "vosk-model-en-us-0.22.zip",
+        install_dir_name: "vosk-model-en-us-0.22",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22.zip",
+        download_size_mb: 1843,
+        runtime_memory_mb: 16000,
+        license: "Apache 2.0",
+        description: "Accurate generic US English model.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-en-us-0.22-lgraph",
+        language: "en-US",
+        label: "English",
+        family: "Medium LGraph",
+        archive_name: "vosk-model-en-us-0.22-lgraph.zip",
+        install_dir_name: "vosk-model-en-us-0.22-lgraph",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.22-lgraph.zip",
+        download_size_mb: 128,
+        runtime_memory_mb: 900,
+        license: "Apache 2.0",
+        description: "English model with dynamic graph and lower memory use.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-en-us-0.42-gigaspeech",
+        language: "en-US",
+        label: "English",
+        family: "Large GigaSpeech",
+        archive_name: "vosk-model-en-us-0.42-gigaspeech.zip",
+        install_dir_name: "vosk-model-en-us-0.42-gigaspeech",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.42-gigaspeech.zip",
+        download_size_mb: 2355,
+        runtime_memory_mb: 16000,
+        license: "Apache 2.0",
+        description: "Accurate English model tuned for podcasts and general speech.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-en-us-daanzu-20200905",
+        language: "en-US",
+        label: "English",
+        family: "Dictation",
+        archive_name: "vosk-model-en-us-daanzu-20200905.zip",
+        install_dir_name: "vosk-model-en-us-daanzu-20200905",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-daanzu-20200905.zip",
+        download_size_mb: 1024,
+        runtime_memory_mb: 9000,
+        license: "AGPL",
+        description: "Large English dictation model from Kaldi Active Grammar.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-en-us-daanzu-20200905-lgraph",
+        language: "en-US",
+        label: "English",
+        family: "Dictation LGraph",
+        archive_name: "vosk-model-en-us-daanzu-20200905-lgraph.zip",
+        install_dir_name: "vosk-model-en-us-daanzu-20200905-lgraph",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-daanzu-20200905-lgraph.zip",
+        download_size_mb: 129,
+        runtime_memory_mb: 900,
+        license: "AGPL",
+        description: "Smaller dynamic-graph English dictation model.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-en-us-librispeech-0.2",
+        language: "en-US",
+        label: "English",
+        family: "Librispeech",
+        archive_name: "vosk-model-en-us-librispeech-0.2.zip",
+        install_dir_name: "vosk-model-en-us-librispeech-0.2",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-librispeech-0.2.zip",
+        download_size_mb: 845,
+        runtime_memory_mb: 7000,
+        license: "Apache 2.0",
+        description: "English Librispeech model for research and testing.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-en-us-zamia-0.5",
+        language: "en-US",
+        label: "English",
+        family: "Small Zamia",
+        archive_name: "vosk-model-small-en-us-zamia-0.5.zip",
+        install_dir_name: "vosk-model-small-en-us-zamia-0.5",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-en-us-zamia-0.5.zip",
+        download_size_mb: 49,
+        runtime_memory_mb: 340,
+        license: "LGPL-3.0",
+        description: "Small English research model repackaged from Zamia.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-en-us-aspire-0.2",
+        language: "en-US",
+        label: "English",
+        family: "ASPIRE",
+        archive_name: "vosk-model-en-us-aspire-0.2.zip",
+        install_dir_name: "vosk-model-en-us-aspire-0.2",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-aspire-0.2.zip",
+        download_size_mb: 1434,
+        runtime_memory_mb: 12000,
+        license: "Apache 2.0",
+        description: "Older English ASPIRE model for experimentation.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-en-us-0.21",
+        language: "en-US",
+        label: "English",
+        family: "Large Legacy",
+        archive_name: "vosk-model-en-us-0.21.zip",
+        install_dir_name: "vosk-model-en-us-0.21",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-0.21.zip",
+        download_size_mb: 1638,
+        runtime_memory_mb: 13000,
+        license: "Apache 2.0",
+        description: "Previous-generation large English model.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-tr-0.3",
         language: "tr-TR",
         label: "Turkish",
+        family: "Small",
         archive_name: "vosk-model-small-tr-0.3.zip",
+        install_dir_name: "vosk-model-small-tr-0.3",
         download_url: "https://alphacephei.com/vosk/models/vosk-model-small-tr-0.3.zip",
         download_size_mb: 35,
+        runtime_memory_mb: 300,
+        license: "Apache 2.0",
+        description: "Lightweight Turkish model for desktop and mobile use.",
+        recommended: true,
+        bundled_archive_kind: None,
     },
     VoiceModelSpec {
+        model_id: "vosk-model-ar-mgb2-0.4",
         language: "ar-SA",
         label: "Arabic",
+        family: "Medium",
         archive_name: "vosk-model-ar-mgb2-0.4.zip",
+        install_dir_name: "vosk-model-ar-mgb2-0.4",
         download_url: "https://alphacephei.com/vosk/models/vosk-model-ar-mgb2-0.4.zip",
         download_size_mb: 318,
+        runtime_memory_mb: 2200,
+        license: "Apache 2.0",
+        description: "Arabic model trained on the MGB2 dataset.",
+        recommended: true,
+        bundled_archive_kind: None,
     },
     VoiceModelSpec {
+        model_id: "vosk-model-ar-0.22-linto-1.1.0",
+        language: "ar-SA",
+        label: "Arabic",
+        family: "Large LINTO",
+        archive_name: "vosk-model-ar-0.22-linto-1.1.0.zip",
+        install_dir_name: "vosk-model-ar-0.22-linto-1.1.0",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-ar-0.22-linto-1.1.0.zip",
+        download_size_mb: 1331,
+        runtime_memory_mb: 11000,
+        license: "AGPL",
+        description: "Large Arabic model from LINTO.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-de-0.15",
         language: "de-DE",
         label: "German",
+        family: "Small",
         archive_name: "vosk-model-small-de-0.15.zip",
+        install_dir_name: "vosk-model-small-de-0.15",
         download_url: "https://alphacephei.com/vosk/models/vosk-model-small-de-0.15.zip",
         download_size_mb: 45,
+        runtime_memory_mb: 320,
+        license: "Apache 2.0",
+        description: "Lightweight German model for desktop and mobile use.",
+        recommended: true,
+        bundled_archive_kind: None,
     },
     VoiceModelSpec {
+        model_id: "vosk-model-de-0.21",
+        language: "de-DE",
+        label: "German",
+        family: "Large",
+        archive_name: "vosk-model-de-0.21.zip",
+        install_dir_name: "vosk-model-de-0.21",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-de-0.21.zip",
+        download_size_mb: 1946,
+        runtime_memory_mb: 15000,
+        license: "Apache 2.0",
+        description: "Large German model for telephony and server workloads.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-de-tuda-0.6-900k",
+        language: "de-DE",
+        label: "German",
+        family: "Tuda-DE",
+        archive_name: "vosk-model-de-tuda-0.6-900k.zip",
+        install_dir_name: "vosk-model-de-tuda-0.6-900k",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-de-tuda-0.6-900k.zip",
+        download_size_mb: 4506,
+        runtime_memory_mb: 16000,
+        license: "Apache 2.0",
+        description: "High-accuracy German model from the Tuda-DE project.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-de-zamia-0.3",
+        language: "de-DE",
+        label: "German",
+        family: "Small Zamia",
+        archive_name: "vosk-model-small-de-zamia-0.3.zip",
+        install_dir_name: "vosk-model-small-de-zamia-0.3",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-de-zamia-0.3.zip",
+        download_size_mb: 49,
+        runtime_memory_mb: 340,
+        license: "LGPL-3.0",
+        description: "Small repackaged German model from Zamia.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-fr-0.22",
         language: "fr-FR",
         label: "French",
+        family: "Small",
         archive_name: "vosk-model-small-fr-0.22.zip",
+        install_dir_name: "vosk-model-small-fr-0.22",
         download_url: "https://alphacephei.com/vosk/models/vosk-model-small-fr-0.22.zip",
         download_size_mb: 41,
+        runtime_memory_mb: 300,
+        license: "Apache 2.0",
+        description: "Lightweight French model for desktop and mobile use.",
+        recommended: true,
+        bundled_archive_kind: None,
     },
     VoiceModelSpec {
+        model_id: "vosk-model-fr-0.22",
+        language: "fr-FR",
+        label: "French",
+        family: "Large",
+        archive_name: "vosk-model-fr-0.22.zip",
+        install_dir_name: "vosk-model-fr-0.22",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-fr-0.22.zip",
+        download_size_mb: 1434,
+        runtime_memory_mb: 12000,
+        license: "Apache 2.0",
+        description: "Large accurate French model.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-fr-pguyot-0.3",
+        language: "fr-FR",
+        label: "French",
+        family: "Small PGuyot",
+        archive_name: "vosk-model-small-fr-pguyot-0.3.zip",
+        install_dir_name: "vosk-model-small-fr-pguyot-0.3",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-fr-pguyot-0.3.zip",
+        download_size_mb: 39,
+        runtime_memory_mb: 300,
+        license: "CC-BY-NC-SA 4.0",
+        description: "Alternative small French model by Paul Guyot.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-fr-0.6-linto-2.2.0",
+        language: "fr-FR",
+        label: "French",
+        family: "Large LINTO",
+        archive_name: "vosk-model-fr-0.6-linto-2.2.0.zip",
+        install_dir_name: "vosk-model-fr-0.6-linto-2.2.0",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-fr-0.6-linto-2.2.0.zip",
+        download_size_mb: 1536,
+        runtime_memory_mb: 12000,
+        license: "AGPL",
+        description: "Large French model from the LINTO project.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-es-0.42",
         language: "es-ES",
         label: "Spanish",
+        family: "Small",
         archive_name: "vosk-model-small-es-0.42.zip",
+        install_dir_name: "vosk-model-small-es-0.42",
         download_url: "https://alphacephei.com/vosk/models/vosk-model-small-es-0.42.zip",
         download_size_mb: 39,
+        runtime_memory_mb: 300,
+        license: "Apache 2.0",
+        description: "Lightweight Spanish model for desktop and mobile use.",
+        recommended: true,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-es-0.42",
+        language: "es-ES",
+        label: "Spanish",
+        family: "Large",
+        archive_name: "vosk-model-es-0.42.zip",
+        install_dir_name: "vosk-model-es-0.42",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-es-0.42.zip",
+        download_size_mb: 1434,
+        runtime_memory_mb: 12000,
+        license: "Apache 2.0",
+        description: "Large accurate Spanish model.",
+        recommended: false,
+        bundled_archive_kind: None,
     },
 ];
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PersistedAppDataPayload {
+    state: serde_json::Value,
+    voice_model_registry: serde_json::Value,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -156,10 +492,17 @@ struct ImportedFilePayload {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct VoiceModelStatus {
+pub(crate) struct VoiceModelStatus {
+    model_id: String,
     language: String,
     label: String,
+    family: String,
     download_size_mb: u64,
+    runtime_memory_mb: u64,
+    license: String,
+    description: String,
+    recommended: bool,
+    bundled: bool,
     installed: bool,
     path: Option<String>,
     size_bytes: u64,
@@ -168,6 +511,7 @@ struct VoiceModelStatus {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct VoiceModelDownloadEvent {
+    model_id: String,
     language: String,
     stage: String,
     label: String,
@@ -266,7 +610,7 @@ struct DesktopState {
 
 #[derive(Debug, Default)]
 struct VoiceModelDownloads {
-    active_languages: Mutex<HashSet<String>>,
+    active_models: Mutex<HashSet<String>>,
 }
 
 #[allow(dead_code)]
@@ -1122,8 +1466,13 @@ fn list_voice_models(app: tauri::AppHandle) -> Result<Vec<VoiceModelStatus>, Str
 }
 
 #[tauri::command]
-fn get_voice_model_status(app: tauri::AppHandle, language: String) -> Result<VoiceModelStatus, String> {
-    let spec = get_voice_model_spec(&language).ok_or_else(|| "Unsupported voice language".to_string())?;
+fn get_voice_model_status(
+    app: tauri::AppHandle,
+    language: String,
+    model_id: Option<String>,
+) -> Result<VoiceModelStatus, String> {
+    let spec = get_voice_model_spec(&language, model_id.as_deref())
+        .ok_or_else(|| "Unsupported voice language or model".to_string())?;
     build_voice_model_status(&app, spec)
 }
 
@@ -1133,30 +1482,33 @@ async fn download_voice_model(
     window: tauri::WebviewWindow,
     downloads: tauri::State<'_, VoiceModelDownloads>,
     language: String,
+    model_id: Option<String>,
 ) -> Result<VoiceModelStatus, String> {
-    let spec = get_voice_model_spec(&language).ok_or_else(|| "Unsupported voice language".to_string())?;
-    let language_key = spec.language.to_string();
+    let spec = get_voice_model_spec(&language, model_id.as_deref())
+        .ok_or_else(|| "Unsupported voice language or model".to_string())?;
+    let model_key = format!("{}::{}", spec.language, spec.model_id);
 
     {
         let mut active = downloads
-            .active_languages
+            .active_models
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        if active.contains(&language_key) {
+        if active.contains(&model_key) {
             return Err("That voice model is already downloading".into());
         }
 
-        active.insert(language_key.clone());
+        active.insert(model_key.clone());
     }
 
     let result: Result<VoiceModelStatus, String> = async {
-        let final_path = voice_model_archive_path(&app, spec)?;
-        if final_path.exists() {
+        let final_dir = voice_model_install_dir(&app, spec)?;
+        if is_installed_voice_model_dir(&final_dir) || spec.bundled_archive_kind.is_some() {
             let status = build_voice_model_status(&app, spec)?;
             emit_voice_model_download_event(
                 &window,
                 VoiceModelDownloadEvent {
+                    model_id: spec.model_id.to_string(),
                     language: spec.language.to_string(),
                     stage: "completed".into(),
                     label: spec.label.to_string(),
@@ -1171,6 +1523,7 @@ async fn download_voice_model(
             return Ok(status);
         }
 
+        let final_path = voice_model_archive_path(&app, spec)?;
         let temp_path = final_path.with_extension("download");
         if temp_path.exists() {
             fs::remove_file(&temp_path).map_err(|error| error.to_string())?;
@@ -1197,6 +1550,7 @@ async fn download_voice_model(
         emit_voice_model_download_event(
             &window,
             VoiceModelDownloadEvent {
+                model_id: spec.model_id.to_string(),
                 language: spec.language.to_string(),
                 stage: "started".into(),
                 label: spec.label.to_string(),
@@ -1220,6 +1574,7 @@ async fn download_voice_model(
                 emit_voice_model_download_event(
                     &window,
                     VoiceModelDownloadEvent {
+                        model_id: spec.model_id.to_string(),
                         language: spec.language.to_string(),
                         stage: "progress".into(),
                         label: spec.label.to_string(),
@@ -1242,11 +1597,14 @@ async fn download_voice_model(
             fs::remove_file(&final_path).map_err(|error| error.to_string())?;
         }
         fs::rename(&temp_path, &final_path).map_err(|error| error.to_string())?;
+        extract_downloaded_voice_model(&app, spec)?;
+        fs::remove_file(&final_path).map_err(|error| error.to_string())?;
 
         let status = build_voice_model_status(&app, spec)?;
         emit_voice_model_download_event(
             &window,
             VoiceModelDownloadEvent {
+                model_id: spec.model_id.to_string(),
                 language: spec.language.to_string(),
                 stage: "completed".into(),
                 label: spec.label.to_string(),
@@ -1267,6 +1625,7 @@ async fn download_voice_model(
         emit_voice_model_download_event(
             &window,
             VoiceModelDownloadEvent {
+                model_id: spec.model_id.to_string(),
                 language: spec.language.to_string(),
                 stage: "error".into(),
                 label: spec.label.to_string(),
@@ -1282,10 +1641,10 @@ async fn download_voice_model(
 
     {
         let mut active = downloads
-            .active_languages
+            .active_models
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        active.remove(&language_key);
+        active.remove(&model_key);
     }
 
     result
@@ -1678,7 +2037,7 @@ fn now_unix_ms() -> u64 {
         .as_millis() as u64
 }
 
-fn normalize_voice_language(language: &str) -> &'static str {
+pub(crate) fn normalize_voice_language(language: &str) -> &'static str {
     match language.trim().to_ascii_lowercase().as_str() {
         "en" | "en-gb" | "en-us" => "en-US",
         "tr" | "tr-tr" => "tr-TR",
@@ -1690,14 +2049,27 @@ fn normalize_voice_language(language: &str) -> &'static str {
     }
 }
 
-fn get_voice_model_spec(language: &str) -> Option<&'static VoiceModelSpec> {
+pub(crate) fn get_voice_model_spec(
+    language: &str,
+    model_id: Option<&str>,
+) -> Option<&'static VoiceModelSpec> {
     let normalized = normalize_voice_language(language);
+    if let Some(requested_model_id) = model_id.map(str::trim).filter(|value| !value.is_empty()) {
+        if let Some(spec) = VOICE_MODEL_SPECS
+            .iter()
+            .find(|spec| spec.language == normalized && spec.model_id == requested_model_id)
+        {
+            return Some(spec);
+        }
+    }
+
     VOICE_MODEL_SPECS
         .iter()
-        .find(|spec| spec.language == normalized)
+        .find(|spec| spec.language == normalized && spec.recommended)
+        .or_else(|| VOICE_MODEL_SPECS.iter().find(|spec| spec.language == normalized))
 }
 
-fn voice_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn voice_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     let dir = app
         .path()
         .app_data_dir()
@@ -1708,24 +2080,261 @@ fn voice_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(dir)
 }
 
-fn voice_model_archive_path(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+fn app_storage_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
+    fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
+    Ok(dir)
+}
+
+fn app_storage_file_path(app: &tauri::AppHandle, file_name: &str) -> Result<PathBuf, String> {
+    Ok(app_storage_dir(app)?.join(file_name))
+}
+
+fn read_json_storage<T>(app: &tauri::AppHandle, file_name: &str) -> Result<Option<T>, String>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let path = app_storage_file_path(app, file_name)?;
+    if !path.exists() {
+        return Ok(None);
+    }
+
+    let raw = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+    let parsed = serde_json::from_str::<T>(&raw).map_err(|error| error.to_string())?;
+    Ok(Some(parsed))
+}
+
+fn write_json_storage<T>(app: &tauri::AppHandle, file_name: &str, value: &T) -> Result<(), String>
+where
+    T: Serialize,
+{
+    let path = app_storage_file_path(app, file_name)?;
+    let temp_path = path.with_extension("tmp");
+    let bytes = serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?;
+    fs::write(&temp_path, bytes).map_err(|error| error.to_string())?;
+    if path.exists() {
+        fs::remove_file(&path).map_err(|error| error.to_string())?;
+    }
+    fs::rename(&temp_path, &path).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn load_persisted_app_data(app: tauri::AppHandle) -> Result<PersistedAppDataPayload, String> {
+    let state = read_json_storage::<serde_json::Value>(&app, APP_STATE_FILE_NAME)?
+        .unwrap_or_else(|| serde_json::json!({}));
+    let voice_model_registry = read_json_storage::<serde_json::Value>(&app, VOICE_MODEL_REGISTRY_FILE_NAME)?
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    Ok(PersistedAppDataPayload {
+        state,
+        voice_model_registry,
+    })
+}
+
+#[tauri::command]
+fn save_persisted_app_state(app: tauri::AppHandle, state: serde_json::Value) -> Result<(), String> {
+    write_json_storage(&app, APP_STATE_FILE_NAME, &state)
+}
+
+#[tauri::command]
+fn save_persisted_voice_model_registry(
+    app: tauri::AppHandle,
+    registry: serde_json::Value,
+) -> Result<(), String> {
+    write_json_storage(&app, VOICE_MODEL_REGISTRY_FILE_NAME, &registry)
+}
+
+fn voice_model_language_dir(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
     let dir = voice_models_dir(app)?.join(spec.language);
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
-    Ok(dir.join(spec.archive_name))
+    Ok(dir)
+}
+
+fn voice_model_archive_path(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+    Ok(voice_model_language_dir(app, spec)?.join(spec.archive_name))
+}
+
+pub(crate) fn voice_model_install_dir(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+    Ok(voice_model_language_dir(app, spec)?.join(spec.install_dir_name))
+}
+
+fn is_installed_voice_model_dir(path: &FsPath) -> bool {
+    if !path.is_dir() {
+        return false;
+    }
+
+    fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .any(|entry| {
+            let child = entry.path();
+            child.is_dir()
+                || entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| matches!(name, "README" | "README.md" | "mfcc.conf"))
+        })
+}
+
+fn compute_dir_size_bytes(path: &FsPath) -> u64 {
+    fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(Result::ok)
+        .map(|entry| {
+            let child = entry.path();
+            if child.is_dir() {
+                compute_dir_size_bytes(&child)
+            } else {
+                entry.metadata().map(|metadata| metadata.len()).unwrap_or(0)
+            }
+        })
+        .sum()
+}
+
+fn extract_bundled_voice_model(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+    let final_dir = voice_model_install_dir(app, spec)?;
+    if is_installed_voice_model_dir(&final_dir) {
+        return Ok(final_dir);
+    }
+
+    let extraction_root = voice_model_language_dir(app, spec)?;
+    let temp_dir = extraction_root.join(format!("{}.extract", spec.install_dir_name));
+    if temp_dir.exists() {
+        fs::remove_dir_all(&temp_dir).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&temp_dir).map_err(|error| error.to_string())?;
+
+    match spec.bundled_archive_kind {
+        Some(BundledVoiceArchiveKind::TarGz) => {
+            let decoder = GzDecoder::new(Cursor::new(BUNDLED_ENGLISH_VOSK_MODEL));
+            let mut archive = Archive::new(decoder);
+            archive.unpack(&temp_dir).map_err(|error| error.to_string())?;
+        }
+        None => return Err("This voice model is not bundled".into()),
+    }
+
+    finalize_extracted_voice_model(&temp_dir, &final_dir)
+}
+
+fn extract_downloaded_voice_model(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+    let archive_path = voice_model_archive_path(app, spec)?;
+    let extraction_root = voice_model_language_dir(app, spec)?;
+    let final_dir = voice_model_install_dir(app, spec)?;
+    let temp_dir = extraction_root.join(format!("{}.extract", spec.install_dir_name));
+
+    if temp_dir.exists() {
+        fs::remove_dir_all(&temp_dir).map_err(|error| error.to_string())?;
+    }
+    fs::create_dir_all(&temp_dir).map_err(|error| error.to_string())?;
+
+    let archive_file = fs::File::open(&archive_path).map_err(|error| error.to_string())?;
+    let mut archive = ZipArchive::new(archive_file).map_err(|error| error.to_string())?;
+    for index in 0..archive.len() {
+        let mut entry = archive.by_index(index).map_err(|error| error.to_string())?;
+        let relative_path = entry
+            .enclosed_name()
+            .map(|path| path.to_path_buf())
+            .ok_or_else(|| "Voice model archive contained an invalid path".to_string())?;
+        let output_path = temp_dir.join(relative_path);
+
+        if entry.is_dir() {
+            fs::create_dir_all(&output_path).map_err(|error| error.to_string())?;
+            continue;
+        }
+
+        if let Some(parent) = output_path.parent() {
+            fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+
+        let mut output_file = fs::File::create(&output_path).map_err(|error| error.to_string())?;
+        std::io::copy(&mut entry, &mut output_file).map_err(|error| error.to_string())?;
+    }
+
+    finalize_extracted_voice_model(&temp_dir, &final_dir)
+}
+
+fn finalize_extracted_voice_model(temp_dir: &FsPath, final_dir: &FsPath) -> Result<PathBuf, String> {
+    let extracted_root = resolve_extracted_voice_model_root(temp_dir)?;
+    if final_dir.exists() {
+        fs::remove_dir_all(final_dir).map_err(|error| error.to_string())?;
+    }
+
+    if extracted_root == temp_dir {
+        fs::rename(temp_dir, final_dir).map_err(|error| error.to_string())?;
+    } else {
+        fs::rename(&extracted_root, final_dir).map_err(|error| error.to_string())?;
+        fs::remove_dir_all(temp_dir).map_err(|error| error.to_string())?;
+    }
+
+    Ok(final_dir.to_path_buf())
+}
+
+fn resolve_extracted_voice_model_root(extraction_dir: &FsPath) -> Result<PathBuf, String> {
+    let mut entries = fs::read_dir(extraction_dir)
+        .map_err(|error| error.to_string())?
+        .filter_map(Result::ok)
+        .collect::<Vec<_>>();
+
+    if entries.len() == 1 && entries[0].path().is_dir() {
+        return Ok(entries.remove(0).path());
+    }
+
+    Ok(extraction_dir.to_path_buf())
+}
+
+pub(crate) fn ensure_voice_model_ready_for_model(
+    app: &tauri::AppHandle,
+    language: &str,
+    model_id: Option<&str>,
+) -> Result<PathBuf, String> {
+    let spec = get_voice_model_spec(language, model_id)
+        .ok_or_else(|| "Unsupported voice language or model".to_string())?;
+    let final_dir = voice_model_install_dir(app, spec)?;
+    if is_installed_voice_model_dir(&final_dir) {
+        return Ok(final_dir);
+    }
+
+    if spec.bundled_archive_kind.is_some() {
+        return extract_bundled_voice_model(app, spec);
+    }
+
+    Err(format!("Missing Vosk model for {}", spec.label))
 }
 
 fn build_voice_model_status(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<VoiceModelStatus, String> {
-    let archive_path = voice_model_archive_path(app, spec)?;
-    let metadata = fs::metadata(&archive_path).ok();
-    let size_bytes = metadata.as_ref().map(|value| value.len()).unwrap_or(0);
-    let installed = metadata.map(|value| value.is_file() && value.len() > 0).unwrap_or(false);
+    let install_dir = voice_model_install_dir(app, spec)?;
+    if !is_installed_voice_model_dir(&install_dir) && spec.bundled_archive_kind.is_some() {
+        let _ = extract_bundled_voice_model(app, spec);
+    }
+
+    let installed = is_installed_voice_model_dir(&install_dir);
+    let size_bytes = if installed {
+        compute_dir_size_bytes(&install_dir)
+    } else {
+        0
+    };
 
     Ok(VoiceModelStatus {
+        model_id: spec.model_id.to_string(),
         language: spec.language.to_string(),
         label: spec.label.to_string(),
+        family: spec.family.to_string(),
         download_size_mb: spec.download_size_mb,
+        runtime_memory_mb: spec.runtime_memory_mb,
+        license: spec.license.to_string(),
+        description: spec.description.to_string(),
+        recommended: spec.recommended,
+        bundled: spec.bundled_archive_kind.is_some(),
         installed,
-        path: installed.then(|| archive_path.to_string_lossy().to_string()),
+        path: installed.then(|| install_dir.to_string_lossy().to_string()),
         size_bytes,
     })
 }
@@ -1736,17 +2345,21 @@ fn emit_voice_model_download_event(window: &tauri::WebviewWindow, payload: Voice
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    set_log_level(LogLevel::Error);
+
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .with_flags(Flags::CONTEXT_MENU | Flags::PRINT | Flags::DOWNLOADS)
         .build();
     let relay = RemoteRelay::new();
     let desktop_state = DesktopState::default();
     let voice_model_downloads = VoiceModelDownloads::default();
+    let voice_engine_state = voice_engine::VoiceEngineState::default();
 
     tauri::Builder::default()
         .manage(relay.clone())
         .manage(desktop_state)
         .manage(voice_model_downloads)
+        .manage(voice_engine_state)
         .plugin(prevent)
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
@@ -1769,9 +2382,17 @@ pub fn run() {
             remote_receiver_heartbeat,
             list_remote_messages,
             resolve_remote_message,
+            load_persisted_app_data,
+            save_persisted_app_state,
+            save_persisted_voice_model_registry,
             list_voice_models,
             get_voice_model_status,
             download_voice_model,
+            voice_engine::start_voice_tracking,
+            voice_engine::stop_voice_tracking,
+            voice_engine::start_voice_command_listener,
+            voice_engine::stop_voice_command_listener,
+            voice_engine::get_voice_engine_debug_state,
             read_import_file
         ])
         .setup(move |app| {

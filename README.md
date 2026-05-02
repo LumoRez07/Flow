@@ -36,6 +36,10 @@
   <img alt="AI Drafting" src="https://img.shields.io/badge/AI-Groq-0ea5e9?style=for-the-badge" />
 </p>
 
+<p align="center">
+Please consider starring this repo if it helps you! ⭐
+</p>
+
 ## Overview
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.

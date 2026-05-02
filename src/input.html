@@ -29,10 +29,20 @@
             <button class="mini-link" id="closeWindowButton" type="button"><span class="button-label-content"><i class="ph ph-x" aria-hidden="true"></i><span data-i18n="common.close">Close</span></span></button>
           </div>
         </div>
-        <select id="inputSectionSelect" class="page-input settings-section-select">
-          <option value="editor" data-i18n="input.section.editor">Editor</option>
-          <option value="assistant" data-i18n="input.section.assistant">Groq assistant</option>
-        </select>
+        <div class="choice-picker settings-section-select" id="inputSectionPicker">
+          <select id="inputSectionSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+            <option value="editor" data-i18n="input.section.editor">Editor</option>
+            <option value="assistant" data-i18n="input.section.assistant">Groq assistant</option>
+          </select>
+          <button class="choice-trigger" id="inputSectionTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Choose editor panel">
+            <span class="choice-trigger-copy">
+              <span class="choice-trigger-label" id="inputSectionTriggerLabel">Editor</span>
+              <span class="choice-trigger-preview hidden" id="inputSectionTriggerPreview"></span>
+            </span>
+            <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+          </button>
+          <div class="choice-menu hidden" id="inputSectionMenu" role="listbox"></div>
+        </div>
       </div>
 
       <div class="input-sections">
@@ -53,12 +63,99 @@
           <button class="toolbar-button highlight-blue" type="button" data-wrap-before="[blue]" data-wrap-after="[/blue]" data-placeholder="blue highlight">B</button>
           <button class="toolbar-button highlight-red" type="button" data-wrap-before="[red]" data-wrap-after="[/red]" data-placeholder="red highlight">R</button>
         </div>
+
         <div class="editor-import-row">
           <button class="secondary-action compact-action" id="uploadFileButton" type="button" data-i18n="input.importButton">Import file</button>
           <input id="uploadFileInput" type="file" class="hidden-file-input" accept=".txt,.text,.md,.markdown,.csv,.tsv,.json,.xml,.html,.htm,.docx,.pdf,text/plain,text/markdown,text/csv,application/json,application/xml,text/xml,text/html,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
           <span class="helper-text import-status" id="importStatus" data-i18n="input.importHelp">Drop a TXT, DOCX, or PDF file into the editor, or choose one from your device.</span>
         </div>
         <textarea id="scriptInput" class="page-textarea" data-i18n-placeholder="input.scriptPlaceholder" placeholder="Paste or write your script here..."></textarea>
+
+        <section class="settings-subgroup script-card-builder" id="scriptCardBuilder" aria-label="Cue cards" data-collapsed="false">
+          <div class="settings-subgroup-header">
+            <h3 class="settings-subgroup-title" data-i18n="input.cardBuilder">Cue cards</h3>
+            <button class="icon-button collapse-toggle script-card-toggle" id="toggleScriptCardBuilderButton" type="button" aria-controls="scriptCardBuilderBody" aria-expanded="true" data-i18n-title="input.cardPanelCollapse" data-i18n-aria-label="input.cardPanelCollapse">
+              <i class="ph ph-caret-up" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="script-card-builder-body" id="scriptCardBuilderBody">
+            <p class="helper-text" data-i18n="input.cardBuilderHelp">Insert presenter cues as styled cards inside the script. Centered cards break onto their own line, while between-words cards stay compact inline.</p>
+
+            <div class="group-grid settings-subgroup-grid card-builder-grid">
+              <div class="choice-field card-builder-template-field">
+                <label class="compact-field-label" for="scriptCardTemplateSelect" data-i18n="input.cardTemplate">Template</label>
+                <div class="choice-picker" id="scriptCardTemplatePicker">
+                  <select id="scriptCardTemplateSelect" class="choice-select-native" aria-hidden="true" tabindex="-1"></select>
+                  <button class="choice-trigger" id="scriptCardTemplateTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="choice-trigger-copy">
+                      <span class="choice-trigger-label" id="scriptCardTemplateTriggerLabel"></span>
+                      <span class="choice-trigger-preview hidden" id="scriptCardTemplateTriggerPreview"></span>
+                    </span>
+                    <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                  </button>
+                  <div class="choice-menu hidden" id="scriptCardTemplateMenu" role="listbox"></div>
+                </div>
+                <div class="card-builder-template-toolbar">
+                  <span class="helper-text" id="scriptCardTemplateMeta"></span>
+                  <button class="mini-link hidden" id="deleteScriptCardTemplateButton" type="button"><span class="button-label-content"><i class="ph ph-trash" aria-hidden="true"></i><span data-i18n="input.cardDeleteAction">Delete</span></span></button>
+                </div>
+              </div>
+
+              <div class="choice-field">
+                <label class="compact-field-label" for="scriptCardPlacementSelect" data-i18n="input.cardType">Card type</label>
+                <div class="choice-picker" id="scriptCardPlacementPicker">
+                  <select id="scriptCardPlacementSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                    <option value="centered" data-i18n="input.cardType.centered">Centered</option>
+                    <option value="between" data-i18n="input.cardType.between">Between words</option>
+                  </select>
+                  <button class="choice-trigger" id="scriptCardPlacementTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="choice-trigger-copy">
+                      <span class="choice-trigger-label" id="scriptCardPlacementTriggerLabel">Centered</span>
+                      <span class="choice-trigger-preview hidden" id="scriptCardPlacementTriggerPreview"></span>
+                    </span>
+                    <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                  </button>
+                  <div class="choice-menu hidden" id="scriptCardPlacementMenu" role="listbox"></div>
+                </div>
+              </div>
+
+              <label class="card-builder-text-field">
+                <span data-i18n="input.cardText">Card text</span>
+                <input id="scriptCardTextInput" class="page-input" type="text" data-i18n-placeholder="input.cardTextPlaceholder" placeholder="Example: WAIT 3 SECONDS" />
+              </label>
+
+              <label class="card-builder-wait-field hidden" id="scriptCardWaitSecondsField">
+                <span data-i18n="input.cardWaitSeconds">Wait seconds</span>
+                <div class="card-builder-wait-input-wrap">
+                  <input id="scriptCardWaitSecondsInput" class="page-input" type="number" min="1" step="1" inputmode="numeric" value="3" />
+                  <div class="card-builder-wait-spinner" aria-hidden="true">
+                    <button class="card-builder-wait-spinner-button is-increment" id="scriptCardWaitIncrementButton" type="button" tabindex="-1" aria-label="Increase wait seconds">
+                      <i class="ph ph-caret-up" aria-hidden="true"></i>
+                    </button>
+                    <button class="card-builder-wait-spinner-button is-decrement" id="scriptCardWaitDecrementButton" type="button" tabindex="-1" aria-label="Decrease wait seconds">
+                      <i class="ph ph-caret-down" aria-hidden="true"></i>
+                    </button>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <div class="page-actions card-builder-actions">
+              <button class="secondary-action compact-action" id="addScriptCardButton" type="button" data-i18n="input.cardAdd">Add</button>
+              <input id="scriptCardCustomNameInput" class="page-input card-builder-name-input" type="text" data-i18n-placeholder="input.cardCustomNamePlaceholder" placeholder="Example: Interview pause" />
+              <button class="secondary-action compact-action" id="saveScriptCardTemplateButton" type="button" data-i18n="input.cardSaveTemplate">Save template</button>
+            </div>
+
+            <span class="helper-text script-card-status" id="scriptCardStatus" aria-live="polite"></span>
+
+            <div class="script-card-preview-wrap" aria-live="polite">
+              <span class="script-card-preview-label" data-i18n="input.cardPreview">Preview</span>
+              <div class="script-card-preview-surface">
+                <div id="scriptCardPreview" class="script-card-preview"></div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="input-meta" id="scriptMeta">0 words</div>
         <div class="helper-text editor-help" data-i18n-html="input.editorHelp">Formatting works like Reddit-style markdown for <strong>**bold**</strong> and <em>*italic*</em>, plus tags for <span class="toolbar-underline">[u]underline[/u]</span>, <mark class="mark-yellow">[yellow]highlight[/yellow]</mark>, <mark class="mark-blue">[blue]highlight[/blue]</mark>, and <mark class="mark-red">[red]highlight[/red]</mark>.</div>

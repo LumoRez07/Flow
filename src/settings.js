@@ -13,12 +13,14 @@ import {
   applyAppearanceToDocument,
   applyTranslationsToDocument,
   defaultState,
+  FONT_OPTIONS,
   getThemeTeleprompterTextColor,
   getSelectedVoiceModelId,
   initializePersistentStorage,
   loadVoiceModelRegistry,
   loadState,
   normalizeVoiceLanguage,
+  resolveFontStack,
   saveState,
   saveVoiceModelRegistry,
   updateVoiceModelRegistry,
@@ -69,15 +71,35 @@ const ui = {
   widthValue: document.querySelector("#widthValue"),
   heightInput: document.querySelector("#heightInput"),
   heightValue: document.querySelector("#heightValue"),
+  presetPicker: document.querySelector("#presetPicker"),
   presetSelect: document.querySelector("#presetSelect"),
+  presetTrigger: document.querySelector("#presetTrigger"),
+  presetTriggerLabel: document.querySelector("#presetTriggerLabel"),
+  presetTriggerPreview: document.querySelector("#presetTriggerPreview"),
+  presetMenu: document.querySelector("#presetMenu"),
+  modePicker: document.querySelector("#modePicker"),
   modeSelect: document.querySelector("#modeSelect"),
+  modeTrigger: document.querySelector("#modeTrigger"),
+  modeTriggerLabel: document.querySelector("#modeTriggerLabel"),
+  modeTriggerPreview: document.querySelector("#modeTriggerPreview"),
+  modeMenu: document.querySelector("#modeMenu"),
   speedRailEnabledInput: document.querySelector("#speedRailEnabledInput"),
   voiceLanguageGroup: document.querySelector("#voiceLanguageGroup"),
+  voiceLanguagePicker: document.querySelector("#voiceLanguagePicker"),
   voiceLanguageSelect: document.querySelector("#voiceLanguageSelect"),
+  voiceLanguageTrigger: document.querySelector("#voiceLanguageTrigger"),
+  voiceLanguageTriggerLabel: document.querySelector("#voiceLanguageTriggerLabel"),
+  voiceLanguageTriggerPreview: document.querySelector("#voiceLanguageTriggerPreview"),
+  voiceLanguageMenu: document.querySelector("#voiceLanguageMenu"),
   voiceModelCard: document.querySelector("#voiceModelCard"),
   voiceModelBadge: document.querySelector("#voiceModelBadge"),
   voiceModelSelectedLabel: document.querySelector("#voiceModelSelectedLabel"),
+  voiceModelPicker: document.querySelector("#voiceModelPicker"),
   voiceModelSelect: document.querySelector("#voiceModelSelect"),
+  voiceModelTrigger: document.querySelector("#voiceModelTrigger"),
+  voiceModelTriggerLabel: document.querySelector("#voiceModelTriggerLabel"),
+  voiceModelTriggerPreview: document.querySelector("#voiceModelTriggerPreview"),
+  voiceModelMenu: document.querySelector("#voiceModelMenu"),
   voiceModelHint: document.querySelector("#voiceModelHint"),
   voiceModelPath: document.querySelector("#voiceModelPath"),
   voiceModelProgress: document.querySelector("#voiceModelProgress"),
@@ -86,8 +108,18 @@ const ui = {
   voiceModelProgressStats: document.querySelector("#voiceModelProgressStats"),
   voiceModelDownloadButton: document.querySelector("#voiceModelDownloadButton"),
   voiceStyleGroup: document.querySelector("#voiceStyleGroup"),
+  voiceStylePicker: document.querySelector("#voiceStylePicker"),
   voiceStyleSelect: document.querySelector("#voiceStyleSelect"),
+  voiceStyleTrigger: document.querySelector("#voiceStyleTrigger"),
+  voiceStyleTriggerLabel: document.querySelector("#voiceStyleTriggerLabel"),
+  voiceStyleTriggerPreview: document.querySelector("#voiceStyleTriggerPreview"),
+  voiceStyleMenu: document.querySelector("#voiceStyleMenu"),
+  soundInputDevicePicker: document.querySelector("#soundInputDevicePicker"),
   soundInputDeviceSelect: document.querySelector("#soundInputDeviceSelect"),
+  soundInputDeviceTrigger: document.querySelector("#soundInputDeviceTrigger"),
+  soundInputDeviceTriggerLabel: document.querySelector("#soundInputDeviceTriggerLabel"),
+  soundInputDeviceTriggerPreview: document.querySelector("#soundInputDeviceTriggerPreview"),
+  soundInputDeviceMenu: document.querySelector("#soundInputDeviceMenu"),
   soundInputLevelFill: document.querySelector("#soundInputLevelFill"),
   soundInputLevelValue: document.querySelector("#soundInputLevelValue"),
   soundInputStatus: document.querySelector("#soundInputStatus"),
@@ -97,6 +129,11 @@ const ui = {
   soundInputGainValue: document.querySelector("#soundInputGainValue"),
   soundInputRecommendedButton: document.querySelector("#soundInputRecommendedButton"),
   fontSelect: document.querySelector("#fontSelect"),
+  fontPicker: document.querySelector("#fontPicker"),
+  fontTrigger: document.querySelector("#fontTrigger"),
+  fontTriggerLabel: document.querySelector("#fontTriggerLabel"),
+  fontTriggerPreview: document.querySelector("#fontTriggerPreview"),
+  fontMenu: document.querySelector("#fontMenu"),
   appWideVoiceCommandsInput: document.querySelector("#appWideVoiceCommandsInput"),
   languageSelect: document.querySelector("#languageSelect"),
   languagePicker: document.querySelector("#languagePicker"),
@@ -109,6 +146,8 @@ const ui = {
   appOpacityValue: document.querySelector("#appOpacityValue"),
   textSizeInput: document.querySelector("#textSizeInput"),
   textSizeValue: document.querySelector("#textSizeValue"),
+  mirrorModeInput: document.querySelector("#mirrorModeInput"),
+  mirrorVerticalInput: document.querySelector("#mirrorVerticalInput"),
   autoHideToolbarInput: document.querySelector("#autoHideToolbarInput"),
   styleSelect: document.querySelector("#styleSelect"),
   themeSelect: document.querySelector("#themeSelect"),
@@ -120,7 +159,22 @@ const ui = {
   textColorInput: document.querySelector("#textColorInput"),
   textOpacityInput: document.querySelector("#textOpacityInput"),
   textOpacityValue: document.querySelector("#textOpacityValue"),
+  settingsSectionPicker: document.querySelector("#settingsSectionPicker"),
   settingsSectionSelect: document.querySelector("#settingsSectionSelect"),
+  settingsSectionTrigger: document.querySelector("#settingsSectionTrigger"),
+  settingsSectionTriggerLabel: document.querySelector("#settingsSectionTriggerLabel"),
+  settingsSectionTriggerPreview: document.querySelector("#settingsSectionTriggerPreview"),
+  settingsSectionMenu: document.querySelector("#settingsSectionMenu"),
+  stylePicker: document.querySelector("#stylePicker"),
+  styleTrigger: document.querySelector("#styleTrigger"),
+  styleTriggerLabel: document.querySelector("#styleTriggerLabel"),
+  styleTriggerPreview: document.querySelector("#styleTriggerPreview"),
+  styleMenu: document.querySelector("#styleMenu"),
+  themePicker: document.querySelector("#themePicker"),
+  themeTrigger: document.querySelector("#themeTrigger"),
+  themeTriggerLabel: document.querySelector("#themeTriggerLabel"),
+  themeTriggerPreview: document.querySelector("#themeTriggerPreview"),
+  themeMenu: document.querySelector("#themeMenu"),
   settingsSections: document.querySelectorAll("[data-settings-section]"),
   windowStatus: document.querySelector("#windowStatus"),
   updaterCurrentVersion: document.querySelector("#updaterCurrentVersion"),
@@ -168,6 +222,36 @@ let soundInputPreviewSession = 0;
 let soundInputPreviewDeviceId = null;
 let soundInputStatusKey = ui.soundInputStatus?.dataset.i18n || "settings.soundInputPreviewIdle";
 let remoteSenderQr = null;
+const customSettingsSelectControllers = [];
+const RTL_TEXT_PATTERN = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
+const SETTINGS_SECTION_CHOICE_METADATA = {
+  appearance: { icon: "ph-palette", accent: "appearance" },
+  scrolling: { icon: "ph-arrows-vertical", accent: "scrolling" },
+  positioning: { icon: "ph-app-window", accent: "positioning" },
+  "sound-input": { icon: "ph-microphone-stage", accent: "sound-input" },
+  remote: { icon: "ph-broadcast", accent: "remote" },
+  usability: { icon: "ph-hand-tap", accent: "usability" },
+  privacy: { icon: "ph-shield-check", accent: "privacy" },
+  updates: { icon: "ph-arrow-clockwise", accent: "updates" }
+};
+const MODE_CHOICE_METADATA = {
+  highlight: { icon: "ph-highlighter-circle", accent: "mode" },
+  scroll: { icon: "ph-arrows-down-up", accent: "mode" },
+  line: { icon: "ph-text-align-left", accent: "mode" },
+  arrow: { icon: "ph-arrow-elbow-down-right", accent: "mode" },
+  voice: { icon: "ph-waveform", accent: "voice" }
+};
+const WINDOW_PRESET_CHOICE_METADATA = {
+  "top-center": { icon: "ph-arrow-line-up", accent: "window" },
+  center: { icon: "ph-square", accent: "window" },
+  custom: { icon: "ph-sliders-horizontal", accent: "window" },
+  drag: { icon: "ph-arrows-out-cardinal", accent: "window" }
+};
+const VOICE_STYLE_CHOICE_METADATA = {
+  highlight: { icon: "ph-highlighter-circle", accent: "voice-style" },
+  line: { icon: "ph-text-align-left", accent: "voice-style" },
+  plain: { icon: "ph-text-aa", accent: "voice-style" }
+};
 let updaterState = {
   currentVersion: "",
   update: null,
@@ -186,6 +270,148 @@ function clampNumber(value, min, max, fallback) {
   }
 
   return Math.min(Math.max(numericValue, min), max);
+}
+
+function getChoiceTextDirection(text, fallback = document.body?.dataset.uiDirection || "ltr") {
+  const normalizedText = String(text || "").trim();
+  if (!normalizedText) {
+    return fallback;
+  }
+
+  return fallback;
+}
+
+function setChoiceTextContent(element, text, dir = getChoiceTextDirection(text)) {
+  if (!element) {
+    return;
+  }
+
+  const normalizedText = String(text || "").trim();
+  element.textContent = "";
+  element.dir = dir;
+
+  if (!normalizedText) {
+    return;
+  }
+
+  const ticker = document.createElement("span");
+  ticker.className = "choice-ticker";
+  ticker.dir = dir;
+
+  const tickerText = document.createElement("span");
+  tickerText.className = "choice-ticker-text";
+  tickerText.textContent = normalizedText;
+
+  ticker.append(tickerText);
+  element.append(ticker);
+}
+
+function refreshChoiceTickerOverflow(root) {
+  if (!root) {
+    return;
+  }
+
+  root.querySelectorAll(".choice-ticker").forEach((ticker) => {
+    const tickerText = ticker.querySelector(".choice-ticker-text");
+    if (!tickerText) {
+      return;
+    }
+
+    const overflowDistance = Math.max(Math.ceil(tickerText.scrollWidth - ticker.clientWidth), 0);
+    const hasOverflow = overflowDistance > 10;
+    ticker.classList.toggle("is-overflowing", hasOverflow);
+
+    if (!hasOverflow) {
+      ticker.style.removeProperty("--choice-overflow-distance");
+      ticker.style.removeProperty("--choice-overflow-duration");
+      return;
+    }
+
+    ticker.style.setProperty("--choice-overflow-distance", `${overflowDistance}px`);
+    ticker.style.setProperty("--choice-overflow-duration", `${Math.min(Math.max(overflowDistance / 28 + 4.2, 5.2), 11)}s`);
+  });
+}
+
+function queueChoiceTickerOverflowRefresh(...roots) {
+  requestAnimationFrame(() => {
+    roots.forEach((root) => refreshChoiceTickerOverflow(root));
+  });
+}
+
+function createChoiceLeadingElement(leading) {
+  if (!leading?.kind) {
+    return null;
+  }
+
+  if (leading.kind === "flag") {
+    const flag = document.createElement("span");
+    flag.className = "language-flag choice-leading";
+    flag.dataset.flag = leading.flag;
+    flag.setAttribute("aria-hidden", "true");
+    flag.dataset.choiceLeading = "true";
+    return flag;
+  }
+
+  const shell = document.createElement("span");
+  shell.className = "choice-leading";
+  shell.setAttribute("aria-hidden", "true");
+  shell.dataset.choiceLeading = "true";
+
+  if (leading.kind === "icon") {
+    shell.classList.add("choice-leading-icon");
+    shell.dataset.accent = leading.accent || "default";
+    const icon = document.createElement("i");
+    icon.className = `ph ${leading.icon || "ph-circle"}`;
+    shell.append(icon);
+    return shell;
+  }
+
+  if (leading.kind === "theme") {
+    shell.classList.add("choice-swatch");
+    shell.dataset.themeValue = leading.theme || "main";
+    return shell;
+  }
+
+  if (leading.kind === "status") {
+    shell.classList.add("choice-status-dot");
+    shell.dataset.state = leading.state || "idle";
+    const icon = document.createElement("i");
+    icon.className = `ph ${leading.icon || "ph-waveform"}`;
+    shell.append(icon);
+    return shell;
+  }
+
+  return null;
+}
+
+function replaceChoiceLeading(host, leading) {
+  if (!host) {
+    return;
+  }
+
+  host.querySelectorAll('[data-choice-leading="true"]').forEach((node) => node.remove());
+  const leadingElement = createChoiceLeadingElement(leading);
+  if (leadingElement) {
+    host.prepend(leadingElement);
+  }
+}
+
+function getVoiceLanguageFlag(language) {
+  return String(language || "en").slice(0, 2).toLowerCase();
+}
+
+function getVoiceModelPreviewText(status) {
+  if (!status) {
+    return "";
+  }
+
+  const parts = [];
+  if (status.recommended) {
+    parts.push("Recommended");
+  }
+  parts.push(`${status.downloadSizeMb} MB`);
+  parts.push(status.modelId);
+  return parts.join(" · ");
 }
 
 function normalizeSoundInputDeviceId(value) {
@@ -308,6 +534,7 @@ async function refreshSoundInputDevices(options = {}) {
     ? selectedValue
     : SOUND_INPUT_DEFAULT_DEVICE_ID;
   ui.soundInputDeviceSelect.disabled = optionDescriptors.length <= 1 && !audioInputs.length;
+  syncCustomSettingsSelects();
 
   if (!audioInputs.length && ui.settingsSectionSelect?.value === "sound-input") {
     setSoundInputStatus("settings.soundInputNoDevices");
@@ -675,7 +902,7 @@ async function checkForAppUpdates(options = {}) {
 
   try {
     const metadata = await invoke("plugin:updater|check", {
-      allowDowngrades: true
+      allowDowngrades: false
     });
 
     if (!metadata) {
@@ -902,6 +1129,8 @@ function renderVoiceLanguageOptions() {
     const baseLabel = getVoiceLanguageLabel(language);
     option.textContent = status?.installed ? `✓ ${baseLabel}` : baseLabel;
   });
+
+  syncCustomSettingsSelects();
 }
 
 function renderVoiceModelOptions(language = ui.voiceLanguageSelect.value) {
@@ -916,7 +1145,9 @@ function renderVoiceModelOptions(language = ui.voiceLanguageSelect.value) {
     const option = document.createElement("option");
     option.value = "";
     option.textContent = t("settings.voiceModelNoOptions");
+    option.dataset.choiceLabel = option.textContent;
     ui.voiceModelSelect.append(option);
+    syncCustomSettingsSelects();
     return;
   }
 
@@ -924,10 +1155,15 @@ function renderVoiceModelOptions(language = ui.voiceLanguageSelect.value) {
     const option = document.createElement("option");
     option.value = status.modelId;
     option.selected = status.modelId === selectedModelId;
+    option.dataset.choiceLabel = status.family;
+    option.dataset.choicePreview = getVoiceModelPreviewText(status);
+    option.dataset.installed = status.installed ? "true" : "false";
     option.textContent = `${status.recommended ? "Recommended · " : ""}${status.family} · ${status.downloadSizeMb} MB · ${status.modelId}${status.installed ? " ✓" : ""}`;
     option.title = status.description || status.modelId;
     ui.voiceModelSelect.append(option);
   });
+
+  syncCustomSettingsSelects();
 }
 
 function renderVoiceModelStatus(language = ui.voiceLanguageSelect.value) {
@@ -1091,6 +1327,427 @@ function renderLanguagePicker(selectedValue = ui.languageSelect.value, previewLa
   });
 }
 
+const FONT_PICKER_METADATA = {
+  inter: {
+    label: "Language UI",
+    sample: (previewLanguage) => translate(`language.${previewLanguage}`, previewLanguage)
+  },
+  "space-grotesk": {
+    sample: () => "Display sans"
+  },
+  outfit: {
+    sample: () => "Modern geometric"
+  },
+  "english-pro": {
+    sample: () => "English"
+  },
+  "dutch-pro": {
+    sample: () => "Nederlands"
+  },
+  "arabic-pro": {
+    sample: () => "العربية",
+    dir: "rtl"
+  },
+  "turkish-pro": {
+    sample: () => "Türkçe"
+  },
+  "german-pro": {
+    sample: () => "Deutsch"
+  },
+  system: {
+    sample: (previewLanguage) => translate(`language.${previewLanguage}`, previewLanguage)
+  },
+  merriweather: {
+    sample: () => "Editorial serif"
+  },
+  "source-serif": {
+    sample: () => "Readable serif"
+  },
+  georgia: {
+    sample: () => "Classic serif"
+  },
+  garamond: {
+    sample: () => "Book typography"
+  },
+  verdana: {
+    sample: () => "Screen clarity"
+  },
+  "jetbrains-mono": {
+    sample: () => "Code preview"
+  },
+  mono: {
+    sample: () => "Monospace"
+  }
+};
+
+function closeFontMenu() {
+  ui.fontMenu.classList.add("hidden");
+  ui.fontTrigger.setAttribute("aria-expanded", "false");
+  ui.fontPicker.classList.remove("is-open");
+}
+
+function openFontMenu() {
+  ui.fontMenu.classList.remove("hidden");
+  ui.fontTrigger.setAttribute("aria-expanded", "true");
+  ui.fontPicker.classList.add("is-open");
+}
+
+function getFontPickerOptionData(value, previewLanguage = state.language) {
+  const option = FONT_OPTIONS.find((entry) => entry.value === value) || FONT_OPTIONS[0];
+  const metadata = FONT_PICKER_METADATA[option.value] || {};
+
+  return {
+    value: option.value,
+    label: metadata.label || option.label,
+    sample: typeof metadata.sample === "function" ? metadata.sample(previewLanguage) : metadata.sample || option.label,
+    dir: metadata.dir || "ltr",
+    fontFamily: resolveFontStack(option.value, previewLanguage)
+  };
+}
+
+function renderFontPicker(selectedValue = ui.fontSelect.value, previewLanguage = state.language) {
+  const activeValue = selectedValue || defaultState.appearance.fontFamily;
+  const activeOption = getFontPickerOptionData(activeValue, previewLanguage);
+
+  ui.fontTriggerLabel.textContent = activeOption.label;
+  ui.fontTriggerLabel.style.fontFamily = activeOption.fontFamily;
+  ui.fontTriggerPreview.textContent = activeOption.sample;
+  ui.fontTriggerPreview.style.fontFamily = activeOption.fontFamily;
+  ui.fontTriggerPreview.dir = activeOption.dir;
+  ui.fontTriggerLabel.dir = activeOption.dir;
+
+  ui.fontMenu.textContent = "";
+
+  FONT_OPTIONS.forEach((entry) => {
+    const optionData = getFontPickerOptionData(entry.value, previewLanguage);
+    const selected = optionData.value === activeValue;
+    const option = document.createElement("button");
+    option.type = "button";
+    option.className = "font-option";
+    option.dataset.value = optionData.value;
+    option.setAttribute("role", "option");
+    option.setAttribute("aria-selected", selected ? "true" : "false");
+    option.classList.toggle("is-selected", selected);
+
+    const copy = document.createElement("span");
+    copy.className = "font-option-copy";
+
+    const title = document.createElement("span");
+    title.className = "font-option-title";
+    title.textContent = optionData.label;
+    title.style.fontFamily = optionData.fontFamily;
+    title.dir = optionData.dir;
+
+    const sample = document.createElement("span");
+    sample.className = "font-option-sample";
+    sample.textContent = optionData.sample;
+    sample.style.fontFamily = optionData.fontFamily;
+    sample.dir = optionData.dir;
+
+    copy.append(title, sample);
+    option.append(copy);
+    option.addEventListener("click", () => {
+      ui.fontSelect.value = optionData.value;
+      renderFontPicker(optionData.value, state.language);
+      closeFontMenu();
+      scheduleApply();
+    });
+    ui.fontMenu.append(option);
+  });
+}
+
+function getCustomSelectEntries(select) {
+  const entries = [];
+
+  Array.from(select.children).forEach((child) => {
+    if (child instanceof HTMLOptGroupElement) {
+      entries.push({ type: "group", label: child.label });
+      Array.from(child.children).forEach((option) => {
+        if (option instanceof HTMLOptionElement) {
+          entries.push({ type: "option", option, groupLabel: child.label });
+        }
+      });
+      return;
+    }
+
+    if (child instanceof HTMLOptionElement) {
+      entries.push({ type: "option", option: child, groupLabel: "" });
+    }
+  });
+
+  return entries;
+}
+
+function closeCustomSettingsSelect(controller) {
+  controller.menu.classList.add("hidden");
+  controller.trigger.setAttribute("aria-expanded", "false");
+  controller.picker.classList.remove("is-open");
+}
+
+function openCustomSettingsSelect(controller) {
+  if (controller.select.disabled) {
+    return;
+  }
+
+  controller.menu.classList.remove("hidden");
+  controller.trigger.setAttribute("aria-expanded", "true");
+  controller.picker.classList.add("is-open");
+  queueChoiceTickerOverflowRefresh(controller.trigger, controller.menu);
+}
+
+function getCustomSettingsSelectDisplay(controller, option, { context = "option", groupLabel = "" } = {}) {
+  const fallbackLabel = option?.textContent?.trim() || option?.value || "";
+  const label = controller.getLabel
+    ? controller.getLabel(option, { context, groupLabel })
+    : fallbackLabel;
+  const preview = context === "trigger"
+    ? (controller.getPreview ? controller.getPreview(option) : "")
+    : (controller.getOptionDescription ? controller.getOptionDescription(option, groupLabel) : "");
+
+  return {
+    label,
+    preview,
+    leading: controller.getLeading ? controller.getLeading(option, { context, groupLabel }) : null,
+    labelDir: controller.getLabelDirection
+      ? controller.getLabelDirection(option, { context, groupLabel, label })
+      : getChoiceTextDirection(label),
+    previewDir: controller.getPreviewDirection
+      ? controller.getPreviewDirection(option, { context, groupLabel, preview })
+      : getChoiceTextDirection(preview, getChoiceTextDirection(label))
+  };
+}
+
+function renderCustomSettingsSelect(controller) {
+  const selectedOption = controller.select.selectedOptions?.[0] || controller.select.options?.[0] || null;
+  const triggerDisplay = getCustomSettingsSelectDisplay(controller, selectedOption, { context: "trigger" });
+
+  replaceChoiceLeading(controller.trigger, triggerDisplay.leading);
+  setChoiceTextContent(controller.label, triggerDisplay.label, triggerDisplay.labelDir);
+  controller.trigger.title = triggerDisplay.label;
+  controller.trigger.disabled = controller.select.disabled;
+  controller.picker.classList.toggle("is-disabled", controller.select.disabled);
+  if (controller.preview) {
+    setChoiceTextContent(controller.preview, triggerDisplay.preview, triggerDisplay.previewDir);
+    controller.preview.classList.toggle("hidden", !triggerDisplay.preview);
+  }
+
+  controller.menu.textContent = "";
+  getCustomSelectEntries(controller.select).forEach((entry) => {
+    if (entry.type === "group") {
+      const groupLabel = document.createElement("div");
+      groupLabel.className = "choice-group-label";
+      groupLabel.textContent = entry.label;
+      controller.menu.append(groupLabel);
+      return;
+    }
+
+    const option = entry.option;
+    const button = document.createElement("button");
+    const selected = option.value === controller.select.value;
+    const optionDisplay = getCustomSettingsSelectDisplay(controller, option, {
+      context: "option",
+      groupLabel: entry.groupLabel
+    });
+    button.type = "button";
+    button.className = "choice-option";
+    button.dataset.value = option.value;
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", selected ? "true" : "false");
+    button.classList.toggle("is-selected", selected);
+    button.disabled = controller.select.disabled || option.disabled;
+    button.title = optionDisplay.label;
+
+    const copy = document.createElement("span");
+    copy.className = "choice-option-copy";
+
+    const title = document.createElement("span");
+    title.className = "choice-option-title";
+    setChoiceTextContent(title, optionDisplay.label, optionDisplay.labelDir);
+    copy.append(title);
+
+    if (optionDisplay.preview) {
+      const description = document.createElement("span");
+      description.className = "choice-option-sample";
+      setChoiceTextContent(description, optionDisplay.preview, optionDisplay.previewDir);
+      copy.append(description);
+    }
+
+    replaceChoiceLeading(button, optionDisplay.leading);
+    button.append(copy);
+    button.addEventListener("click", () => {
+      controller.select.value = option.value;
+      renderCustomSettingsSelect(controller);
+      closeCustomSettingsSelect(controller);
+      controller.select.dispatchEvent(new Event("change", { bubbles: true }));
+      controller.onSelect?.(option.value);
+    });
+    controller.menu.append(button);
+  });
+
+  queueChoiceTickerOverflowRefresh(controller.trigger);
+}
+
+function initializeCustomSettingsSelects() {
+  if (customSettingsSelectControllers.length > 0) {
+    return;
+  }
+
+  [
+    {
+      picker: ui.settingsSectionPicker,
+      select: ui.settingsSectionSelect,
+      trigger: ui.settingsSectionTrigger,
+      label: ui.settingsSectionTriggerLabel,
+      preview: ui.settingsSectionTriggerPreview,
+      menu: ui.settingsSectionMenu,
+      getLeading: (option) => {
+        const metadata = SETTINGS_SECTION_CHOICE_METADATA[option?.value] || SETTINGS_SECTION_CHOICE_METADATA.appearance;
+        return {
+          kind: "icon",
+          icon: metadata.icon,
+          accent: metadata.accent
+        };
+      }
+    },
+    {
+      picker: ui.presetPicker,
+      select: ui.presetSelect,
+      trigger: ui.presetTrigger,
+      label: ui.presetTriggerLabel,
+      preview: ui.presetTriggerPreview,
+      menu: ui.presetMenu,
+      getLeading: (option) => {
+        const metadata = WINDOW_PRESET_CHOICE_METADATA[option?.value] || WINDOW_PRESET_CHOICE_METADATA["top-center"];
+        return {
+          kind: "icon",
+          icon: metadata.icon,
+          accent: metadata.accent
+        };
+      }
+    },
+    {
+      picker: ui.modePicker,
+      select: ui.modeSelect,
+      trigger: ui.modeTrigger,
+      label: ui.modeTriggerLabel,
+      preview: ui.modeTriggerPreview,
+      menu: ui.modeMenu,
+      getLeading: (option) => {
+        const metadata = MODE_CHOICE_METADATA[option?.value] || MODE_CHOICE_METADATA.highlight;
+        return {
+          kind: "icon",
+          icon: metadata.icon,
+          accent: metadata.accent
+        };
+      }
+    },
+    {
+      picker: ui.stylePicker,
+      select: ui.styleSelect,
+      trigger: ui.styleTrigger,
+      label: ui.styleTriggerLabel,
+      preview: ui.styleTriggerPreview,
+      menu: ui.styleMenu
+    },
+    {
+      picker: ui.themePicker,
+      select: ui.themeSelect,
+      trigger: ui.themeTrigger,
+      label: ui.themeTriggerLabel,
+      preview: ui.themeTriggerPreview,
+      menu: ui.themeMenu,
+      getLeading: (option) => ({
+        kind: "theme",
+        theme: option?.value || "main"
+      })
+    },
+    {
+      picker: ui.voiceLanguagePicker,
+      select: ui.voiceLanguageSelect,
+      trigger: ui.voiceLanguageTrigger,
+      label: ui.voiceLanguageTriggerLabel,
+      preview: ui.voiceLanguageTriggerPreview,
+      menu: ui.voiceLanguageMenu,
+      getLeading: (option) => ({
+        kind: "flag",
+        flag: getVoiceLanguageFlag(option?.value)
+      }),
+      getPreview: (option) => {
+        const status = getSelectedVoiceModelStatus(option?.value);
+        return status?.family || "";
+      }
+    },
+    {
+      picker: ui.voiceModelPicker,
+      select: ui.voiceModelSelect,
+      trigger: ui.voiceModelTrigger,
+      label: ui.voiceModelTriggerLabel,
+      preview: ui.voiceModelTriggerPreview,
+      menu: ui.voiceModelMenu,
+      getLeading: (option) => ({
+        kind: "status",
+        state: option?.dataset.installed === "true" ? "installed" : "missing",
+        icon: option?.dataset.installed === "true" ? "ph-check-circle" : "ph-waveform"
+      }),
+      getLabel: (option) => option?.dataset.choiceLabel || option?.textContent?.trim() || option?.value || "",
+      getPreview: (option) => option?.dataset.choicePreview || "",
+      getOptionDescription: (option) => option?.title || option?.dataset.choicePreview || ""
+    },
+    {
+      picker: ui.voiceStylePicker,
+      select: ui.voiceStyleSelect,
+      trigger: ui.voiceStyleTrigger,
+      label: ui.voiceStyleTriggerLabel,
+      preview: ui.voiceStyleTriggerPreview,
+      menu: ui.voiceStyleMenu,
+      getLeading: (option) => {
+        const metadata = VOICE_STYLE_CHOICE_METADATA[option?.value] || VOICE_STYLE_CHOICE_METADATA.highlight;
+        return {
+          kind: "icon",
+          icon: metadata.icon,
+          accent: metadata.accent
+        };
+      }
+    },
+    {
+      picker: ui.soundInputDevicePicker,
+      select: ui.soundInputDeviceSelect,
+      trigger: ui.soundInputDeviceTrigger,
+      label: ui.soundInputDeviceTriggerLabel,
+      preview: ui.soundInputDeviceTriggerPreview,
+      menu: ui.soundInputDeviceMenu,
+      getLeading: () => ({
+        kind: "icon",
+        icon: "ph-microphone-stage",
+        accent: "sound-input"
+      })
+    }
+  ].forEach((controller) => {
+    if (!controller.picker || !controller.select || !controller.trigger || !controller.label || !controller.menu) {
+      return;
+    }
+
+    customSettingsSelectControllers.push(controller);
+    controller.trigger.addEventListener("click", () => {
+      if (controller.menu.classList.contains("hidden")) {
+        customSettingsSelectControllers.forEach((entry) => {
+          if (entry !== controller) {
+            closeCustomSettingsSelect(entry);
+          }
+        });
+        openCustomSettingsSelect(controller);
+        return;
+      }
+
+      closeCustomSettingsSelect(controller);
+    });
+  });
+}
+
+function syncCustomSettingsSelects() {
+  customSettingsSelectControllers.forEach((controller) => renderCustomSettingsSelect(controller));
+}
+
 function clampToInput(input, value) {
   const min = Number(input.min || Number.NEGATIVE_INFINITY);
   const max = Number(input.max || Number.POSITIVE_INFINITY);
@@ -1138,8 +1795,8 @@ function updateRemoteModeUi() {
   ui.cloudRemoteFields.classList.remove("hidden");
 }
 
-function setActiveSettingsSection(section = ui.settingsSectionSelect?.value || "remote") {
-  const activeSection = String(section || "remote");
+function setActiveSettingsSection(section = ui.settingsSectionSelect?.value || "appearance") {
+  const activeSection = String(section || "appearance");
 
   if (ui.settingsSectionSelect) {
     ui.settingsSectionSelect.value = activeSection;
@@ -1326,6 +1983,8 @@ function fillForm() {
   ui.textSizeInput.value = String(state.appearance?.textScale || defaultState.appearance.textScale);
   ui.styleSelect.value = state.appearance?.style || defaultState.appearance.style;
   ui.themeSelect.value = state.appearance?.theme || defaultState.appearance.theme;
+  ui.mirrorModeInput.checked = Boolean(state.appearance?.mirrorMode);
+  ui.mirrorVerticalInput.checked = Boolean(state.appearance?.mirrorVertical);
   ui.autoHideToolbarInput.checked = Boolean(state.appearance?.autoHideToolbar);
   ui.speedRailEnabledInput.checked = state.appearance?.speedRailEnabled !== false;
   ui.soundInputDeviceSelect.value = normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId || SOUND_INPUT_DEFAULT_DEVICE_ID);
@@ -1350,13 +2009,17 @@ function fillForm() {
   applyAppearanceToDocument({
     theme: ui.themeSelect.value,
     style: ui.styleSelect.value,
+    mirrorMode: ui.mirrorModeInput.checked,
+    mirrorVertical: ui.mirrorVerticalInput.checked,
     autoHideToolbar: ui.autoHideToolbarInput.checked,
     performanceMode: ui.performanceModeInput.checked,
     appOpacity: Number(ui.appOpacityInput.value)
   });
   applyTranslationsToDocument(ui.languageSelect.value);
   setSoundInputStatus(soundInputStatusKey);
+  renderFontPicker(ui.fontSelect.value, ui.languageSelect.value);
   renderLanguagePicker(ui.languageSelect.value, ui.languageSelect.value);
+  syncCustomSettingsSelects();
   renderRemoteSenderQr();
   renderVoiceLanguageOptions();
   if (ui.modeSelect.value === "voice") {
@@ -1433,6 +2096,8 @@ function collectFormState() {
     textScale: Number(ui.textSizeInput.value),
     theme: ui.themeSelect.value,
     style: ui.styleSelect.value,
+    mirrorMode: ui.mirrorModeInput.checked,
+    mirrorVertical: ui.mirrorVerticalInput.checked,
     autoHideToolbar: ui.autoHideToolbarInput.checked,
     speedRailEnabled: ui.speedRailEnabledInput.checked,
     performanceMode: ui.performanceModeInput.checked,
@@ -1511,7 +2176,8 @@ async function applyWindowSettings() {
     });
     await applyDesktopSettings();
     fillForm();
-    ui.windowStatus.textContent = t("settings.applied");
+    ui.windowStatus.dataset.i18n = "settings.autoApply";
+    ui.windowStatus.textContent = t("settings.autoApply");
     refreshRemoteStatus().catch(console.error);
   } finally {
     isApplying = false;
@@ -1605,6 +2271,7 @@ async function refreshRemoteStatus() {
 
 async function bootSettingsPage() {
   await configureSliderRanges();
+  initializeCustomSettingsSelects();
   fillForm();
   await applyDesktopSettings().catch(console.error);
   await refreshRemoteStatus();
@@ -1685,11 +2352,22 @@ async function bootSettingsPage() {
     closeLanguageMenu();
   });
 
+  ui.fontTrigger.addEventListener("click", () => {
+    if (ui.fontMenu.classList.contains("hidden")) {
+      openFontMenu();
+      return;
+    }
+
+    closeFontMenu();
+  });
+
   ui.languageOptions.forEach((option) => {
     option.addEventListener("click", () => {
       ui.languageSelect.value = option.dataset.value;
       state.language = option.dataset.value;
       applyTranslationsToDocument(state.language);
+      renderFontPicker(ui.fontSelect.value, state.language);
+      syncCustomSettingsSelects();
       renderVoiceLanguageOptions();
       renderVoiceModelStatus(ui.voiceLanguageSelect.value);
       renderUpdaterCard();
@@ -1704,14 +2382,26 @@ async function bootSettingsPage() {
     if (!ui.languagePicker.contains(event.target)) {
       closeLanguageMenu();
     }
+
+    if (!ui.fontPicker.contains(event.target)) {
+      closeFontMenu();
+    }
+
+    customSettingsSelectControllers.forEach((controller) => {
+      if (!controller.picker.contains(event.target)) {
+        closeCustomSettingsSelect(controller);
+      }
+    });
   });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeLanguageMenu();
+      closeFontMenu();
+      customSettingsSelectControllers.forEach((controller) => closeCustomSettingsSelect(controller));
     }
   });
-  [ui.autoHideToolbarInput, ui.speedRailEnabledInput, ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
+  [ui.mirrorModeInput, ui.mirrorVerticalInput, ui.autoHideToolbarInput, ui.speedRailEnabledInput, ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
   });
@@ -1736,7 +2426,7 @@ async function bootSettingsPage() {
   });
 
   await readCurrentWindow().catch(console.error);
-  setActiveSettingsSection(ui.settingsSectionSelect?.value || "remote");
+  setActiveSettingsSection(ui.settingsSectionSelect?.value || "appearance");
 
   remoteStatusTimer = window.setInterval(() => {
     if (document.visibilityState === "visible") {

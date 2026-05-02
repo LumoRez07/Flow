@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.6.1</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.7.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.6.1-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.7.0-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -40,13 +40,12 @@
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.6.1
+## What's New in 1.7.0
 
-- Rebuilt voice tracking and command recognition on a native Vosk engine for faster, more reliable speech handling.
-- Optimized the app which decreased the RAM usage by around 2000 MBs while tracking (Varies based on the model used, but generally around 500-1500 MBs less while tracking).
-- Improved cross-window syncing so script and settings changes reach the teleprompter more reliably.
-- Hardened app-wide voice command matching to reduce accidental triggers and multilingual misfires (still somewhat unstable).
-- Fixed several teleprompter, remote workflow, and settings stability issues across the desktop app.
+- Redesigned the settings and editor dropdowns with custom menus across browse options, templates, styles, themes, voice controls, window position, and input devices.
+- Added richer picker visuals with professional icons, live theme swatches, and smooth scrolling labels for long option names.
+- Added cue cards as a new scripting feature, with built-in card types and custom cue-card templates managed directly from the Template picker.
+- Refined multilingual UI presentation so translated app text stays consistent across the interface, including Arabic UI text rendered left-to-right.
 
 ## Preview
 
@@ -126,7 +125,7 @@ npm run tauri build
 
 Publish these files from `src-tauri/target/release/bundle` to the GitHub release:
 
-- `msi/flow_1.6.1_x64_en-US.msi`
+- `msi/flow_1.7.0_x64_en-US.msi`
 - `latest.json`
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.
@@ -159,13 +158,12 @@ This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
 
 Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
 
-### 1.6.1 Sürümündeki Yenilikler
+### 1.7.0 Sürümündeki Yenilikler
 
-- Ses takibi ve komut algılama, daha hızlı ve daha güvenilir konuşma işleme için yerel Vosk motoru üzerine yeniden yazıldı.
-- Mikrofon seçimi, canlı izleme, gürültü kapısı ve giriş kazancı ayarları içeren özel ses girişi denetimleri eklendi.
-- Metin ve ayar değişikliklerinin teleprompter penceresine daha güvenilir ulaşması için pencereler arası senkronizasyon iyileştirildi.
-- Yanlışlıkla tetiklenmeleri ve çok dilli hatalı algılamaları azaltmak için uygulama genelindeki sesli komut eşleştirmesi sıkılaştırıldı.
-- Teleprompter, uzaktan gönderici/gelen kutusu ve ayarlar ekranlarında çeşitli kararlılık sorunları giderildi.
+- Ayarlar ve duzenleyici acilir menuleri; goz at secenekleri, sablonlar, stiller, temalar, ses kontrolleri, pencere konumu ve giris aygitlari icin ozel menulerle yeniden tasarlandi.
+- Bu secicilere profesyonel simgeler, canli tema onizleme daireleri ve uzun secenek adlari icin akici kayan etiketler eklendi.
+- Cue card'lar yeni bir metin yazim ozelligi olarak eklendi; yerlesik kart turleri ve ozel cue card sablonlari dogrudan Template secicisinden yonetilebiliyor.
+- Cok dilli arayuz sunumu duzenlendi; cevrilmis uygulama metinleri arayuz genelinde daha tutarli kalirken Arapca UI metinleri de soldan saga gosteriliyor.
 
 ### Öne Çıkanlar
 
@@ -229,13 +227,12 @@ Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderic
 
 Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
 
-### الجديد في 1.6.1
+### الجديد في 1.7.0
 
-- أُعيد بناء تتبع الصوت والتعرّف على الأوامر فوق محرك Vosk أصلي لتحسين السرعة والثبات.
-- أُضيفت عناصر تحكم مخصصة لإدخال الصوت تشمل اختيار الميكروفون والمراقبة الحية وبوابة الضوضاء والتحكم في الكسب.
-- تم تحسين المزامنة بين النوافذ بحيث تصل تغييرات النص والإعدادات إلى شاشة التلقين بشكل أكثر موثوقية.
-- تم تشديد مطابقة الأوامر الصوتية على مستوى التطبيق لتقليل التشغيل الخاطئ والأخطاء متعددة اللغات.
-- تم إصلاح عدة مشكلات ثبات في شاشة التلقين وصفحات الإرسال والاستقبال عن بُعد والإعدادات.
+- أُعيد تصميم القوائم المنسدلة في الإعدادات والمحرر بقوائم مخصصة تغطي خيارات التصفح والقوالب والأنماط والسمات وعناصر التحكم الصوتية وموقع النافذة وأجهزة الإدخال.
+- أُضيفت مؤشرات بصرية أوضح داخل هذه القوائم، بما في ذلك أيقونات احترافية ومعاينات دائرية للسمات وتسميات متحركة بسلاسة للأسماء الطويلة.
+- أُضيفت cue cards كميزة جديدة لكتابة النصوص، مع أنواع بطاقات مدمجة وقوالب cue card مخصصة يمكن إدارتها مباشرة من محدد Template.
+- تم تحسين العرض متعدد اللغات للواجهة بحيث يبقى النص المترجم متناسقاً عبر التطبيق، بما في ذلك عرض نص واجهة العربية من اليسار إلى اليمين.
 
 ### أبرز الميزات
 
@@ -299,13 +296,12 @@ npm run tauri build
 
 Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
 
-### Nouveautes de la version 1.6.1
+### Nouveautes de la version 1.7.0
 
-- Refonte du suivi vocal et de la reconnaissance des commandes autour d'un moteur Vosk natif pour un traitement plus rapide et plus fiable.
-- Ajout de reglages dedies a l'entree audio avec selection du microphone, monitoring en direct, noise gate et controle du gain.
-- Amelioration de la synchronisation entre fenetres pour que les changements de texte et de parametres atteignent le teleprompter plus fiablement.
-- Renforcement de la correspondance des commandes vocales globales afin de reduire les declenchements accidentels et les erreurs multilingues.
-- Correction de plusieurs problemes de stabilite dans le teleprompter, les pages distantes et l'ecran des parametres.
+- Refonte des menus deroulants des parametres et de l'editeur avec des menus personnalises pour la navigation, les modeles, les styles, les themes, les commandes vocales, la position de fenetre et les peripheriques d'entree.
+- Ajout d'indices visuels plus riches dans ces selecteurs avec icones, apercus circulaires des themes et defilement fluide pour les libelles trop longs.
+- Les cue cards arrivent comme nouvelle fonction d'ecriture, avec des types de cartes integres et des modeles personnalises geres directement depuis le selecteur Template.
+- La presentation multilingue de l'interface a ete harmonisee afin que le texte traduit reste coherent dans toute l'application, y compris l'interface arabe affichee de gauche a droite.
 
 ### Points forts
 
@@ -369,13 +365,12 @@ Flow inclut un emetteur distant et une boite de reception pour envoyer du texte 
 
 Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
 
-### Neu in 1.6.1
+### Neu in 1.7.0
 
-- Sprachverfolgung und Befehlserkennung wurden auf eine native Vosk-Engine umgestellt, um Sprache schneller und zuverlaessiger zu verarbeiten.
-- Dedizierte Audioeingabe-Regler mit Mikrofonwahl, Live-Monitoring, Noise Gate und Gain-Steuerung wurden hinzugefuegt.
-- Die Synchronisierung zwischen Fenstern wurde verbessert, damit Text- und Einstellungsaenderungen zuverlaessiger im Teleprompter ankommen.
-- Die app-weite Sprachbefehlserkennung wurde verstaerkt, um versehentliche Ausloeser und mehrsprachige Fehltrigger zu reduzieren.
-- Mehrere Stabilitaetsprobleme im Teleprompter, in den Remote-Seiten und in den Einstellungen wurden behoben.
+- Die Dropdowns in Einstellungen und Editor wurden mit benutzerdefinierten Menues fuer Browse-Optionen, Vorlagen, Stile, Themes, Sprachsteuerung, Fensterposition und Eingabegeraete neu gestaltet.
+- Diese Auswahlen zeigen jetzt klarere visuelle Hinweise mit passenden Symbolen, Theme-Vorschaurunden und sanft scrollenden Labels fuer lange Eintraege.
+- Cue Cards sind jetzt ein neues Schreibwerkzeug mit integrierten Kartentypen und benutzerdefinierten Vorlagen, die direkt im Template-Auswahlfeld verwaltet werden.
+- Die mehrsprachige UI-Darstellung wurde vereinheitlicht, sodass uebersetzter App-Text durchgaengig konsistent bleibt, einschliesslich links-nach-rechts dargestellter arabischer UI-Texte.
 
 ### Highlights
 
@@ -439,13 +434,12 @@ Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufend
 
 Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
 
-### Novedades en 1.6.1
+### Novedades en 1.7.0
 
-- Se reescribio el seguimiento de voz y el reconocimiento de comandos sobre un motor Vosk nativo para un procesamiento mas rapido y mas fiable.
-- Se agregaron controles dedicados de entrada de audio con seleccion de microfono, monitoreo en vivo, puerta de ruido y control de ganancia.
-- Se mejoro la sincronizacion entre ventanas para que los cambios de texto y configuracion lleguen al teleprompter con mas fiabilidad.
-- Se reforzo la coincidencia de comandos de voz en toda la aplicacion para reducir activaciones accidentales y fallos multilingues.
-- Se corrigieron varios problemas de estabilidad en el teleprompter, las paginas remotas y la pantalla de configuracion.
+- Se redisenaron los menus desplegables de configuracion y del editor con menus personalizados para opciones de navegacion, plantillas, estilos, temas, controles de voz, posicion de ventana y dispositivos de entrada.
+- Se agregaron senales visuales mas claras en esos selectores con iconos, vistas previas circulares de temas y etiquetas con desplazamiento suave para nombres largos.
+- Se agregaron cue cards como una funcion nueva de escritura, con tipos de tarjetas integrados y plantillas personalizadas gestionadas directamente desde el selector Template.
+- Se ajusto la presentacion multilingue de la interfaz para que el texto traducido se mantenga consistente en toda la app, incluida la interfaz arabe mostrada de izquierda a derecha.
 
 ### Puntos destacados
 

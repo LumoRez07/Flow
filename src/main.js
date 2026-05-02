@@ -27,6 +27,7 @@ import {
   resolveFontStack,
   saveState,
   splitWords,
+  parseWaitCardText,
   translate,
   VOICE_LANGUAGE_OPTIONS
 } from "./shared.js";
@@ -57,6 +58,9 @@ const PLAYBACK_COUNTDOWN_FASTEST_STEP_MS = 620;
 const PLAYBACK_COUNTDOWN_SPEED_MIN = 60;
 const PLAYBACK_COUNTDOWN_SPEED_MAX = 360;
 const PLAYBACK_COUNTDOWN_SETTLE_MS = 500;
+const WAIT_CARD_STEP_MS = 1000;
+const WAIT_CARD_NUMBER_ANIMATION_MS = 360;
+const WAIT_CARD_TRIGGER_VIEWPORT_OFFSET = 0.5;
 const TOP_CENTER_X_OFFSET = 32;
 const VOICE_WORD_VIEWPORT_OFFSET = 0.42;
 const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
@@ -228,6 +232,10 @@ let cachedPromptViewportWidth = 0;
 let cachedPromptViewportHeight = 0;
 let cachedPromptScrollableHeight = 0;
 let lastAppliedViewportTop = null;
+let promptWaitCards = [];
+let activePromptWaitCardId = "";
+let promptWaitRunToken = 0;
+let promptWaitAnimationCleanupTimer = null;
 let lastResponsiveFontSize = 0;
 let lastResponsiveViewportWidth = 0;
 let lastResponsiveViewportHeight = 0;
@@ -781,19 +789,6 @@ function stopMediaStreamTracks(mediaStream) {
   });
 }
 
-async function getAudioInputDevices() {
-  if (!navigator.mediaDevices?.enumerateDevices) {
-    return null;
-  }
-
-  try {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    return devices.filter((device) => device.kind === "audioinput");
-  } catch (error) {
-    return null;
-  }
-}
-
 function normalizeVoiceCaptureError(error) {
   if (error?.code === VOICE_CAPTURE_ERROR_PERMISSION_DENIED
     || error?.code === VOICE_CAPTURE_ERROR_NO_DEVICE
@@ -852,60 +847,6 @@ function processVoiceCaptureSamples(samples, soundInputSettings = getSoundInputS
   }
 
   return processedSamples;
-}
-
-async function requestVoiceCaptureMediaStream(soundInputSettings = getSoundInputSettings()) {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_UNAVAILABLE, "Microphone capture is unavailable");
-  }
-
-  const audioInputDevices = await getAudioInputDevices();
-  if (Array.isArray(audioInputDevices) && audioInputDevices.length === 0) {
-    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_NO_DEVICE, "No microphone detected");
-  }
-
-  const primaryConstraints = buildVoiceCaptureAudioConstraints(soundInputSettings);
-  let mediaStream = null;
-
-  try {
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: false,
-      audio: primaryConstraints
-    });
-  } catch (error) {
-    const errorName = String(error?.name || error?.message || error);
-    const canFallbackToDefault = soundInputSettings.deviceId !== defaultState.appearance.soundInputDeviceId
-      && /NotFoundError|OverconstrainedError/i.test(errorName);
-
-    if (!canFallbackToDefault) {
-      throw normalizeVoiceCaptureError(error);
-    }
-
-    try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: false,
-        audio: buildVoiceCaptureAudioConstraints({
-          ...soundInputSettings,
-          deviceId: defaultState.appearance.soundInputDeviceId
-        })
-      });
-    } catch (fallbackError) {
-      throw normalizeVoiceCaptureError(fallbackError);
-    }
-  }
-
-  const audioTracks = mediaStream.getAudioTracks();
-  if (audioTracks.length === 0) {
-    stopMediaStreamTracks(mediaStream);
-    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_NO_DEVICE, "No microphone detected");
-  }
-
-  if (audioTracks.every((track) => track.readyState === "ended")) {
-    stopMediaStreamTracks(mediaStream);
-    throw createVoiceCaptureError(VOICE_CAPTURE_ERROR_UNAVAILABLE, "Microphone unavailable");
-  }
-
-  return mediaStream;
 }
 
 function getVoiceTrackingFailureStatus(error) {
@@ -994,10 +935,6 @@ function normalizeRemoteCloudUrl(value) {
 
 const CONFIGURED_CLOUD_RELAY_URL = normalizeRemoteCloudUrl(CLOUD_RELAY_URL);
 
-function isCloudRemoteSelected() {
-  return true;
-}
-
 function isCloudRemoteEnabled() {
   return Boolean(CONFIGURED_CLOUD_RELAY_URL);
 }
@@ -1078,7 +1015,7 @@ async function runAutomaticUpdateCheck(options = {}) {
 
   try {
     const metadata = await invoke("plugin:updater|check", {
-      allowDowngrades: true
+      allowDowngrades: false
     });
 
     if (!metadata) {
@@ -1637,6 +1574,15 @@ function updatePlaybackIndicators(force = false) {
   }
 }
 
+function updatePromptSafeArea() {
+  const controlHeight = ui.floatingControls?.offsetHeight || 0;
+  const safeBottom = document.body.classList.contains("reading-mode") && controlHeight > 0
+    ? controlHeight + 28
+    : 0;
+
+  document.documentElement.style.setProperty("--teleprompter-reading-safe-bottom", `${safeBottom}px`);
+}
+
 function refreshPromptViewportMetrics() {
   if (!ui.promptViewport) {
     cachedPromptViewportWidth = 0;
@@ -1645,6 +1591,7 @@ function refreshPromptViewportMetrics() {
     return 0;
   }
 
+  updatePromptSafeArea();
   cachedPromptViewportWidth = ui.promptViewport.clientWidth;
   cachedPromptViewportHeight = ui.promptViewport.clientHeight;
   cachedPromptScrollableHeight = Math.max(ui.promptViewport.scrollHeight - cachedPromptViewportHeight, 0);
@@ -1682,6 +1629,7 @@ function setReadingMode(enabled) {
 
   document.body.classList.toggle("reading-mode", enabled);
   ui.floatingControls.classList.toggle("hidden", !enabled);
+  updatePromptSafeArea();
 
   if (!enabled) {
     ui.floatingPlaybackMeta?.classList.add("hidden");
@@ -1704,6 +1652,206 @@ function setPlaybackCountdownVisible(visible, label = "") {
   }
 
   ui.playbackCountdownLabel.textContent = label;
+}
+
+function parseWaitCardDescriptor(text) {
+  return parseWaitCardText(text);
+}
+
+function createPromptWaitCardNumberSpan(value, extraClassName = "") {
+  const span = document.createElement("span");
+  span.className = ["prompt-card-wait-number-value", extraClassName].filter(Boolean).join(" ");
+  span.textContent = String(value);
+  return span;
+}
+
+function setPromptWaitCardNumber(cardElement, value, { animate = false } = {}) {
+  const viewport = cardElement?.querySelector(".prompt-card-wait-number-viewport");
+  if (!viewport) {
+    return;
+  }
+
+  const nextValue = String(Math.max(1, Math.round(Number(value) || 0)));
+  const previousValue = viewport.dataset.value || nextValue;
+
+  if (promptWaitAnimationCleanupTimer) {
+    clearTimeout(promptWaitAnimationCleanupTimer);
+    promptWaitAnimationCleanupTimer = null;
+  }
+
+  if (!animate || previousValue === nextValue) {
+    viewport.dataset.value = nextValue;
+    cardElement.classList.remove("is-wait-number-animating");
+    viewport.replaceChildren(createPromptWaitCardNumberSpan(nextValue));
+    return;
+  }
+
+  viewport.dataset.value = nextValue;
+  viewport.replaceChildren(
+    createPromptWaitCardNumberSpan(previousValue, "is-outgoing"),
+    createPromptWaitCardNumberSpan(nextValue, "is-incoming")
+  );
+
+  cardElement.classList.remove("is-wait-number-animating");
+  void viewport.offsetWidth;
+  cardElement.classList.add("is-wait-number-animating");
+
+  promptWaitAnimationCleanupTimer = window.setTimeout(() => {
+    if (!cardElement.isConnected || viewport.dataset.value !== nextValue) {
+      return;
+    }
+
+    cardElement.classList.remove("is-wait-number-animating");
+    viewport.replaceChildren(createPromptWaitCardNumberSpan(nextValue));
+    promptWaitAnimationCleanupTimer = null;
+  }, WAIT_CARD_NUMBER_ANIMATION_MS);
+}
+
+function clearPromptWaitCardState(card) {
+  if (!card?.element) {
+    return;
+  }
+
+  if (promptWaitAnimationCleanupTimer) {
+    clearTimeout(promptWaitAnimationCleanupTimer);
+    promptWaitAnimationCleanupTimer = null;
+  }
+
+  card.element.classList.remove("is-waiting", "is-wait-number-animating");
+  setPromptWaitCardNumber(card.element, card.seconds, { animate: false });
+}
+
+function getPromptWaitCardTargetTop(card) {
+  if (!card?.element || !ui.promptViewport) {
+    return 0;
+  }
+
+  const viewportHeight = cachedPromptViewportHeight || ui.promptViewport.clientHeight;
+  return Math.max(card.element.offsetTop + card.element.offsetHeight * 0.5 - viewportHeight * WAIT_CARD_TRIGGER_VIEWPORT_OFFSET, 0);
+}
+
+function resetPromptWaitCards(scrollTop = 0, wordIndex = 0) {
+  const normalizedTop = Math.max(Number(scrollTop) || 0, 0);
+  const normalizedWordIndex = Math.max(Number(wordIndex) || 0, 0);
+
+  promptWaitRunToken += 1;
+
+  promptWaitCards.forEach((card) => {
+    clearPromptWaitCardState(card);
+    card.consumed = card.triggerTop < normalizedTop - 1 || card.triggerWordIndex < normalizedWordIndex;
+  });
+
+  activePromptWaitCardId = "";
+}
+
+function updatePromptWaitCardLayout() {
+  const viewportHeight = cachedPromptViewportHeight || ui.promptViewport?.clientHeight || 0;
+
+  promptWaitCards = promptWaitCards.filter((card) => card.element?.isConnected && card.seconds > 0).map((card) => ({
+    ...card,
+    triggerTop: Math.max((card.element.offsetTop + card.element.offsetHeight * 0.5) - viewportHeight * WAIT_CARD_TRIGGER_VIEWPORT_OFFSET, 0)
+  }));
+}
+
+function getDuePromptWaitCardForScroll(scrollTop) {
+  const normalizedTop = Math.max(Number(scrollTop) || 0, 0);
+  return promptWaitCards.find((card) => !card.consumed && card.id !== activePromptWaitCardId && normalizedTop >= card.triggerTop - 1) || null;
+}
+
+function getPromptWaitCardVoiceTriggerWordIndex(card) {
+  if (!card) {
+    return -1;
+  }
+
+  const triggerWordIndex = Math.max(Number(card.triggerWordIndex) || 0, 0);
+  const previousWordIndex = Math.min(triggerWordIndex - 1, wordNodes.length - 1);
+  if (previousWordIndex < 0) {
+    return triggerWordIndex;
+  }
+
+  const previousLineIndex = lineIndexByWord[previousWordIndex] ?? 0;
+  return lineGroups[previousLineIndex]?.lastIndex ?? previousWordIndex;
+}
+
+function getDuePromptWaitCardForVoiceIndex(wordIndex) {
+  const normalizedWordIndex = Math.max(Number(wordIndex) || 0, 0);
+  return promptWaitCards.find((card) => {
+    if (card.consumed || card.id === activePromptWaitCardId) {
+      return false;
+    }
+
+    return normalizedWordIndex >= getPromptWaitCardVoiceTriggerWordIndex(card);
+  }) || null;
+}
+
+function getDuePromptWaitCardForWordIndex(wordIndex) {
+  const normalizedWordIndex = Math.max(Number(wordIndex) || 0, 0);
+  return promptWaitCards.find((card) => !card.consumed && card.id !== activePromptWaitCardId && normalizedWordIndex >= card.triggerWordIndex) || null;
+}
+
+function getPromptWaitCardVoiceResumeTop(card) {
+  if (!card?.element || !ui.promptViewport) {
+    return 0;
+  }
+
+  const viewportHeight = cachedPromptViewportHeight || ui.promptViewport.clientHeight;
+  const baseTop = getPromptWaitCardTargetTop(card);
+  const nudgeTop = baseTop + Math.max(card.element.offsetHeight * 0.75, viewportHeight * 0.08);
+  const nextWordIndex = Math.min(Math.max(Number(card.triggerWordIndex) || 0, 0), Math.max(wordNodes.length - 1, 0));
+  const nextLineIndex = lineIndexByWord[nextWordIndex] ?? -1;
+  const nextLineTop = nextLineIndex >= 0 ? getLineTargetTop(nextLineIndex) : nudgeTop;
+  return Math.max(Math.min(nudgeTop, nextLineTop), ui.promptViewport.scrollTop);
+}
+
+async function runPromptWaitPause(card) {
+  if (!card || card.consumed || card.seconds <= 0) {
+    return false;
+  }
+
+  const runToken = ++promptWaitRunToken;
+  card.consumed = true;
+  activePromptWaitCardId = card.id;
+
+  const targetTop = getPromptWaitCardTargetTop(card);
+  if (getActiveMode() === "scroll") {
+    const totalScrollable = getCachedPromptScrollableHeight();
+    scrollProgress = totalScrollable > 0 ? clamp(targetTop / totalScrollable, 0, 1) : scrollProgress;
+    setViewportPosition(targetTop, "auto");
+  } else if (ui.promptViewport) {
+    clearPromptScrollTransform();
+    ui.promptViewport.scrollTo({ top: targetTop, behavior: "auto" });
+  }
+
+  card.element.classList.add("is-waiting");
+  setPromptWaitCardNumber(card.element, card.seconds, { animate: false });
+
+  for (let remaining = card.seconds; remaining > 0; remaining -= 1) {
+    if (runToken !== promptWaitRunToken || !isPlaying || isPaused) {
+      clearPromptWaitCardState(card);
+      if (activePromptWaitCardId === card.id) {
+        activePromptWaitCardId = "";
+      }
+      return false;
+    }
+
+    if (remaining !== card.seconds) {
+      setPromptWaitCardNumber(card.element, remaining, { animate: true });
+    }
+
+    await wait(WAIT_CARD_STEP_MS);
+  }
+
+  clearPromptWaitCardState(card);
+
+  if (runToken === promptWaitRunToken && getActiveMode() === "voice" && ui.promptViewport) {
+    animateViewportScroll(getPromptWaitCardVoiceResumeTop(card));
+  }
+
+  if (activePromptWaitCardId === card.id) {
+    activePromptWaitCardId = "";
+  }
+
+  return runToken === promptWaitRunToken;
 }
 
 function getPlaybackCountdownStepMs() {
@@ -1808,7 +1956,7 @@ function getPlaybackViewportOffset(defaultOffset, voiceOffset) {
 function updatePlayButtons() {
   const isResume = currentIndex > 0 && currentIndex < Math.max(wordNodes.length - 1, 0);
   setButtonIcon(ui.playButton, "ph-play");
-  ui.playButton.title = isResume ? t("common.continue") : t("common.play");
+  ui.playButton.title = isResume ? t("common.startFresh") : t("common.play");
   ui.playButton.setAttribute("aria-label", ui.playButton.title);
 
   const pauseLabel = isPaused ? t("common.continue") : t("common.pause");
@@ -1846,7 +1994,7 @@ function applyAppearanceSettings() {
   const appearance = state.appearance || defaultState.appearance;
   applyAppearanceToDocument(appearance);
   document.body.dataset.animationStyle = getAnimationStyle();
-  document.documentElement.style.setProperty("--teleprompter-font-family", resolveFontStack(appearance.fontFamily));
+  document.documentElement.style.setProperty("--teleprompter-font-family", resolveFontStack(appearance.fontFamily, state.language));
   document.documentElement.style.setProperty("--teleprompter-text-rgb", hexToRgbTriplet(appearance.textColor));
   document.documentElement.style.setProperty("--teleprompter-active-text", appearance.textColor);
   document.documentElement.style.setProperty("--teleprompter-text-opacity", String(clamp(appearance.textOpacity / 100, 0.1, 1)));
@@ -1985,6 +2133,7 @@ function rebuildLineMap() {
   });
 
   refreshPromptViewportMetrics();
+  updatePromptWaitCardLayout();
 }
 
 function scheduleLineMapRebuild() {
@@ -2085,6 +2234,53 @@ function createDecorationGroupSpan(style) {
   return span;
 }
 
+function createPromptCard(token) {
+  const element = document.createElement(token.placement === "between" ? "span" : "div");
+  const waitDescriptor = parseWaitCardDescriptor(token.text);
+  element.className = "prompt-card";
+  element.classList.add(token.placement === "between" ? "prompt-card-between" : "prompt-card-centered");
+  element.classList.add(`prompt-card-tone-${token.tone || "neutral"}`);
+  applyTextDirection(element, token.text);
+  if (waitDescriptor) {
+    element.classList.add("prompt-card-wait");
+    element.dataset.waitSeconds = String(waitDescriptor.seconds);
+
+    const copy = document.createElement("span");
+    copy.className = "prompt-card-wait-copy";
+    applyTextDirection(copy, token.text);
+
+    if (waitDescriptor.prefix) {
+      const prefix = document.createElement("span");
+      prefix.className = "prompt-card-wait-prefix";
+      prefix.textContent = waitDescriptor.prefix;
+      copy.appendChild(prefix);
+    }
+
+    const numberViewport = document.createElement("span");
+    numberViewport.className = "prompt-card-wait-number-viewport";
+    numberViewport.dataset.value = String(waitDescriptor.seconds);
+    numberViewport.appendChild(createPromptWaitCardNumberSpan(waitDescriptor.seconds));
+    copy.appendChild(numberViewport);
+
+    if (waitDescriptor.suffix) {
+      const suffix = document.createElement("span");
+      suffix.className = "prompt-card-wait-suffix";
+      suffix.textContent = waitDescriptor.suffix;
+      copy.appendChild(suffix);
+    }
+
+    element.appendChild(copy);
+    return element;
+  }
+
+  const copy = document.createElement("span");
+  copy.className = "prompt-card-copy";
+  applyTextDirection(copy, token.text);
+  copy.textContent = token.text;
+  element.appendChild(copy);
+  return element;
+}
+
 function getDecorationSignature(style = {}) {
   if (!style.highlight && !style.underline) {
     return "";
@@ -2108,6 +2304,8 @@ function renderScript() {
   wordNodes = [];
   lineGroups = [];
   lineIndexByWord = [];
+  promptWaitCards = [];
+  activePromptWaitCardId = "";
   lastRenderedMode = null;
   lastRenderedWordIndex = -1;
   lastRenderedLineIndex = -1;
@@ -2133,6 +2331,26 @@ function renderScript() {
   };
 
   tokens.forEach((token, tokenIndex) => {
+    if (token.type === "card") {
+      closeDecorationGroup();
+      const cardElement = createPromptCard(token);
+      fragment.appendChild(cardElement);
+
+      const waitSeconds = Number(cardElement.dataset.waitSeconds || 0);
+      if (waitSeconds > 0) {
+        promptWaitCards.push({
+          id: `wait-${promptWaitCards.length}`,
+          element: cardElement,
+          seconds: waitSeconds,
+          triggerTop: 0,
+          triggerWordIndex: wordIndex,
+          consumed: false
+        });
+      }
+
+      return;
+    }
+
     if (token.type === "word") {
       const decorationSignature = getDecorationSignature(token.style);
       const target = decorationSignature
@@ -2665,6 +2883,10 @@ function clearPlayback() {
   }
 
   lastScrollFrameAt = 0;
+  promptWaitRunToken += 1;
+  activePromptWaitCardId = "";
+  promptWaitCards.forEach((card) => clearPromptWaitCardState(card));
+  setPlaybackCountdownVisible(false);
   voiceTranscript = "";
   pendingForwardVoiceSkip = null;
   resetVoiceCommandTranscript();
@@ -2688,6 +2910,7 @@ function stopPlayback(reset = true) {
     currentIndex = 0;
     scrollProgress = 0;
     setViewportPosition(0, getScrollBehavior());
+    resetPromptWaitCards(0, 0);
     clearRenderedState();
   } else {
     const totalScrollable = refreshPromptViewportMetrics();
@@ -2767,6 +2990,16 @@ function finishPlayback() {
 function playTimedStep() {
   updateWordState(true);
 
+  const waitCard = getDuePromptWaitCardForWordIndex(currentIndex);
+  if (waitCard) {
+    runPromptWaitPause(waitCard).then((completed) => {
+      if (completed && isPlaying && !isPaused && getActiveMode() !== "scroll" && getActiveMode() !== "voice" && getActiveMode() !== "arrow") {
+        playTimedStep();
+      }
+    }).catch(console.error);
+    return;
+  }
+
   if (currentIndex >= wordNodes.length - 1) {
     finishPlayback();
     return;
@@ -2782,6 +3015,7 @@ function playScrollMode() {
   const totalWords = Math.max(wordNodes.length, 1);
   lastScrollFrameAt = 0;
   refreshPromptViewportMetrics();
+  updatePromptWaitCardLayout();
 
   const step = (now) => {
     if (!isPlaying || isPaused) {
@@ -2798,10 +3032,30 @@ function playScrollMode() {
     scrollProgress = clamp(scrollProgress + progressDelta, 0, 1);
 
     const totalScrollable = getCachedPromptScrollableHeight();
-    setViewportPosition(totalScrollable * scrollProgress, "auto");
+    const targetTop = totalScrollable * scrollProgress;
+    setViewportPosition(targetTop, "auto");
     const nextIndex = Math.min(Math.floor(scrollProgress * totalWords), Math.max(wordNodes.length - 1, 0));
     if (nextIndex !== currentIndex) {
       currentIndex = nextIndex;
+    }
+
+    const waitCard = getDuePromptWaitCardForScroll(targetTop);
+    if (waitCard) {
+      lastScrollFrameAt = 0;
+
+      if (state.appearance?.performanceMode) {
+        updatePlaybackIndicators(false);
+      } else {
+        updateWordState(false);
+      }
+
+      runPromptWaitPause(waitCard).then((completed) => {
+        if (completed && isPlaying && !isPaused && getActiveMode() === "scroll") {
+          lastScrollFrameAt = 0;
+          playScrollMode();
+        }
+      }).catch(console.error);
+      return;
     }
 
     if (state.appearance?.performanceMode) {
@@ -5020,6 +5274,10 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
     return;
   }
 
+  if (activePromptWaitCardId) {
+    return;
+  }
+
   if (!isFinal) {
     const now = performance.now();
     const partialTokens = tokenizeNormalizedText(text);
@@ -5062,6 +5320,22 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
 
   if (bestMatchIndex >= 0 && bestMatchIndex !== currentIndex) {
     if (bestMatchIndex < currentIndex) {
+      return;
+    }
+
+    const waitCard = getDuePromptWaitCardForVoiceIndex(bestMatchIndex);
+    if (waitCard) {
+      const waitTriggerWordIndex = getPromptWaitCardVoiceTriggerWordIndex(waitCard);
+      if (waitTriggerWordIndex >= 0 && waitTriggerWordIndex !== currentIndex) {
+        currentIndex = waitTriggerWordIndex;
+        updateWordState(true);
+      }
+
+      runPromptWaitPause(waitCard).then((completed) => {
+        if (completed && isPlaying && !isPaused && getActiveMode() === "voice") {
+          updateWordState(false);
+        }
+      }).catch(console.error);
       return;
     }
 
@@ -5167,6 +5441,7 @@ async function play() {
   isPaused = false;
   setReadingMode(true);
   syncPromptLayout();
+  resetPromptWaitCards(activeMode === "scroll" ? getCachedPromptScrollableHeight() * scrollProgress : 0, currentIndex);
   lastStatusUpdateAt = 0;
   updatePlayButtons();
 

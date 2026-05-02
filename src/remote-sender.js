@@ -325,7 +325,7 @@ async function pollReplyStatuses() {
 
 function applyTranslations() {
   document.documentElement.lang = currentLanguage;
-  document.documentElement.dir = RTL_LANGUAGES.has(currentLanguage) ? "rtl" : "ltr";
+  document.documentElement.dir = "ltr";
   document.title = t("pageKicker");
   ui.languageSelect.value = currentLanguage;
   ui.languageLabel.textContent = t("language");

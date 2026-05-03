@@ -36,15 +36,26 @@
             <p class="page-kicker" data-i18n="settings.section">Section</p>
             <h2 class="settings-section-picker-title" data-i18n="settings.sectionTitle">Browse settings</h2>
           </div>
-          <select id="settingsSectionSelect" class="page-input settings-section-select">
-            <option value="remote" data-i18n="settings.section.remote">Remote</option>
-            <option value="positioning" data-i18n="settings.section.positioning">Positioning</option>
-            <option value="appearance" data-i18n="settings.section.appearance">Appearance</option>
-            <option value="sound-input" data-i18n="settings.section.soundInput">Sound input settings</option>
-            <option value="updates" data-i18n="settings.section.updates">Updates</option>
-            <option value="privacy" data-i18n="settings.section.privacy">Privacy & system</option>
-            <option value="usability" data-i18n="settings.section.usability">Usability</option>
-          </select>
+          <div class="choice-picker settings-section-select" id="settingsSectionPicker">
+            <select id="settingsSectionSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+              <option value="appearance" data-i18n="settings.section.appearance">Appearance</option>
+              <option value="scrolling" data-i18n="settings.section.scrolling">Scrolling</option>
+              <option value="positioning" data-i18n="settings.section.windowSettings">Window settings</option>
+              <option value="sound-input" data-i18n="settings.section.soundInput">Sound input settings</option>
+              <option value="remote" data-i18n="settings.section.remote">Remote</option>
+              <option value="usability" data-i18n="settings.section.usability">Usability</option>
+              <option value="privacy" data-i18n="settings.section.privacy">Privacy & system</option>
+              <option value="updates" data-i18n="settings.section.updates">Updates</option>
+            </select>
+            <button class="choice-trigger" id="settingsSectionTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Browse settings sections">
+              <span class="choice-trigger-copy">
+                <span class="choice-trigger-label" id="settingsSectionTriggerLabel">Appearance</span>
+                <span class="choice-trigger-preview hidden" id="settingsSectionTriggerPreview"></span>
+              </span>
+              <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+            </button>
+            <div class="choice-menu hidden" id="settingsSectionMenu" role="listbox"></div>
+          </div>
         </div>
 
         <div class="settings-group" data-settings-section="remote">
@@ -104,41 +115,50 @@
 
         <div class="settings-group hidden" data-settings-section="positioning">
           <div>
-            <p class="page-kicker" data-i18n="settings.positioning">Positioning</p>
-            <h2 data-i18n="settings.windowPlacement">Window placement</h2>
+            <p class="page-kicker" data-i18n="settings.windowSettings">Window settings</p>
+            <h2 data-i18n="settings.windowSettingsTitle">Positioning and size</h2>
           </div>
 
-          <label class="field-label" for="presetSelect" data-i18n="settings.windowLocation">Window location</label>
-          <select id="presetSelect" class="page-input">
-            <option value="top-center" data-i18n="settings.topCenter">Top center</option>
-            <option value="center" data-i18n="settings.center">Center</option>
-            <option value="custom" data-i18n="settings.custom">Custom x / y</option>
-            <option value="drag" data-i18n="settings.drag">Free drag</option>
-          </select>
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.positioning">Positioning</h3>
+            </div>
 
-          <div class="group-grid">
-            <label class="slider-field">
-              <span class="slider-header">
-                <span data-i18n="settings.x">X</span>
-                <span class="slider-value" id="xValue">0 px</span>
-              </span>
-              <input id="xInput" class="slider-input" type="range" step="1" />
-            </label>
+            <label class="field-label" for="presetSelect" data-i18n="settings.windowLocation">Window location</label>
+            <div class="choice-picker" id="presetPicker">
+              <select id="presetSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                <option value="top-center" data-i18n="settings.topCenter">Top center</option>
+                <option value="center" data-i18n="settings.center">Center</option>
+                <option value="custom" data-i18n="settings.custom">Custom x / y</option>
+                <option value="drag" data-i18n="settings.drag">Free drag</option>
+              </select>
+              <button class="choice-trigger" id="presetTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="presetTriggerLabel">
+                <span class="choice-trigger-copy">
+                  <span class="choice-trigger-label" id="presetTriggerLabel">Top center</span>
+                  <span class="choice-trigger-preview hidden" id="presetTriggerPreview"></span>
+                </span>
+                <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+              </button>
+              <div class="choice-menu hidden" id="presetMenu" role="listbox"></div>
+            </div>
 
-            <label class="slider-field">
-              <span class="slider-header">
-                <span data-i18n="settings.y">Y</span>
-                <span class="slider-value" id="yValue">0 px</span>
-              </span>
-              <input id="yInput" class="slider-input" type="range" step="1" />
-            </label>
-          </div>
-        </div>
+            <div class="group-grid">
+              <label class="slider-field">
+                <span class="slider-header">
+                  <span data-i18n="settings.x">X</span>
+                  <span class="slider-value" id="xValue">0 px</span>
+                </span>
+                <input id="xInput" class="slider-input" type="range" step="1" />
+              </label>
 
-        <div class="settings-group hidden" data-settings-section="appearance">
-          <div>
-            <p class="page-kicker" data-i18n="settings.appearance">Appearance</p>
-            <h2 data-i18n="settings.sizeAndPlayback">Size and playback style</h2>
+              <label class="slider-field">
+                <span class="slider-header">
+                  <span data-i18n="settings.y">Y</span>
+                  <span class="slider-value" id="yValue">0 px</span>
+                </span>
+                <input id="yInput" class="slider-input" type="range" step="1" />
+              </label>
+            </div>
           </div>
 
           <div class="settings-subgroup">
@@ -163,72 +183,12 @@
               </label>
             </div>
           </div>
+        </div>
 
-          <div class="settings-subgroup">
-            <div class="settings-subgroup-header">
-              <h3 class="settings-subgroup-title" data-i18n="settings.group.playback">Playback</h3>
-            </div>
-
-            <label class="field-label" for="modeSelect" data-i18n="settings.animationStyle">Scroll Mode</label>
-            <select id="modeSelect" class="page-input">
-              <option value="highlight" data-i18n="settings.mode.highlight">Highlight mode</option>
-              <option value="scroll" data-i18n="settings.mode.scroll">Normal scroll mode</option>
-              <option value="line" data-i18n="settings.mode.line">Line by line highlight</option>
-              <option value="arrow" data-i18n="settings.mode.arrow">Arrow mode</option>
-              <option value="voice" data-i18n="settings.mode.voice">Voice tracking</option>
-            </select>
-
-            <label class="toggle-field" for="speedRailEnabledInput">
-              <span>
-                <span class="field-label inline-label" data-i18n="settings.speedSlider">Left speed slider</span>
-                <span class="helper-text toggle-help" data-i18n="settings.speedSliderHelp">Shows the vertical WPM slider on the left side while playing.</span>
-              </span>
-              <input id="speedRailEnabledInput" class="toggle-input" type="checkbox" />
-            </label>
-
-            <div class="settings-subgroup hidden" id="voiceLanguageGroup">
-              <label class="field-label" for="voiceLanguageSelect" data-i18n="settings.voiceLanguage">Voice Language</label>
-              <span class="helper-text" data-i18n="settings.voiceModeHelp">Matches spoken words to the script to advance automatically.</span>
-              <select id="voiceLanguageSelect" class="page-input">
-                <option value="en-US">English</option>
-                <option value="tr-TR">Turkish</option>
-                <option value="ar-SA">Arabic</option>
-                <option value="de-DE">German</option>
-                <option value="fr-FR">French</option>
-                <option value="es-ES">Spanish</option>
-              </select>
-              <div class="voice-model-card" id="voiceModelCard">
-                <div class="voice-model-header">
-                  <span class="voice-model-badge" id="voiceModelBadge" data-state="checking" data-i18n="settings.voiceModelChecking">Checking model…</span>
-                  <span class="voice-model-label" id="voiceModelSelectedLabel">English</span>
-                </div>
-                <label class="field-label" for="voiceModelSelect" data-i18n="settings.voiceModelSelector">Voice model</label>
-                <select id="voiceModelSelect" class="page-input"></select>
-                <p class="helper-text voice-model-copy" id="voiceModelHint" data-i18n="settings.voiceModelCheckingHelp">Flow checks whether the selected Vosk model is already stored locally.</p>
-                <p class="voice-model-path" id="voiceModelPath" data-i18n="settings.voiceModelPathPending">Checking local model path…</p>
-                <div class="voice-model-progress hidden" id="voiceModelProgress" aria-live="polite">
-                  <div class="voice-model-progress-bar" aria-hidden="true">
-                    <span id="voiceModelProgressFill"></span>
-                  </div>
-                  <div class="voice-model-progress-meta">
-                    <span id="voiceModelProgressLabel">0%</span>
-                    <span id="voiceModelProgressStats">0 MB left · 0 MB/s</span>
-                  </div>
-                </div>
-                <button class="secondary-action compact-action" id="voiceModelDownloadButton" type="button" data-i18n="settings.voiceModelDownloadAction">Download Vosk model</button>
-              </div>
-            </div>
-
-            <div class="settings-subgroup hidden" id="voiceStyleGroup">
-              <label class="field-label" for="voiceStyleSelect" data-i18n="settings.voiceTrackingStyle">Voice tracking style</label>
-              <span class="helper-text" data-i18n="settings.voiceTrackingStyleHelp">Choose how the matched position is shown while speaking.</span>
-              <select id="voiceStyleSelect" class="page-input">
-                <option value="highlight" data-i18n="settings.voiceStyle.highlight">Word highlight</option>
-                <option value="line" data-i18n="settings.voiceStyle.line">Line highlight</option>
-                <option value="plain" data-i18n="settings.voiceStyle.plain">Plain text</option>
-              </select>
-            </div>
-
+        <div class="settings-group hidden" data-settings-section="appearance">
+          <div>
+            <p class="page-kicker" data-i18n="settings.appearance">Appearance</p>
+            <h2>Typography and visuals</h2>
           </div>
 
           <div class="settings-subgroup">
@@ -236,25 +196,35 @@
               <h3 class="settings-subgroup-title" data-i18n="settings.group.typography">Typography</h3>
             </div>
 
-            <label class="field-label" for="fontSelect" data-i18n="settings.font">Font</label>
-            <select id="fontSelect" class="page-input">
-              <option value="inter">Inter</option>
-              <option value="space-grotesk">Space Grotesk</option>
-              <option value="outfit">Outfit</option>
-              <option value="english-pro">English Pro</option>
-              <option value="dutch-pro">Dutch Pro</option>
-              <option value="arabic-pro">Arabic Pro</option>
-              <option value="turkish-pro">Turkish Pro</option>
-              <option value="german-pro">German Pro</option>
-              <option value="system">System UI</option>
-              <option value="merriweather">Merriweather</option>
-              <option value="source-serif">Source Serif 4</option>
-              <option value="georgia">Georgia</option>
-              <option value="garamond">Garamond</option>
-              <option value="verdana">Verdana</option>
-              <option value="jetbrains-mono">JetBrains Mono</option>
-              <option value="mono">Mono</option>
-            </select>
+            <label class="field-label" id="fontSelectLabel" for="fontSelect" data-i18n="settings.font">Font</label>
+            <div class="font-picker" id="fontPicker">
+              <select id="fontSelect" class="font-select-native" aria-hidden="true" tabindex="-1">
+                <option value="inter">Language UI</option>
+                <option value="space-grotesk">Space Grotesk</option>
+                <option value="outfit">Outfit</option>
+                <option value="english-pro">English Pro</option>
+                <option value="dutch-pro">Dutch Pro</option>
+                <option value="arabic-pro">Arabic Pro</option>
+                <option value="turkish-pro">Turkish Pro</option>
+                <option value="german-pro">German Pro</option>
+                <option value="system">System UI</option>
+                <option value="merriweather">Merriweather</option>
+                <option value="source-serif">Source Serif 4</option>
+                <option value="georgia">Georgia</option>
+                <option value="garamond">Garamond</option>
+                <option value="verdana">Verdana</option>
+                <option value="jetbrains-mono">JetBrains Mono</option>
+                <option value="mono">Mono</option>
+              </select>
+              <button class="font-trigger" id="fontTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="fontSelectLabel fontTriggerLabel">
+                <span class="font-trigger-copy">
+                  <span class="font-trigger-label" id="fontTriggerLabel">Language UI</span>
+                  <span class="font-trigger-preview" id="fontTriggerPreview">English</span>
+                </span>
+                <i class="ph ph-caret-down font-trigger-caret" aria-hidden="true"></i>
+              </button>
+              <div class="font-menu hidden" id="fontMenu" role="listbox" aria-labelledby="fontSelectLabel"></div>
+            </div>
 
             <label class="field-label" for="languageSelect" data-i18n="common.language">Language</label>
             <div class="language-picker" id="languagePicker">
@@ -309,24 +279,44 @@
             </div>
 
             <div class="settings-grid appearance-grid">
-              <label>
-                <span data-i18n="settings.style">Style</span>
-                <select id="styleSelect" class="page-input">
-                  <option value="main" data-i18n="settings.style.main">Main</option>
-                  <option value="glass" data-i18n="settings.style.glass">Frosted glass</option>
-                  <option value="minimal" data-i18n="settings.style.minimal">Minimalist</option>
-                </select>
-              </label>
+              <div class="choice-field">
+                <label class="field-label compact-field-label" for="styleSelect" data-i18n="settings.style">Style</label>
+                <div class="choice-picker" id="stylePicker">
+                  <select id="styleSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                    <option value="main" data-i18n="settings.style.main">Main</option>
+                    <option value="glass" data-i18n="settings.style.glass">Frosted glass</option>
+                    <option value="minimal" data-i18n="settings.style.minimal">Minimalist</option>
+                  </select>
+                  <button class="choice-trigger" id="styleTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="choice-trigger-copy">
+                      <span class="choice-trigger-label" id="styleTriggerLabel">Main</span>
+                      <span class="choice-trigger-preview hidden" id="styleTriggerPreview"></span>
+                    </span>
+                    <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                  </button>
+                  <div class="choice-menu hidden" id="styleMenu" role="listbox"></div>
+                </div>
+              </div>
 
-              <label>
-                <span data-i18n="settings.theme">Theme</span>
-                <select id="themeSelect" class="page-input">
-                  <option value="main" data-i18n="settings.theme.main">Main</option>
-                  <option value="dark" data-i18n="settings.theme.dark">Dark</option>
-                  <option value="bright" data-i18n="settings.theme.bright">Bright</option>
-                  <option value="meadow" data-i18n="settings.theme.meadow">Yellow-green</option>
-                </select>
-              </label>
+              <div class="choice-field">
+                <label class="field-label compact-field-label" for="themeSelect" data-i18n="settings.theme">Theme</label>
+                <div class="choice-picker" id="themePicker">
+                  <select id="themeSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                    <option value="main" data-i18n="settings.theme.main">Main</option>
+                    <option value="dark" data-i18n="settings.theme.dark">Dark</option>
+                    <option value="bright" data-i18n="settings.theme.bright">Bright</option>
+                    <option value="meadow" data-i18n="settings.theme.meadow">Yellow-green</option>
+                  </select>
+                  <button class="choice-trigger" id="themeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span class="choice-trigger-copy">
+                      <span class="choice-trigger-label" id="themeTriggerLabel">Main</span>
+                      <span class="choice-trigger-preview hidden" id="themeTriggerPreview"></span>
+                    </span>
+                    <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                  </button>
+                  <div class="choice-menu hidden" id="themeMenu" role="listbox"></div>
+                </div>
+              </div>
 
               <label>
                 <span data-i18n="settings.textColor">Text color</span>
@@ -334,12 +324,20 @@
               </label>
             </div>
 
-            <label class="toggle-field" for="autoHideToolbarInput">
+            <label class="toggle-field" for="mirrorModeInput">
               <span>
-                <span class="field-label inline-label" data-i18n="settings.autoHideToolbar">Auto-hide top bar</span>
-                <span class="helper-text toggle-help" data-i18n="settings.autoHideToolbarHelp">Shows a small top handle and reveals the toolbar only while the teleprompter is hovered.</span>
+                <span class="field-label inline-label" data-i18n="settings.mirrorMode">Mirror text horizontally</span>
+                <span class="helper-text toggle-help" data-i18n="settings.mirrorModeHelp">Flips the teleprompter side-to-side so the reflection reads correctly through a physical mirror.</span>
               </span>
-              <input id="autoHideToolbarInput" class="toggle-input" type="checkbox" />
+              <input id="mirrorModeInput" class="toggle-input" type="checkbox" />
+            </label>
+
+            <label class="toggle-field" for="mirrorVerticalInput">
+              <span>
+                <span class="field-label inline-label" data-i18n="settings.mirrorVertical">Flip text upside down</span>
+                <span class="helper-text toggle-help" data-i18n="settings.mirrorVerticalHelp">Flips the teleprompter top-to-bottom so mirrored rigs can be mounted from either side.</span>
+              </span>
+              <input id="mirrorVerticalInput" class="toggle-input" type="checkbox" />
             </label>
 
             <div class="group-grid settings-subgroup-grid">
@@ -362,6 +360,127 @@
           </div>
         </div>
 
+        <div class="settings-group hidden" data-settings-section="scrolling">
+          <div>
+            <p class="page-kicker" data-i18n="settings.scrolling">Scrolling</p>
+            <h2 data-i18n="settings.scrollingTitle">Playback and tracking</h2>
+          </div>
+
+          <div class="settings-subgroup">
+            <div class="settings-subgroup-header">
+              <h3 class="settings-subgroup-title" data-i18n="settings.group.playback">Playback</h3>
+            </div>
+
+            <label class="field-label" for="modeSelect" data-i18n="settings.animationStyle">Scroll Mode</label>
+            <div class="choice-picker" id="modePicker">
+              <select id="modeSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                <option value="highlight" data-i18n="settings.mode.highlight">Highlight mode</option>
+                <option value="scroll" data-i18n="settings.mode.scroll">Normal scroll mode</option>
+                <option value="line" data-i18n="settings.mode.line">Line by line highlight</option>
+                <option value="arrow" data-i18n="settings.mode.arrow">Arrow mode</option>
+                <option value="voice" data-i18n="settings.mode.voice">Voice tracking</option>
+              </select>
+              <button class="choice-trigger" id="modeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="modeTriggerLabel">
+                <span class="choice-trigger-copy">
+                  <span class="choice-trigger-label" id="modeTriggerLabel">Highlight mode</span>
+                  <span class="choice-trigger-preview hidden" id="modeTriggerPreview"></span>
+                </span>
+                <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+              </button>
+              <div class="choice-menu hidden" id="modeMenu" role="listbox"></div>
+            </div>
+
+            <label class="toggle-field" for="speedRailEnabledInput">
+              <span>
+                <span class="field-label inline-label" data-i18n="settings.speedSlider">Left speed slider</span>
+                <span class="helper-text toggle-help" data-i18n="settings.speedSliderHelp">Shows the vertical WPM slider on the left side while playing.</span>
+              </span>
+              <input id="speedRailEnabledInput" class="toggle-input" type="checkbox" />
+            </label>
+
+            <label class="toggle-field" for="autoHideToolbarInput">
+              <span>
+                <span class="field-label inline-label" data-i18n="settings.autoHideToolbar">Auto-hide top bar</span>
+                <span class="helper-text toggle-help" data-i18n="settings.autoHideToolbarHelp">Shows a small top handle and reveals the toolbar only while the teleprompter is hovered.</span>
+              </span>
+              <input id="autoHideToolbarInput" class="toggle-input" type="checkbox" />
+            </label>
+
+            <div class="settings-subgroup hidden" id="voiceLanguageGroup">
+              <label class="field-label" for="voiceLanguageSelect" data-i18n="settings.voiceLanguage">Voice Language</label>
+              <span class="helper-text" data-i18n="settings.voiceModeHelp">Matches spoken words to the script to advance automatically.</span>
+              <div class="choice-picker" id="voiceLanguagePicker">
+                <select id="voiceLanguageSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="en-US">English</option>
+                  <option value="tr-TR">Turkish</option>
+                  <option value="ar-SA">Arabic</option>
+                  <option value="de-DE">German</option>
+                  <option value="fr-FR">French</option>
+                  <option value="es-ES">Spanish</option>
+                </select>
+                <button class="choice-trigger" id="voiceLanguageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="voiceLanguageTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="voiceLanguageTriggerLabel">English</span>
+                    <span class="choice-trigger-preview hidden" id="voiceLanguageTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="voiceLanguageMenu" role="listbox"></div>
+              </div>
+              <div class="voice-model-card" id="voiceModelCard">
+                <div class="voice-model-header">
+                  <span class="voice-model-badge" id="voiceModelBadge" data-state="checking" data-i18n="settings.voiceModelChecking">Checking model…</span>
+                  <span class="voice-model-label" id="voiceModelSelectedLabel">English</span>
+                </div>
+                <label class="field-label" for="voiceModelSelect" data-i18n="settings.voiceModelSelector">Voice model</label>
+                <div class="choice-picker" id="voiceModelPicker">
+                  <select id="voiceModelSelect" class="choice-select-native" aria-hidden="true" tabindex="-1"></select>
+                  <button class="choice-trigger" id="voiceModelTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="voiceModelTriggerLabel">
+                    <span class="choice-trigger-copy">
+                      <span class="choice-trigger-label" id="voiceModelTriggerLabel"></span>
+                      <span class="choice-trigger-preview hidden" id="voiceModelTriggerPreview"></span>
+                    </span>
+                    <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                  </button>
+                  <div class="choice-menu hidden" id="voiceModelMenu" role="listbox"></div>
+                </div>
+                <p class="helper-text voice-model-copy" id="voiceModelHint" data-i18n="settings.voiceModelCheckingHelp">Flow checks whether the selected Vosk model is already stored locally.</p>
+                <p class="voice-model-path" id="voiceModelPath" data-i18n="settings.voiceModelPathPending">Checking local model path…</p>
+                <div class="voice-model-progress hidden" id="voiceModelProgress" aria-live="polite">
+                  <div class="voice-model-progress-bar" aria-hidden="true">
+                    <span id="voiceModelProgressFill"></span>
+                  </div>
+                  <div class="voice-model-progress-meta">
+                    <span id="voiceModelProgressLabel">0%</span>
+                    <span id="voiceModelProgressStats">0 MB left · 0 MB/s</span>
+                  </div>
+                </div>
+                <button class="secondary-action compact-action" id="voiceModelDownloadButton" type="button" data-i18n="settings.voiceModelDownloadAction">Download Vosk model</button>
+              </div>
+            </div>
+
+            <div class="settings-subgroup hidden" id="voiceStyleGroup">
+              <label class="field-label" for="voiceStyleSelect" data-i18n="settings.voiceTrackingStyle">Voice tracking style</label>
+              <span class="helper-text" data-i18n="settings.voiceTrackingStyleHelp">Choose how the matched position is shown while speaking.</span>
+              <div class="choice-picker" id="voiceStylePicker">
+                <select id="voiceStyleSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="highlight" data-i18n="settings.voiceStyle.highlight">Word highlight</option>
+                  <option value="line" data-i18n="settings.voiceStyle.line">Line highlight</option>
+                  <option value="plain" data-i18n="settings.voiceStyle.plain">Plain text</option>
+                </select>
+                <button class="choice-trigger" id="voiceStyleTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="voiceStyleTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="voiceStyleTriggerLabel">Word highlight</span>
+                    <span class="choice-trigger-preview hidden" id="voiceStyleTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="voiceStyleMenu" role="listbox"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="settings-group hidden" data-settings-section="sound-input">
           <div>
             <p class="page-kicker" data-i18n="settings.soundInput">Sound input</p>
@@ -375,9 +494,19 @@
 
             <label class="field-label" for="soundInputDeviceSelect" data-i18n="settings.soundInputDevice">Input device</label>
             <span class="helper-text" data-i18n="settings.soundInputDeviceHelp">Choose the microphone used for voice tracking and app-wide Flow commands.</span>
-            <select id="soundInputDeviceSelect" class="page-input">
-              <option value="default" data-i18n="settings.soundInputDeviceDefault">System default</option>
-            </select>
+            <div class="choice-picker" id="soundInputDevicePicker">
+              <select id="soundInputDeviceSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                <option value="default" data-i18n="settings.soundInputDeviceDefault">System default</option>
+              </select>
+              <button class="choice-trigger" id="soundInputDeviceTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="soundInputDeviceTriggerLabel">
+                <span class="choice-trigger-copy">
+                  <span class="choice-trigger-label" id="soundInputDeviceTriggerLabel">System default</span>
+                  <span class="choice-trigger-preview hidden" id="soundInputDeviceTriggerPreview"></span>
+                </span>
+                <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+              </button>
+              <div class="choice-menu hidden" id="soundInputDeviceMenu" role="listbox"></div>
+            </div>
 
             <div class="sound-input-meter-card">
               <div class="slider-header">

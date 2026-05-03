@@ -54,6 +54,8 @@ export const defaultState = {
     fontFamily: "inter",
     theme: "main",
     style: "main",
+    mirrorMode: false,
+    mirrorVertical: false,
     speedRailEnabled: true,
     autoHideToolbar: false,
     performanceMode: false,
@@ -247,13 +249,17 @@ const UI_STRINGS = {
     "settings.section": "Section",
     "settings.sectionTitle": "Browse settings",
     "settings.section.remote": "Remote",
-    "settings.section.positioning": "Positioning",
     "settings.section.appearance": "Appearance",
+    "settings.section.scrolling": "Scrolling",
+    "settings.section.positioning": "Positioning",
+    "settings.section.windowSettings": "Window settings",
     "settings.section.soundInput": "Sound input settings",
     "settings.section.updates": "Updates",
     "settings.section.privacy": "Privacy & system",
     "settings.section.usability": "Usability",
     "settings.positioning": "Positioning",
+    "settings.windowSettings": "Window settings",
+    "settings.windowSettingsTitle": "Positioning and size",
     "settings.windowPlacement": "Window placement",
     "settings.windowLocation": "Window location",
     "settings.privacy": "Privacy & system",
@@ -286,6 +292,8 @@ const UI_STRINGS = {
     "settings.drag": "Free drag",
     "settings.appearance": "Appearance",
     "settings.sizeAndPlayback": "Size and playback style",
+    "settings.scrolling": "Scrolling",
+    "settings.scrollingTitle": "Playback and tracking",
     "settings.group.windowSize": "Window size",
     "settings.group.playback": "Playback",
     "settings.group.typography": "Typography",
@@ -397,6 +405,10 @@ const UI_STRINGS = {
     "settings.performanceHelp": "Disables UI animations and forces normal scrolling for smoother performance.",
     "settings.autoHideToolbar": "Auto-hide top bar",
     "settings.autoHideToolbarHelp": "Shows a small top handle and reveals the toolbar only while the teleprompter is hovered.",
+    "settings.mirrorMode": "Mirror text horizontally",
+    "settings.mirrorModeHelp": "Flips the teleprompter side-to-side so the reflection reads correctly through a physical mirror.",
+    "settings.mirrorVertical": "Flip text upside down",
+    "settings.mirrorVerticalHelp": "Flips the teleprompter top-to-bottom so mirrored rigs can be mounted from either side.",
     "settings.textColor": "Text color",
     "settings.textTransparency": "Text transparency",
     "settings.appTransparency": "App transparency",
@@ -420,6 +432,33 @@ const UI_STRINGS = {
     "input.importFailed": "Could not read that file.",
     "input.meta": "{count} words · {minutes} min read",
     "input.editorHelp": "Formatting works like Reddit-style markdown for <strong>**bold**</strong> and <em>*italic*</em>, plus tags for <span class=\"toolbar-underline\">[u]underline[/u]</span>, <mark class=\"mark-yellow\">[yellow]highlight[/yellow]</mark>, <mark class=\"mark-blue\">[blue]highlight[/blue]</mark>, and <mark class=\"mark-red\">[red]highlight[/red]</mark>.",
+    "input.cardBuilder": "Cue cards",
+    "input.cardBuilderHelp": "Insert presenter cues as styled cards inside the script. Centered cards break onto their own line, while between-words cards stay compact inline.",
+    "input.cardPanelCollapse": "Collapse cue cards",
+    "input.cardPanelExpand": "Expand cue cards",
+    "input.cardTemplate": "Template",
+    "input.cardTemplateBuiltin": "Built-in templates",
+    "input.cardTemplateCustom": "Custom templates",
+    "input.cardType": "Card type",
+    "input.cardType.centered": "Centered",
+    "input.cardType.between": "Between words",
+    "input.cardText": "Card text",
+    "input.cardWaitSeconds": "Wait seconds",
+    "input.cardTextPlaceholder": "Example: WAIT 3 SECONDS",
+    "input.cardCustomName": "Template name",
+    "input.cardCustomNamePlaceholder": "Example: Interview pause",
+    "input.cardAdd": "Add",
+    "input.cardSaveTemplate": "Save template",
+    "input.cardPreview": "Preview",
+    "input.cardLibrary": "Saved templates",
+    "input.cardUseAction": "Use",
+    "input.cardDeleteAction": "Delete",
+    "input.cardLibraryEmpty": "Saved custom templates will appear here.",
+    "input.cardTemplateSaved": "Custom cue card saved locally.",
+    "input.cardTemplateDeleted": "Custom cue card removed.",
+    "input.cardTemplateDuplicate": "A saved template with that name already exists.",
+    "input.cardTemplateNeedName": "Add a template name before saving.",
+    "input.cardTemplateNeedText": "Add card text before inserting or saving.",
     "input.groq": "Groq",
     "input.draftHelper": "Draft helper",
     "input.apiKey": "API key",
@@ -1710,6 +1749,12 @@ UI_STRINGS.fr = {
   "settings.section.appearance": "Apparence",
   "settings.section.privacy": "Confidentialité et système",
   "settings.section.usability": "Ergonomie",
+  "settings.x": "X",
+  "settings.y": "Y",
+  "settings.topCenter": "Haut centré",
+  "settings.center": "Centre",
+  "settings.custom": "x / y personnalisés",
+  "settings.drag": "Glisser librement",
   "settings.appearance": "Apparence",
   "settings.sizeAndPlayback": "Taille et style de lecture",
   "settings.group.windowSize": "Taille de la fenêtre",
@@ -1718,11 +1763,21 @@ UI_STRINGS.fr = {
   "settings.group.visuals": "Visuel",
   "settings.font": "Police",
   "settings.textSize": "Taille du texte",
+  "settings.width": "Largeur",
+  "settings.height": "Hauteur",
+  "settings.animationStyle": "Mode de défilement",
+  "settings.mode.highlight": "Mode surlignage",
+  "settings.mode.scroll": "Mode de défilement normal",
+  "settings.mode.line": "Surlignage ligne par ligne",
+  "settings.mode.arrow": "Mode flèche",
+  "settings.mode.voice": "Suivi vocal",
   "settings.voiceTrackingStyle": "Style du suivi vocal",
   "settings.voiceTrackingStyleHelp": "Choisissez comment la position détectée est affichée pendant que vous parlez.",
   "settings.voiceStyle.highlight": "Mise en évidence du mot",
   "settings.voiceStyle.line": "Mise en évidence de la ligne",
   "settings.voiceStyle.plain": "Texte brut",
+  "settings.appWideVoiceCommands": "Commandes vocales Flow à l'échelle de l'application",
+  "settings.appWideVoiceCommandsHelp": "Permet à des commandes vocales anglaises comme 'Hey Flow pause' ou 'Hey Flow down' de fonctionner aussi en dehors du suivi vocal. Cette fonction reste instable et peut ne pas fonctionner de manière fiable.",
   "settings.voiceModelChecking": "Vérification du modèle…",
   "settings.voiceModelCheckingHelp": "Flow vérifie si le modèle Vosk sélectionné est déjà enregistré localement.",
   "settings.voiceModelPathPending": "Vérification du chemin du modèle local…",
@@ -1747,6 +1802,17 @@ UI_STRINGS.fr = {
   "settings.performanceHelp": "Désactive les animations et force le défilement normal pour une meilleure fluidité.",
   "settings.autoHideToolbar": "Masquer automatiquement la barre du haut",
   "settings.autoHideToolbarHelp": "Affiche une petite poignée en haut et révèle la barre seulement au survol.",
+  "settings.style": "Style",
+  "settings.style.main": "Principal",
+  "settings.style.glass": "Verre dépoli",
+  "settings.style.minimal": "Minimaliste",
+  "settings.theme": "Thème",
+  "settings.theme.main": "Principal",
+  "settings.theme.dark": "Sombre",
+  "settings.theme.bright": "Clair",
+  "settings.theme.meadow": "Jaune-vert",
+  "settings.voiceLanguage": "Langue vocale",
+  "settings.voiceModeHelp": "Utilise la langue sélectionnée pour le suivi vocal et les commandes Flow à l'échelle de l'application.",
   "settings.textColor": "Couleur du texte",
   "settings.textTransparency": "Transparence du texte",
   "settings.appTransparency": "Transparence de l'application",
@@ -1967,6 +2033,328 @@ UI_STRINGS.es = {
   "settings.updaterInstallFailed": "La instalación de la actualización falló: {error}"
 };
 
+Object.assign(UI_STRINGS.tr, {
+  "settings.section.scrolling": "Kaydırma",
+  "settings.section.windowSettings": "Pencere ayarları",
+  "settings.windowSettings": "Pencere ayarları",
+  "settings.windowSettingsTitle": "Konum ve boyut",
+  "settings.scrolling": "Kaydırma",
+  "settings.scrollingTitle": "Oynatma ve takip",
+  "settings.mirrorMode": "Metni yatay olarak aynala",
+  "settings.mirrorModeHelp": "Teleprompteri sağdan sola çevirir; böylece fiziksel aynadan yansıma doğru okunur.",
+  "settings.mirrorVertical": "Metni baş aşağı çevir",
+  "settings.mirrorVerticalHelp": "Teleprompteri yukarıdan aşağıya çevirir; böylece aynalı düzenekler iki yönden de kurulabilir.",
+  "input.cardBuilder": "İpucu kartları",
+  "input.cardBuilderHelp": "Sunucu ipuçlarını metnin içine biçimli kartlar olarak ekleyin. Ortalanmış kartlar kendi satırına geçer, kelime arası kartlar ise satır içinde kompakt kalır.",
+  "input.cardPanelCollapse": "İpucu kartlarını daralt",
+  "input.cardPanelExpand": "İpucu kartlarını genişlet",
+  "input.cardTemplate": "Şablon",
+  "input.cardTemplateBuiltin": "Hazır şablonlar",
+  "input.cardTemplateCustom": "Özel şablonlar",
+  "input.cardType": "Kart türü",
+  "input.cardType.centered": "Ortalanmış",
+  "input.cardType.between": "Kelime arası",
+  "input.cardText": "Kart metni",
+  "input.cardWaitSeconds": "Bekleme süresi",
+  "input.cardTextPlaceholder": "Örnek: 3 SANİYE BEKLE",
+  "input.cardCustomName": "Şablon adı",
+  "input.cardCustomNamePlaceholder": "Örnek: Röportaj duraksaması",
+  "input.cardAdd": "Ekle",
+  "input.cardSaveTemplate": "Şablonu kaydet",
+  "input.cardPreview": "Önizleme",
+  "input.cardLibrary": "Kaydedilen şablonlar",
+  "input.cardUseAction": "Kullan",
+  "input.cardDeleteAction": "Sil",
+  "input.cardLibraryEmpty": "Kaydedilen özel şablonlar burada görünür.",
+  "input.cardTemplateSaved": "Özel ipucu kartı yerel olarak kaydedildi.",
+  "input.cardTemplateDeleted": "Özel ipucu kartı kaldırıldı.",
+  "input.cardTemplateDuplicate": "Bu adla kayıtlı bir şablon zaten var.",
+  "input.cardTemplateNeedName": "Kaydetmeden önce bir şablon adı ekleyin.",
+  "input.cardTemplateNeedText": "Eklemek veya kaydetmek için kart metni ekleyin."
+});
+
+Object.assign(UI_STRINGS.ar, {
+  "settings.section.scrolling": "التمرير",
+  "settings.section.windowSettings": "إعدادات النافذة",
+  "settings.windowSettings": "إعدادات النافذة",
+  "settings.windowSettingsTitle": "الموضع والحجم",
+  "settings.scrolling": "التمرير",
+  "settings.scrollingTitle": "التشغيل والتتبع",
+  "settings.mirrorMode": "عكس النص أفقيًا",
+  "settings.mirrorModeHelp": "يقلب شاشة التلقين من اليمين إلى اليسار حتى تُقرأ الانعكاسات بشكل صحيح عبر المرآة الفعلية.",
+  "settings.mirrorVertical": "اقلب النص رأسًا على عقب",
+  "settings.mirrorVerticalHelp": "يقلب شاشة التلقين من الأعلى إلى الأسفل حتى يمكن تركيب أنظمة المرايا من أي جهة.",
+  "input.cardBuilder": "بطاقات التلقين",
+  "input.cardBuilderHelp": "أدرج إشارات المقدم كبطاقات منسقة داخل النص. البطاقات المتمركزة تنتقل إلى سطر مستقل، بينما تبقى بطاقات ما بين الكلمات مدمجة داخل السطر.",
+  "input.cardPanelCollapse": "طي بطاقات التلقين",
+  "input.cardPanelExpand": "توسيع بطاقات التلقين",
+  "input.cardTemplate": "القالب",
+  "input.cardTemplateBuiltin": "القوالب المدمجة",
+  "input.cardTemplateCustom": "القوالب المخصصة",
+  "input.cardType": "نوع البطاقة",
+  "input.cardType.centered": "متمركزة",
+  "input.cardType.between": "بين الكلمات",
+  "input.cardText": "نص البطاقة",
+  "input.cardWaitSeconds": "ثواني الانتظار",
+  "input.cardTextPlaceholder": "مثال: انتظر 3 ثوانٍ",
+  "input.cardCustomName": "اسم القالب",
+  "input.cardCustomNamePlaceholder": "مثال: وقفة المقابلة",
+  "input.cardAdd": "إضافة",
+  "input.cardSaveTemplate": "حفظ القالب",
+  "input.cardPreview": "معاينة",
+  "input.cardLibrary": "القوالب المحفوظة",
+  "input.cardUseAction": "استخدام",
+  "input.cardDeleteAction": "حذف",
+  "input.cardLibraryEmpty": "ستظهر القوالب المخصصة المحفوظة هنا.",
+  "input.cardTemplateSaved": "تم حفظ بطاقة التلقين المخصصة محليًا.",
+  "input.cardTemplateDeleted": "تمت إزالة بطاقة التلقين المخصصة.",
+  "input.cardTemplateDuplicate": "يوجد بالفعل قالب محفوظ بهذا الاسم.",
+  "input.cardTemplateNeedName": "أضف اسمًا للقالب قبل الحفظ.",
+  "input.cardTemplateNeedText": "أضف نص البطاقة قبل الإدراج أو الحفظ."
+});
+
+Object.assign(UI_STRINGS.de, {
+  "settings.section.scrolling": "Scrollen",
+  "settings.section.windowSettings": "Fenstereinstellungen",
+  "settings.windowSettings": "Fenstereinstellungen",
+  "settings.windowSettingsTitle": "Position und Größe",
+  "settings.scrolling": "Scrollen",
+  "settings.scrollingTitle": "Wiedergabe und Tracking",
+  "settings.mirrorMode": "Text horizontal spiegeln",
+  "settings.mirrorModeHelp": "Spiegelt den Teleprompter von links nach rechts, damit die Reflexion in einem echten Spiegel korrekt lesbar ist.",
+  "settings.mirrorVertical": "Text auf den Kopf stellen",
+  "settings.mirrorVerticalHelp": "Spiegelt den Teleprompter von oben nach unten, damit Spiegel-Rigs von beiden Seiten montiert werden können.",
+  "input.cardBuilder": "Hinweiskarten",
+  "input.cardBuilderHelp": "Füge Sprecherhinweise als gestaltete Karten in das Skript ein. Zentrierte Karten stehen in einer eigenen Zeile, Zwischenwort-Karten bleiben kompakt im Textfluss.",
+  "input.cardPanelCollapse": "Hinweiskarten einklappen",
+  "input.cardPanelExpand": "Hinweiskarten ausklappen",
+  "input.cardTemplate": "Vorlage",
+  "input.cardTemplateBuiltin": "Integrierte Vorlagen",
+  "input.cardTemplateCustom": "Benutzerdefinierte Vorlagen",
+  "input.cardType": "Kartentyp",
+  "input.cardType.centered": "Zentriert",
+  "input.cardType.between": "Zwischen Wörtern",
+  "input.cardText": "Kartentext",
+  "input.cardWaitSeconds": "Wartezeit in Sekunden",
+  "input.cardTextPlaceholder": "Beispiel: 3 SEKUNDEN WARTEN",
+  "input.cardCustomName": "Vorlagenname",
+  "input.cardCustomNamePlaceholder": "Beispiel: Interview-Pause",
+  "input.cardAdd": "Hinzufügen",
+  "input.cardSaveTemplate": "Vorlage speichern",
+  "input.cardPreview": "Vorschau",
+  "input.cardLibrary": "Gespeicherte Vorlagen",
+  "input.cardUseAction": "Verwenden",
+  "input.cardDeleteAction": "Löschen",
+  "input.cardLibraryEmpty": "Gespeicherte benutzerdefinierte Vorlagen erscheinen hier.",
+  "input.cardTemplateSaved": "Benutzerdefinierte Hinweiskarte lokal gespeichert.",
+  "input.cardTemplateDeleted": "Benutzerdefinierte Hinweiskarte entfernt.",
+  "input.cardTemplateDuplicate": "Eine gespeicherte Vorlage mit diesem Namen existiert bereits.",
+  "input.cardTemplateNeedName": "Füge vor dem Speichern einen Vorlagennamen hinzu.",
+  "input.cardTemplateNeedText": "Füge Kartentext hinzu, bevor du einfügst oder speicherst."
+});
+
+Object.assign(UI_STRINGS.fr, {
+  "settings.section.scrolling": "Défilement",
+  "settings.section.windowSettings": "Paramètres de la fenêtre",
+  "settings.windowSettings": "Paramètres de la fenêtre",
+  "settings.windowSettingsTitle": "Position et taille",
+  "settings.scrolling": "Défilement",
+  "settings.scrollingTitle": "Lecture et suivi",
+  "settings.mirrorMode": "Miroir horizontal du texte",
+  "settings.mirrorModeHelp": "Inverse le téléprompteur de gauche à droite pour que le reflet reste lisible à travers un miroir physique.",
+  "settings.mirrorVertical": "Retourner le texte à l'envers",
+  "settings.mirrorVerticalHelp": "Inverse le téléprompteur de haut en bas afin que les montages avec miroir puissent être installés dans les deux sens.",
+  "input.cardBuilder": "Cartes d'indication",
+  "input.cardBuilderHelp": "Insérez des repères de présentation sous forme de cartes stylisées dans le script. Les cartes centrées passent sur leur propre ligne, tandis que les cartes entre les mots restent compactes dans le texte.",
+  "input.cardPanelCollapse": "Réduire les cartes d'indication",
+  "input.cardPanelExpand": "Développer les cartes d'indication",
+  "input.cardTemplate": "Modèle",
+  "input.cardTemplateBuiltin": "Modèles intégrés",
+  "input.cardTemplateCustom": "Modèles personnalisés",
+  "input.cardType": "Type de carte",
+  "input.cardType.centered": "Centrée",
+  "input.cardType.between": "Entre les mots",
+  "input.cardText": "Texte de la carte",
+  "input.cardWaitSeconds": "Secondes d'attente",
+  "input.cardTextPlaceholder": "Exemple : ATTENDRE 3 SECONDES",
+  "input.cardCustomName": "Nom du modèle",
+  "input.cardCustomNamePlaceholder": "Exemple : Pause interview",
+  "input.cardAdd": "Ajouter",
+  "input.cardSaveTemplate": "Enregistrer le modèle",
+  "input.cardPreview": "Aperçu",
+  "input.cardLibrary": "Modèles enregistrés",
+  "input.cardUseAction": "Utiliser",
+  "input.cardDeleteAction": "Supprimer",
+  "input.cardLibraryEmpty": "Les modèles personnalisés enregistrés apparaîtront ici.",
+  "input.cardTemplateSaved": "Carte d'indication personnalisée enregistrée localement.",
+  "input.cardTemplateDeleted": "Carte d'indication personnalisée supprimée.",
+  "input.cardTemplateDuplicate": "Un modèle enregistré portant ce nom existe déjà.",
+  "input.cardTemplateNeedName": "Ajoutez un nom de modèle avant l'enregistrement.",
+  "input.cardTemplateNeedText": "Ajoutez du texte à la carte avant de l'insérer ou de l'enregistrer."
+});
+
+Object.assign(UI_STRINGS.es, {
+  "settings.section.scrolling": "Desplazamiento",
+  "settings.section.windowSettings": "Configuración de la ventana",
+  "settings.windowSettings": "Configuración de la ventana",
+  "settings.windowSettingsTitle": "Posición y tamaño",
+  "settings.scrolling": "Desplazamiento",
+  "settings.scrollingTitle": "Reproducción y seguimiento",
+  "settings.mirrorMode": "Reflejar texto horizontalmente",
+  "settings.mirrorModeHelp": "Invierte el teleprónter de lado a lado para que el reflejo se lea correctamente a través de un espejo físico.",
+  "settings.mirrorVertical": "Voltear el texto boca abajo",
+  "settings.mirrorVerticalHelp": "Invierte el teleprónter de arriba abajo para que los montajes con espejo puedan colocarse desde cualquiera de los lados.",
+  "input.cardBuilder": "Tarjetas de señal",
+  "input.cardBuilderHelp": "Inserta indicaciones para el presentador como tarjetas con estilo dentro del guion. Las tarjetas centradas van en su propia línea, mientras que las tarjetas entre palabras permanecen compactas en línea.",
+  "input.cardPanelCollapse": "Contraer tarjetas de señal",
+  "input.cardPanelExpand": "Expandir tarjetas de señal",
+  "input.cardTemplate": "Plantilla",
+  "input.cardTemplateBuiltin": "Plantillas integradas",
+  "input.cardTemplateCustom": "Plantillas personalizadas",
+  "input.cardType": "Tipo de tarjeta",
+  "input.cardType.centered": "Centrada",
+  "input.cardType.between": "Entre palabras",
+  "input.cardText": "Texto de la tarjeta",
+  "input.cardWaitSeconds": "Segundos de espera",
+  "input.cardTextPlaceholder": "Ejemplo: ESPERAR 3 SEGUNDOS",
+  "input.cardCustomName": "Nombre de la plantilla",
+  "input.cardCustomNamePlaceholder": "Ejemplo: Pausa de entrevista",
+  "input.cardAdd": "Añadir",
+  "input.cardSaveTemplate": "Guardar plantilla",
+  "input.cardPreview": "Vista previa",
+  "input.cardLibrary": "Plantillas guardadas",
+  "input.cardUseAction": "Usar",
+  "input.cardDeleteAction": "Eliminar",
+  "input.cardLibraryEmpty": "Las plantillas personalizadas guardadas aparecerán aquí.",
+  "input.cardTemplateSaved": "Tarjeta de señal personalizada guardada localmente.",
+  "input.cardTemplateDeleted": "Tarjeta de señal personalizada eliminada.",
+  "input.cardTemplateDuplicate": "Ya existe una plantilla guardada con ese nombre.",
+  "input.cardTemplateNeedName": "Añade un nombre de plantilla antes de guardarla.",
+  "input.cardTemplateNeedText": "Añade texto a la tarjeta antes de insertarla o guardarla."
+});
+
+Object.assign(UI_STRINGS.en, {
+  "input.cardPreset.warningAlert": "WARNING / ALERT",
+  "input.cardPreset.speakLouder": "SPEAK LOUDER",
+  "input.cardPreset.shortPause": "SHORT PAUSE",
+  "input.cardPreset.longPause": "LONG PAUSE",
+  "input.cardPreset.pause": "PAUSE",
+  "input.cardPreset.waitSecondsName": "WAIT x SECONDS",
+  "input.cardPreset.waitSecondsText": "WAIT {seconds} SECONDS",
+  "input.cardPreset.continue": "CONTINUE",
+  "input.cardPreset.slowDown": "SLOW DOWN",
+  "input.cardPreset.punch": "PUNCH",
+  "input.cardPreset.smile": "SMILE",
+  "input.cardPreset.gesture": "GESTURE",
+  "input.cardPreset.nameTitle": "NAME / TITLE",
+  "input.cardPreset.startEnd": "START / END"
+});
+
+Object.assign(UI_STRINGS.tr, {
+  "input.cardPreset.warningAlert": "UYARI / ALARM",
+  "input.cardPreset.speakLouder": "DAHA YÜKSEK KONUŞ",
+  "input.cardPreset.shortPause": "KISA DURAKLAMA",
+  "input.cardPreset.longPause": "UZUN DURAKLAMA",
+  "input.cardPreset.pause": "DURAKLA",
+  "input.cardPreset.waitSecondsName": "x SANİYE BEKLE",
+  "input.cardPreset.waitSecondsText": "{seconds} SANİYE BEKLE",
+  "input.cardPreset.continue": "DEVAM ET",
+  "input.cardPreset.slowDown": "YAVAŞLA",
+  "input.cardPreset.punch": "VURGULA",
+  "input.cardPreset.smile": "GÜLÜMSE",
+  "input.cardPreset.gesture": "JEST",
+  "input.cardPreset.nameTitle": "İSİM / UNVAN",
+  "input.cardPreset.startEnd": "BAŞLANGIÇ / BİTİŞ"
+});
+
+Object.assign(UI_STRINGS.ar, {
+  "input.cardPreset.warningAlert": "تحذير / تنبيه",
+  "input.cardPreset.speakLouder": "تحدث بصوت أعلى",
+  "input.cardPreset.shortPause": "وقفة قصيرة",
+  "input.cardPreset.longPause": "وقفة طويلة",
+  "input.cardPreset.pause": "وقفة",
+  "input.cardPreset.waitSecondsName": "انتظر x ثوانٍ",
+  "input.cardPreset.waitSecondsText": "انتظر {seconds} ثوانٍ",
+  "input.cardPreset.continue": "تابع",
+  "input.cardPreset.slowDown": "أبطئ",
+  "input.cardPreset.punch": "شدد",
+  "input.cardPreset.smile": "ابتسم",
+  "input.cardPreset.gesture": "إشارة",
+  "input.cardPreset.nameTitle": "الاسم / اللقب",
+  "input.cardPreset.startEnd": "البداية / النهاية"
+});
+
+Object.assign(UI_STRINGS.de, {
+  "input.cardPreset.warningAlert": "WARNUNG / ALARM",
+  "input.cardPreset.speakLouder": "LAUTER SPRECHEN",
+  "input.cardPreset.shortPause": "KURZE PAUSE",
+  "input.cardPreset.longPause": "LANGE PAUSE",
+  "input.cardPreset.pause": "PAUSE",
+  "input.cardPreset.waitSecondsName": "WARTE x SEKUNDEN",
+  "input.cardPreset.waitSecondsText": "WARTE {seconds} SEKUNDEN",
+  "input.cardPreset.continue": "WEITER",
+  "input.cardPreset.slowDown": "LANGSAMER",
+  "input.cardPreset.punch": "BETONEN",
+  "input.cardPreset.smile": "LÄCHELN",
+  "input.cardPreset.gesture": "GESTE",
+  "input.cardPreset.nameTitle": "NAME / TITEL",
+  "input.cardPreset.startEnd": "START / ENDE"
+});
+
+Object.assign(UI_STRINGS.fr, {
+  "input.cardPreset.warningAlert": "AVERTISSEMENT / ALERTE",
+  "input.cardPreset.speakLouder": "PARLER PLUS FORT",
+  "input.cardPreset.shortPause": "COURTE PAUSE",
+  "input.cardPreset.longPause": "LONGUE PAUSE",
+  "input.cardPreset.pause": "PAUSE",
+  "input.cardPreset.waitSecondsName": "ATTENDS x SECONDES",
+  "input.cardPreset.waitSecondsText": "ATTENDS {seconds} SECONDES",
+  "input.cardPreset.continue": "CONTINUER",
+  "input.cardPreset.slowDown": "RALENTIR",
+  "input.cardPreset.punch": "INSISTER",
+  "input.cardPreset.smile": "SOURIRE",
+  "input.cardPreset.gesture": "GESTE",
+  "input.cardPreset.nameTitle": "NOM / TITRE",
+  "input.cardPreset.startEnd": "DÉBUT / FIN"
+});
+
+Object.assign(UI_STRINGS.en, {
+  "common.startFresh": "Start (fresh start)"
+});
+
+Object.assign(UI_STRINGS.tr, {
+  "common.startFresh": "Başlat (sıfırdan)"
+});
+
+Object.assign(UI_STRINGS.ar, {
+  "common.startFresh": "ابدأ (بداية جديدة)"
+});
+
+Object.assign(UI_STRINGS.de, {
+  "common.startFresh": "Starten (neu beginnen)"
+});
+
+Object.assign(UI_STRINGS.fr, {
+  "common.startFresh": "Démarrer (nouveau départ)"
+});
+
+Object.assign(UI_STRINGS.es, {
+  "input.cardPreset.warningAlert": "ADVERTENCIA / ALERTA",
+  "input.cardPreset.speakLouder": "HABLA MÁS FUERTE",
+  "input.cardPreset.shortPause": "PAUSA CORTA",
+  "input.cardPreset.longPause": "PAUSA LARGA",
+  "input.cardPreset.pause": "PAUSA",
+  "input.cardPreset.waitSecondsName": "ESPERA x SEGUNDOS",
+  "input.cardPreset.waitSecondsText": "ESPERA {seconds} SEGUNDOS",
+  "input.cardPreset.continue": "CONTINUAR",
+  "input.cardPreset.slowDown": "MÁS DESPACIO",
+  "input.cardPreset.punch": "ENFATIZA",
+  "input.cardPreset.smile": "SONRÍE",
+  "input.cardPreset.gesture": "GESTO",
+  "input.cardPreset.nameTitle": "NOMBRE / TÍTULO",
+  "input.cardPreset.startEnd": "INICIO / FIN"
+});
+
 const FONT_STACKS = {
   inter: 'Inter, "Segoe UI", Arial, sans-serif',
   "space-grotesk": '"Space Grotesk", "Segoe UI", Arial, sans-serif',
@@ -1984,6 +2372,11 @@ const FONT_STACKS = {
   verdana: 'Verdana, Geneva, sans-serif',
   "jetbrains-mono": '"JetBrains Mono", "Cascadia Code", Consolas, monospace',
   mono: '"Cascadia Code", "Fira Code", Consolas, monospace'
+};
+
+const LANGUAGE_SYSTEM_FONT_STACKS = {
+  default: '"Segoe UI Variable Text", "Segoe UI Variable Display", "Segoe UI", "Arial Nova", Arial, sans-serif',
+  ar: '"Segoe UI Variable Text", "Segoe UI", Tahoma, "Noto Sans Arabic UI", "Noto Sans Arabic", Arial, sans-serif'
 };
 
 const RTL_CHARACTERS = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
@@ -2292,8 +2685,21 @@ export function generateRemoteAccessPassword(wordCount = 24) {
   return words.join(" ");
 }
 
-export function resolveFontStack(fontFamily) {
-  return FONT_STACKS[fontFamily] || FONT_STACKS.inter;
+export function resolveLanguageSystemFontStack(language = defaultState.language) {
+  const normalizedLanguage = normalizeLanguage(language, defaultState.language);
+  return LANGUAGE_SYSTEM_FONT_STACKS[normalizedLanguage] || LANGUAGE_SYSTEM_FONT_STACKS.default;
+}
+
+export function resolveFontStack(fontFamily, language = defaultState.language) {
+  if (fontFamily === "inter") {
+    return resolveLanguageSystemFontStack(language);
+  }
+
+  if (fontFamily === "system") {
+    return FONT_STACKS.system;
+  }
+
+  return FONT_STACKS[fontFamily] || resolveLanguageSystemFontStack(language);
 }
 
 export function getLanguageDirection(language) {
@@ -2306,26 +2712,70 @@ export function translate(key, language = defaultState.language, params = {}) {
   return template.replace(/\{(\w+)\}/g, (_, name) => String(params[name] ?? `{${name}}`));
 }
 
+const WAIT_CARD_PATTERNS = [
+  /^(.*?\bwait\s+)(\d+(?:\.\d+)?)(\s*(?:seconds?|secs?|s)?[\s\S]*)$/iu,
+  /^(.*?)(\d+(?:\.\d+)?)(\s*(?:san[iıİI]ye|sn|s)\s*bekle[\s\S]*)$/iu,
+  /^(.*?\bbekle\s+)(\d+(?:\.\d+)?)(\s*(?:san[iıİI]ye|sn|s)?[\s\S]*)$/iu,
+  /^(.*?انتظر\s+)(\d+(?:\.\d+)?)(\s*(?:ثوان(?:ٍ|ي)?|ثانية)?[\s\S]*)$/u,
+  /^(.*?\bwarte\s+)(\d+(?:\.\d+)?)(\s*(?:sekunden?|sek|s)?[\s\S]*)$/iu,
+  /^(.*?\battends\s+)(\d+(?:\.\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
+  /^(.*?\battendez\s+)(\d+(?:\.\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
+  /^(.*?\battendre\s+)(\d+(?:\.\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
+  /^(.*?\bespera\s+)(\d+(?:\.\d+)?)(\s*(?:segundos?|seg|s)?[\s\S]*)$/iu,
+  /^(.*?\besperar\s+)(\d+(?:\.\d+)?)(\s*(?:segundos?|seg|s)?[\s\S]*)$/iu
+];
+
+export function parseWaitCardText(text) {
+  const source = String(text || "").trim();
+  if (!source) {
+    return null;
+  }
+
+  for (const pattern of WAIT_CARD_PATTERNS) {
+    const match = source.match(pattern);
+    if (!match) {
+      continue;
+    }
+
+    const seconds = Number(match[2]);
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      return null;
+    }
+
+    return {
+      prefix: match[1].trim(),
+      seconds: Math.max(1, Math.round(seconds)),
+      suffix: match[3].trim()
+    };
+  }
+
+  return null;
+}
+
 export function applyTranslationsToDocument(language = defaultState.language, target = document) {
   const normalizedLanguage = normalizeLanguage(language, defaultState.language);
-  const direction = getLanguageDirection(normalizedLanguage);
+  const uiDirection = "ltr";
   if (target.documentElement) {
     target.documentElement.lang = normalizedLanguage;
-    target.documentElement.dir = direction;
+    target.documentElement.dir = uiDirection;
+    target.documentElement.style.setProperty("--flow-ui-font-family", resolveLanguageSystemFontStack(normalizedLanguage));
   }
   if (target.body) {
     target.body.dataset.language = normalizedLanguage;
-    target.body.dataset.uiDirection = direction;
+    target.body.dataset.uiDirection = uiDirection;
   }
 
   target.querySelectorAll?.("[data-i18n]").forEach((element) => {
     element.textContent = translate(element.dataset.i18n, normalizedLanguage);
+    element.dir = uiDirection;
   });
   target.querySelectorAll?.("[data-i18n-html]").forEach((element) => {
     element.innerHTML = translate(element.dataset.i18nHtml, normalizedLanguage);
+    element.dir = uiDirection;
   });
   target.querySelectorAll?.("[data-i18n-placeholder]").forEach((element) => {
     element.setAttribute("placeholder", translate(element.dataset.i18nPlaceholder, normalizedLanguage));
+    element.dir = uiDirection;
   });
   target.querySelectorAll?.("[data-i18n-title]").forEach((element) => {
     const value = translate(element.dataset.i18nTitle, normalizedLanguage);
@@ -2376,6 +2826,8 @@ export function normalizeState(rawState = {}) {
   normalized.remote.publicHost = normalizeRemoteHost(normalized.remote.publicHost, defaults.remote.publicHost);
   normalized.appearance.theme = normalizeTheme(normalized.appearance.theme, defaults.appearance.theme);
   normalized.appearance.style = normalizeStyle(normalized.appearance.style, defaults.appearance.style);
+  normalized.appearance.mirrorMode = Boolean(normalized.appearance.mirrorMode);
+  normalized.appearance.mirrorVertical = Boolean(normalized.appearance.mirrorVertical);
   normalized.appearance.speedRailEnabled = normalized.appearance.speedRailEnabled !== false;
   normalized.appearance.autoHideToolbar = Boolean(normalized.appearance.autoHideToolbar);
   normalized.appearance.performanceMode = Boolean(normalized.appearance.performanceMode);
@@ -2445,8 +2897,33 @@ export function clamp(value, min, max) {
 
 function stripFormattingMarkers(text) {
   return String(text || "")
+    .replace(/\[card[^\]]*\]|\[\/card\]/gi, " ")
     .replace(/\[(?:\/)?(?:u|yellow|blue|red)\]/gi, " ")
     .replace(/\*\*|\*|==/g, " ");
+}
+
+function parseCardDescriptor(rawTag) {
+  const parts = String(rawTag || "").trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (parts[0] !== "card") {
+    return null;
+  }
+
+  let placement = "centered";
+  let tone = "neutral";
+  const supportedTones = new Set(["warning", "pause", "delivery", "cue", "identity", "bookend", "neutral"]);
+
+  parts.slice(1).forEach((part) => {
+    if (part === "centered" || part === "between") {
+      placement = part;
+      return;
+    }
+
+    if (supportedTones.has(part)) {
+      tone = part;
+    }
+  });
+
+  return { placement, tone };
 }
 
 export function detectTextDirection(text) {
@@ -2582,6 +3059,30 @@ export function parseFormattedScript(text) {
       const closingIndex = source.indexOf("]", index + 1);
       if (closingIndex !== -1) {
         const tag = source.slice(index + 1, closingIndex).trim().toLowerCase();
+        const cardDescriptor = parseCardDescriptor(tag);
+        if (cardDescriptor) {
+          const closeCardIndex = source.indexOf("[/card]", closingIndex + 1);
+          if (closeCardIndex !== -1) {
+            flush();
+            const cardText = source.slice(closingIndex + 1, closeCardIndex)
+              .replace(/\r/g, "")
+              .replace(/\s+/g, " ")
+              .trim();
+
+            if (cardText) {
+              tokens.push({
+                type: "card",
+                text: cardText,
+                placement: cardDescriptor.placement,
+                tone: cardDescriptor.tone
+              });
+            }
+
+            index = closeCardIndex + "[/card]".length - 1;
+            continue;
+          }
+        }
+
         const isFormattingTag = ["u", "/u", "yellow", "/yellow", "blue", "/blue", "red", "/red"].includes(tag);
         if (isFormattingTag) {
           flush();
@@ -2887,6 +3388,8 @@ export function applyAppearanceToDocument(appearance = {}, target = document) {
 
   applyThemeToDocument(merged.theme, target);
   target.body.dataset.style = merged.style || defaultState.appearance.style;
+  target.body.dataset.mirrorMode = merged.mirrorMode ? "true" : "false";
+  target.body.dataset.mirrorVertical = merged.mirrorVertical ? "true" : "false";
   target.body.dataset.toolbarAutoHide = merged.autoHideToolbar ? "true" : "false";
   target.body.dataset.performanceMode = merged.performanceMode ? "true" : "false";
   target.documentElement?.style?.setProperty("--flow-app-opacity", String(clamp(merged.appOpacity / 100, 0.15, 1)));

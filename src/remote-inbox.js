@@ -8,7 +8,7 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTranslationsToDocument, initializePersistentStorage, loadState, saveState, translate } from "./shared.js";
+import { applyAppearanceToDocument, applyTranslationsToDocument, initializeDesktopWindowOpacityFade, initializePersistentStorage, loadState, saveState, translate } from "./shared.js";
 
 await initializePersistentStorage();
 
@@ -258,6 +258,7 @@ function bootRemoteInboxPage() {
   applyTranslationsToDocument(loadState().language);
   applyWindowLayout().catch(console.error);
   syncRemoteMessages().catch(console.error);
+  initializeDesktopWindowOpacityFade();
 
   pollTimer = window.setInterval(() => {
     syncRemoteMessages().catch(console.error);

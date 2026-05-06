@@ -21,6 +21,8 @@ import {
   generateWithGroq,
   getSelectedVoiceModelId,
   initializePersistentStorage,
+  initializeDesktopWindowOpacityFade,
+  invokeAfterDesktopFadeOut,
   loadState,
   normalizeVoiceLanguage,
   parseFormattedScript,
@@ -53,11 +55,10 @@ const COLLAPSE_DURATION = 420;
 const SPEED_RAIL_WINDOW_GUTTER = 74;
 const SPEED_RAIL_TRANSITION_MS = 220;
 const PLAYBACK_COUNTDOWN_STEPS = ["3", "2", "1"];
-const PLAYBACK_COUNTDOWN_BASE_STEP_MS = 860;
-const PLAYBACK_COUNTDOWN_FASTEST_STEP_MS = 620;
-const PLAYBACK_COUNTDOWN_SPEED_MIN = 60;
-const PLAYBACK_COUNTDOWN_SPEED_MAX = 360;
-const PLAYBACK_COUNTDOWN_SETTLE_MS = 500;
+const PLAYBACK_COUNTDOWN_STEP_MS = 1000;
+const PLAYBACK_COUNTDOWN_SETTLE_MS = 0;
+const SCROLL_PLAYBACK_START_HOLD_MIN_SECONDS = 0;
+const SCROLL_PLAYBACK_START_HOLD_MAX_SECONDS = 10;
 const WAIT_CARD_STEP_MS = 1000;
 const WAIT_CARD_NUMBER_ANIMATION_MS = 360;
 const WAIT_CARD_TRIGGER_VIEWPORT_OFFSET = 0.5;
@@ -1253,8 +1254,22 @@ function updateSpeedLabel() {
   }
   if (ui.speedRailSlider) {
     ui.speedRailSlider.value = String(state.speed);
+    syncSliderProgress(ui.speedRailSlider);
     ui.speedRailSlider.title = `${state.speed} ${t("common.wpm")}`;
   }
+}
+
+function syncSliderProgress(input) {
+  if (!input) {
+    return;
+  }
+
+  const min = Number(input.min || 0);
+  const max = Number(input.max || 100);
+  const value = Number(input.value || min);
+  const range = max - min;
+  const progress = range > 0 ? ((value - min) / range) * 100 : 0;
+  input.style.setProperty("--slider-progress", `${Math.max(0, Math.min(progress, 100))}%`);
 }
 
 function shouldShowSpeedRail() {
@@ -1288,10 +1303,34 @@ function setSpeedRailGutter(value) {
   document.documentElement.style.setProperty("--speed-rail-gutter-current", `${normalizedGutter}px`);
 }
 
+async function getPreferredMonitor() {
+  if (!tauriWindow?.currentMonitor || !tauriWindow?.primaryMonitor) {
+    return null;
+  }
+
+  return (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
+}
+
+function clampWindowPositionToMonitor(x, y, monitor, width, height) {
+  if (!monitor) {
+    return { x, y };
+  }
+
+  const minX = monitor.position.x;
+  const minY = monitor.position.y;
+  const maxX = monitor.position.x + Math.max(monitor.size.width - width, 0);
+  const maxY = monitor.position.y + Math.max(monitor.size.height - height, 0);
+
+  return {
+    x: clamp(x, minX, maxX),
+    y: clamp(y, minY, maxY)
+  };
+}
+
 async function positionWindowForCurrentLayout(appWindow, gutterWidth = getSpeedRailWindowGutter()) {
 
-  if (state.window.preset === "center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
-    const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
+  if (state.window.preset === "center") {
+    const monitor = await getPreferredMonitor();
     if (monitor) {
       const x = monitor.position.x + Math.round((monitor.size.width - getBaseWindowWidth()) / 2) - gutterWidth;
       const y = monitor.position.y + Math.round((monitor.size.height - state.window.height) / 2);
@@ -1300,8 +1339,8 @@ async function positionWindowForCurrentLayout(appWindow, gutterWidth = getSpeedR
     }
   }
 
-  if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
-    const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
+  if (state.window.preset === "top-center") {
+    const monitor = await getPreferredMonitor();
     if (monitor) {
       const x = monitor.position.x + Math.round((monitor.size.width - getBaseWindowWidth()) / 2) + TOP_CENTER_X_OFFSET - gutterWidth;
       await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, monitor.position.y));
@@ -1309,8 +1348,19 @@ async function positionWindowForCurrentLayout(appWindow, gutterWidth = getSpeedR
     }
   }
 
-  if (state.window.x !== null && state.window.y !== null && tauriDpi.LogicalPosition) {
-    await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x - gutterWidth, state.window.y));
+  if (state.window.x !== null && state.window.y !== null && tauriDpi.PhysicalPosition) {
+    const monitor = await getPreferredMonitor();
+    const targetWidth = getBaseWindowWidth() + gutterWidth;
+    const targetHeight = Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT);
+    const clampedPosition = clampWindowPositionToMonitor(
+      state.window.x - gutterWidth,
+      state.window.y,
+      monitor,
+      targetWidth,
+      targetHeight
+    );
+
+    await appWindow.setPosition(new tauriDpi.PhysicalPosition(clampedPosition.x, clampedPosition.y));
   }
 }
 
@@ -1445,7 +1495,7 @@ function scheduleSpeedPersist() {
 }
 
 function setSpeedValue(nextSpeed, options = {}) {
-  const normalizedSpeed = clamp(Number(nextSpeed) || state.speed, 60, 360);
+  const normalizedSpeed = clamp(Number(nextSpeed) || state.speed, 1, 500);
   if (normalizedSpeed === state.speed) {
     updateSpeedLabel();
     return;
@@ -1855,19 +1905,7 @@ async function runPromptWaitPause(card) {
 }
 
 function getPlaybackCountdownStepMs() {
-  const currentSpeed = clamp(
-    Number(state.speed) || defaultState.speed,
-    PLAYBACK_COUNTDOWN_SPEED_MIN,
-    PLAYBACK_COUNTDOWN_SPEED_MAX
-  );
-  const speedProgress =
-    (currentSpeed - PLAYBACK_COUNTDOWN_SPEED_MIN) /
-    (PLAYBACK_COUNTDOWN_SPEED_MAX - PLAYBACK_COUNTDOWN_SPEED_MIN);
-
-  return Math.round(
-    PLAYBACK_COUNTDOWN_BASE_STEP_MS -
-      speedProgress * (PLAYBACK_COUNTDOWN_BASE_STEP_MS - PLAYBACK_COUNTDOWN_FASTEST_STEP_MS)
-  );
+  return PLAYBACK_COUNTDOWN_STEP_MS;
 }
 
 async function runPlaybackCountdown() {
@@ -1910,6 +1948,24 @@ async function waitForPlaybackCountdownSettle() {
   const token = playbackCountdownToken;
   await wait(PLAYBACK_COUNTDOWN_SETTLE_MS);
   return token === playbackCountdownToken;
+}
+
+function getScrollPlaybackStartHoldMs() {
+  const configuredSeconds = Number(state.appearance?.scrollStartDelaySeconds);
+  const fallbackSeconds = Number(defaultState.appearance?.scrollStartDelaySeconds) || 0;
+  const safeSeconds = Number.isFinite(configuredSeconds)
+    ? clamp(Math.round(configuredSeconds), SCROLL_PLAYBACK_START_HOLD_MIN_SECONDS, SCROLL_PLAYBACK_START_HOLD_MAX_SECONDS)
+    : fallbackSeconds;
+
+  return safeSeconds * 1000;
+}
+
+async function waitForScrollPlaybackStartHold() {
+  const token = ++playbackCountdownToken;
+  isPlaybackCountdownActive = false;
+  setPlaybackCountdownVisible(false);
+  await wait(getScrollPlaybackStartHoldMs());
+  return token === playbackCountdownToken && isPlaying && !isPaused;
 }
 
 function formatMinutesLeft(wordCount, speed) {
@@ -2958,6 +3014,13 @@ async function resumePlayback() {
   const settleCompleted = await waitForPlaybackCountdownSettle();
   if (!settleCompleted) {
     return false;
+  }
+
+  if (activeMode === "scroll") {
+    const holdCompleted = await waitForScrollPlaybackStartHold();
+    if (!holdCompleted) {
+      return false;
+    }
   }
 
   isPaused = false;
@@ -4347,7 +4410,7 @@ function cycleToNextTheme() {
 
 async function hideMainWindowToTray() {
   if (invoke) {
-    await invoke("hide_main_window");
+    await invokeAfterDesktopFadeOut("hide_main_window");
     return;
   }
 
@@ -5455,6 +5518,13 @@ async function play() {
     return;
   }
 
+  if (activeMode === "scroll") {
+    const holdCompleted = await waitForScrollPlaybackStartHold();
+    if (!holdCompleted) {
+      return;
+    }
+  }
+
   if (activeMode === "arrow") {
     beginArrowMode();
     syncVoiceCommandListener();
@@ -6129,9 +6199,11 @@ function wireEvents() {
     }
   });
   ui.speedRailSlider.addEventListener("input", () => {
+    syncSliderProgress(ui.speedRailSlider);
     setSpeedValue(ui.speedRailSlider.value);
   });
   ui.speedRailSlider.addEventListener("change", () => {
+    syncSliderProgress(ui.speedRailSlider);
     setSpeedValue(ui.speedRailSlider.value, { persistImmediately: true });
   });
   ui.speedRailSlider.addEventListener("keydown", (event) => {
@@ -6146,6 +6218,8 @@ function wireEvents() {
       adjustSpeed(event.repeat ? -4 : -2);
     }
   });
+
+  syncSliderProgress(ui.speedRailSlider);
 
   ui.generateButton.addEventListener("click", () => {
     generatePromptScript().catch(console.error);
@@ -6187,7 +6261,11 @@ function wireEvents() {
   });
 
   ui.closeAppButton.addEventListener("click", () => {
-    invoke?.("close_app").catch((error) => {
+    if (!invoke) {
+      return;
+    }
+
+    invokeAfterDesktopFadeOut("close_app").catch((error) => {
       console.error(error);
       ui.statusLabel.textContent = t("tele.failedCloseApp", { error });
     });
@@ -6356,6 +6434,8 @@ function bootFlowApp() {
     applyStoredWindowSettings().catch(console.error);
 
     startAutomaticUpdater();
+
+    initializeDesktopWindowOpacityFade();
   } catch (error) {
     console.error("Flow boot failed", error);
   }

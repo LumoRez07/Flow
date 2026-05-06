@@ -17,6 +17,9 @@ import {
   getThemeTeleprompterTextColor,
   getSelectedVoiceModelId,
   initializePersistentStorage,
+  initializeDesktopWindowOpacityFade,
+  initializeSmoothScrollbox,
+  invokeAfterDesktopFadeOut,
   loadVoiceModelRegistry,
   loadState,
   normalizeVoiceLanguage,
@@ -49,7 +52,6 @@ const SOUND_INPUT_MAX_GAIN = 4;
 const SOUND_INPUT_PREVIEW_FFT_SIZE = 1024;
 const SOUND_INPUT_LEVEL_SCALE = 4;
 const SOUND_INPUT_PREVIEW_INTERVAL_MS = 80;
-
 const tauriCore = window.__TAURI__?.core;
 const invoke = tauriCore?.invoke;
 const tauriApp = window.__TAURI__?.app;
@@ -84,6 +86,8 @@ const ui = {
   modeTriggerPreview: document.querySelector("#modeTriggerPreview"),
   modeMenu: document.querySelector("#modeMenu"),
   speedRailEnabledInput: document.querySelector("#speedRailEnabledInput"),
+  scrollStartDelayInput: document.querySelector("#scrollStartDelayInput"),
+  scrollStartDelayValue: document.querySelector("#scrollStartDelayValue"),
   voiceLanguageGroup: document.querySelector("#voiceLanguageGroup"),
   voiceLanguagePicker: document.querySelector("#voiceLanguagePicker"),
   voiceLanguageSelect: document.querySelector("#voiceLanguageSelect"),
@@ -255,6 +259,9 @@ const VOICE_STYLE_CHOICE_METADATA = {
 let updaterState = {
   currentVersion: "",
   update: null,
+  publishedVersion: "",
+  publishedAt: "",
+  publishedNotes: "",
   checking: false,
   installing: false,
   progress: null,
@@ -751,7 +758,11 @@ function formatPublishedDate(value) {
   }
 }
 
-function getUpdaterApiAvailable() {
+function getUpdaterCheckAvailable() {
+  return Boolean(invoke);
+}
+
+function getUpdaterInstallAvailable() {
   return Boolean(invoke && tauriCore?.Channel);
 }
 
@@ -788,15 +799,20 @@ function renderUpdaterCard() {
   }
 
   const update = updaterState.update;
+  const publishedVersion = String(update?.version || updaterState.publishedVersion || "").trim();
+  const publishedAt = String(update?.date || update?.pub_date || updaterState.publishedAt || "").trim();
+  const publishedNotes = String(update?.body || updaterState.publishedNotes || "").trim();
   const hasUpdate = Boolean(update?.version);
-  const canUseUpdater = getUpdaterApiAvailable();
+  const hasPublishedVersion = Boolean(publishedVersion);
+  const canCheckUpdater = getUpdaterCheckAvailable();
+  const canInstallUpdater = getUpdaterInstallAvailable();
 
   ui.updaterCurrentVersion.textContent = updaterState.currentVersion || t("common.unavailable");
-  ui.updaterAvailableVersion.textContent = hasUpdate
-    ? update.version
+  ui.updaterAvailableVersion.textContent = hasPublishedVersion
+    ? publishedVersion
     : (updaterState.checking ? t("common.loading") : t("settings.updaterNotChecked"));
-  ui.updaterPublishedAt.textContent = hasUpdate
-    ? formatPublishedDate(update.date)
+  ui.updaterPublishedAt.textContent = publishedAt
+    ? formatPublishedDate(publishedAt)
     : t("settings.updaterNoDate");
   ui.updaterStatusBadge.dataset.i18n = updaterState.badgeKey;
   ui.updaterStatusBadge.textContent = t(updaterState.badgeKey);
@@ -807,10 +823,8 @@ function renderUpdaterCard() {
   ].includes(updaterState.badgeKey));
   ui.updaterStatusText.dataset.i18n = updaterState.messageKey;
   ui.updaterStatusText.textContent = t(updaterState.messageKey, updaterState.messageParams);
-  ui.updaterReleaseNotes.textContent = hasUpdate
-    ? String(update.body || "").trim() || t("settings.updaterNoNotes")
-    : t("settings.updaterNoNotes");
-  ui.updaterCheckButton.disabled = updaterState.checking || updaterState.installing || !canUseUpdater;
+  ui.updaterReleaseNotes.textContent = publishedNotes || t("settings.updaterNoNotes");
+  ui.updaterCheckButton.disabled = updaterState.checking || updaterState.installing || !canCheckUpdater || (hasUpdate && !canInstallUpdater);
   ui.updaterCheckButton.textContent = updaterState.installing
     ? t("settings.updaterInstallingAction")
     : (updaterState.checking
@@ -836,6 +850,10 @@ async function ensureCurrentAppVersion() {
   const version = await tauriApp?.getVersion?.().catch(() => "") || "";
   setUpdaterState({ currentVersion: version });
   return version;
+}
+
+async function fetchPublishedUpdaterFeedMetadata() {
+  return invoke("fetch_updater_feed_metadata");
 }
 
 function handleUpdaterDownloadEvent(event) {
@@ -879,7 +897,7 @@ async function checkForAppUpdates(options = {}) {
   const { silentNoUpdate = false, installIfAvailable = false } = options;
   await ensureCurrentAppVersion();
 
-  if (!getUpdaterApiAvailable()) {
+  if (!getUpdaterCheckAvailable()) {
     setUpdaterState({
       update: null,
       checking: false,
@@ -900,9 +918,22 @@ async function checkForAppUpdates(options = {}) {
     messageParams: {}
   });
 
+  const publishedFeed = await fetchPublishedUpdaterFeedMetadata().catch((error) => {
+    console.error("Updater feed metadata fetch failed", error);
+    return null;
+  });
+
+  if (publishedFeed) {
+    setUpdaterState({
+      publishedVersion: publishedFeed.version || updaterState.publishedVersion,
+      publishedAt: publishedFeed.publishedAt || updaterState.publishedAt,
+      publishedNotes: publishedFeed.notes || updaterState.publishedNotes
+    });
+  }
+
   try {
     const metadata = await invoke("plugin:updater|check", {
-      allowDowngrades: false
+      allowDowngrades: true
     });
 
     if (!metadata) {
@@ -920,6 +951,9 @@ async function checkForAppUpdates(options = {}) {
 
     setUpdaterState({
       update: metadata,
+      publishedVersion: metadata.version || publishedFeed?.version || updaterState.publishedVersion,
+      publishedAt: metadata.date || metadata.pub_date || publishedFeed?.publishedAt || updaterState.publishedAt,
+      publishedNotes: String(metadata.body || publishedFeed?.notes || updaterState.publishedNotes || "").trim(),
       checking: false,
       installing: false,
       progress: null,
@@ -955,7 +989,7 @@ async function checkForAppUpdates(options = {}) {
 }
 
 async function installAvailableUpdate() {
-  if (!updaterState.update?.version || updaterState.installing || updaterState.checking || !getUpdaterApiAvailable()) {
+  if (!updaterState.update?.version || updaterState.installing || updaterState.checking || !getUpdaterInstallAvailable()) {
     return;
   }
 
@@ -1301,16 +1335,56 @@ async function downloadSelectedVoiceModel() {
   renderVoiceModelStatus(language);
 }
 
-function closeLanguageMenu() {
-  ui.languageMenu.classList.add("hidden");
-  ui.languageTrigger.setAttribute("aria-expanded", "false");
-  ui.languagePicker.classList.remove("is-open");
+const MENU_CLOSE_ANIMATION_MS = 170;
+
+function resetAnimatedMenuState(menu) {
+  if (menu?._closeTimer) {
+    window.clearTimeout(menu._closeTimer);
+    menu._closeTimer = 0;
+  }
+
+  menu?.classList.remove("is-closing");
+  menu?.querySelectorAll(".is-selection-fading").forEach((element) => {
+    element.classList.remove("is-selection-fading");
+  });
+}
+
+function openAnimatedMenu(menu, trigger, picker) {
+  resetAnimatedMenuState(menu);
+  menu.classList.remove("hidden");
+  trigger.setAttribute("aria-expanded", "true");
+  picker.classList.add("is-open");
+}
+
+function closeAnimatedMenu(menu, trigger, picker, selectedOption = null, onAfterClose = null) {
+  if (menu.classList.contains("hidden") && !menu.classList.contains("is-closing")) {
+    onAfterClose?.();
+    return;
+  }
+
+  resetAnimatedMenuState(menu);
+  menu.classList.remove("hidden");
+  menu.classList.add("is-closing");
+  trigger.setAttribute("aria-expanded", "false");
+  picker.classList.remove("is-open");
+
+  if (selectedOption) {
+    selectedOption.classList.add("is-selection-fading");
+  }
+
+  menu._closeTimer = window.setTimeout(() => {
+    menu.classList.add("hidden");
+    resetAnimatedMenuState(menu);
+    onAfterClose?.();
+  }, MENU_CLOSE_ANIMATION_MS);
+}
+
+function closeLanguageMenu(selectedOption = null, onAfterClose = null) {
+  closeAnimatedMenu(ui.languageMenu, ui.languageTrigger, ui.languagePicker, selectedOption, onAfterClose);
 }
 
 function openLanguageMenu() {
-  ui.languageMenu.classList.remove("hidden");
-  ui.languageTrigger.setAttribute("aria-expanded", "true");
-  ui.languagePicker.classList.add("is-open");
+  openAnimatedMenu(ui.languageMenu, ui.languageTrigger, ui.languagePicker);
 }
 
 function renderLanguagePicker(selectedValue = ui.languageSelect.value, previewLanguage = state.language) {
@@ -1380,16 +1454,12 @@ const FONT_PICKER_METADATA = {
   }
 };
 
-function closeFontMenu() {
-  ui.fontMenu.classList.add("hidden");
-  ui.fontTrigger.setAttribute("aria-expanded", "false");
-  ui.fontPicker.classList.remove("is-open");
+function closeFontMenu(selectedOption = null, onAfterClose = null) {
+  closeAnimatedMenu(ui.fontMenu, ui.fontTrigger, ui.fontPicker, selectedOption, onAfterClose);
 }
 
 function openFontMenu() {
-  ui.fontMenu.classList.remove("hidden");
-  ui.fontTrigger.setAttribute("aria-expanded", "true");
-  ui.fontPicker.classList.add("is-open");
+  openAnimatedMenu(ui.fontMenu, ui.fontTrigger, ui.fontPicker);
 }
 
 function getFontPickerOptionData(value, previewLanguage = state.language) {
@@ -1448,9 +1518,10 @@ function renderFontPicker(selectedValue = ui.fontSelect.value, previewLanguage =
     option.append(copy);
     option.addEventListener("click", () => {
       ui.fontSelect.value = optionData.value;
-      renderFontPicker(optionData.value, state.language);
-      closeFontMenu();
-      scheduleApply();
+      closeFontMenu(option, () => {
+        renderFontPicker(optionData.value, state.language);
+        scheduleApply();
+      });
     });
     ui.fontMenu.append(option);
   });
@@ -1478,10 +1549,8 @@ function getCustomSelectEntries(select) {
   return entries;
 }
 
-function closeCustomSettingsSelect(controller) {
-  controller.menu.classList.add("hidden");
-  controller.trigger.setAttribute("aria-expanded", "false");
-  controller.picker.classList.remove("is-open");
+function closeCustomSettingsSelect(controller, selectedOption = null, onAfterClose = null) {
+  closeAnimatedMenu(controller.menu, controller.trigger, controller.picker, selectedOption, onAfterClose);
 }
 
 function openCustomSettingsSelect(controller) {
@@ -1489,9 +1558,7 @@ function openCustomSettingsSelect(controller) {
     return;
   }
 
-  controller.menu.classList.remove("hidden");
-  controller.trigger.setAttribute("aria-expanded", "true");
-  controller.picker.classList.add("is-open");
+  openAnimatedMenu(controller.menu, controller.trigger, controller.picker);
   queueChoiceTickerOverflowRefresh(controller.trigger, controller.menu);
 }
 
@@ -1576,10 +1643,11 @@ function renderCustomSettingsSelect(controller) {
     button.append(copy);
     button.addEventListener("click", () => {
       controller.select.value = option.value;
-      renderCustomSettingsSelect(controller);
-      closeCustomSettingsSelect(controller);
-      controller.select.dispatchEvent(new Event("change", { bubbles: true }));
-      controller.onSelect?.(option.value);
+      closeCustomSettingsSelect(controller, button, () => {
+        renderCustomSettingsSelect(controller);
+        controller.select.dispatchEvent(new Event("change", { bubbles: true }));
+        controller.onSelect?.(option.value);
+      });
     });
     controller.menu.append(button);
   });
@@ -1754,8 +1822,22 @@ function clampToInput(input, value) {
   return Math.min(Math.max(value, min), max);
 }
 
+function syncSliderProgress(input) {
+  if (!input) {
+    return;
+  }
+
+  const min = Number(input.min || 0);
+  const max = Number(input.max || 100);
+  const value = Number(input.value || min);
+  const range = max - min;
+  const progress = range > 0 ? ((value - min) / range) * 100 : 0;
+  input.style.setProperty("--slider-progress", `${Math.max(0, Math.min(progress, 100))}%`);
+}
+
 function setSliderValue(input, value) {
   input.value = String(clampToInput(input, value));
+  syncSliderProgress(input);
 }
 
 function updateValueLabels() {
@@ -1763,6 +1845,7 @@ function updateValueLabels() {
   ui.yValue.textContent = `${ui.yInput.value} px`;
   ui.widthValue.textContent = `${ui.widthInput.value} px`;
   ui.heightValue.textContent = `${ui.heightInput.value} px`;
+  ui.scrollStartDelayValue.textContent = `${ui.scrollStartDelayInput.value} s`;
   ui.appOpacityValue.textContent = `${ui.appOpacityInput.value}%`;
   ui.textSizeValue.textContent = `${ui.textSizeInput.value}%`;
   ui.textOpacityValue.textContent = `${ui.textOpacityInput.value}%`;
@@ -1780,6 +1863,8 @@ function updateAppearanceAvailability() {
   ui.modeSelect.disabled = false;
   ui.speedRailEnabledInput.disabled = false;
   const isVoiceMode = ui.modeSelect.value === "voice";
+  const isScrollMode = ui.modeSelect.value === "scroll";
+  ui.scrollStartDelayInput.disabled = !isScrollMode;
   ui.voiceLanguageGroup.classList.toggle("hidden", !isVoiceMode);
   ui.voiceLanguageSelect.disabled = !isVoiceMode;
   ui.voiceStyleGroup.classList.toggle("hidden", !isVoiceMode);
@@ -1976,6 +2061,7 @@ function fillForm() {
   setSliderValue(ui.heightInput, state.window.height);
   ui.presetSelect.value = state.window.preset || "top-center";
   ui.modeSelect.value = state.appearance?.mode || defaultState.appearance.mode;
+  setSliderValue(ui.scrollStartDelayInput, state.appearance?.scrollStartDelaySeconds ?? defaultState.appearance.scrollStartDelaySeconds);
   ui.fontSelect.value = state.appearance?.fontFamily || defaultState.appearance.fontFamily;
   ui.languageSelect.value = state.language || defaultState.language;
   ui.remoteAccessPasswordInput.value = state.remote?.accessPassword || "";
@@ -2101,6 +2187,7 @@ function collectFormState() {
     autoHideToolbar: ui.autoHideToolbarInput.checked,
     speedRailEnabled: ui.speedRailEnabledInput.checked,
     performanceMode: ui.performanceModeInput.checked,
+    scrollStartDelaySeconds: Number(ui.scrollStartDelayInput.value),
     textColor: ui.textColorInput.value || state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value),
     textOpacity: Number(ui.textOpacityInput.value)
   };
@@ -2273,6 +2360,8 @@ async function bootSettingsPage() {
   await configureSliderRanges();
   initializeCustomSettingsSelects();
   fillForm();
+  initializeDesktopWindowOpacityFade();
+  initializeSmoothScrollbox();
   await applyDesktopSettings().catch(console.error);
   await refreshRemoteStatus();
   await refreshVoiceModelStatuses();
@@ -2292,8 +2381,13 @@ async function bootSettingsPage() {
     });
   }
 
-  [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput, ui.soundInputNoiseGateInput, ui.soundInputGainInput].forEach((input) => {
-    input.addEventListener("input", scheduleApply);
+  [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.scrollStartDelayInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput, ui.soundInputNoiseGateInput, ui.soundInputGainInput].forEach((input) => {
+    syncSliderProgress(input);
+    input.addEventListener("input", () => {
+      syncSliderProgress(input);
+      updateValueLabels();
+      scheduleApply();
+    });
   });
 
   [ui.presetSelect, ui.modeSelect, ui.voiceLanguageSelect, ui.voiceStyleSelect, ui.soundInputDeviceSelect, ui.fontSelect, ui.languageSelect, ui.themeSelect, ui.styleSelect, ui.textColorInput].forEach((input) => {
@@ -2372,9 +2466,10 @@ async function bootSettingsPage() {
       renderVoiceModelStatus(ui.voiceLanguageSelect.value);
       renderUpdaterCard();
       renderLanguagePicker(option.dataset.value, option.dataset.value);
-      closeLanguageMenu();
-      refreshSoundInputDevices().catch(console.error);
-      scheduleApply();
+      closeLanguageMenu(option, () => {
+        refreshSoundInputDevices().catch(console.error);
+        scheduleApply();
+      });
     });
   });
 
@@ -2407,7 +2502,11 @@ async function bootSettingsPage() {
   });
 
   ui.closeWindowButton.addEventListener("click", () => {
-    invoke?.("hide_aux_window", { kind: "settings" }).catch(console.error);
+    if (!invoke) {
+      return;
+    }
+
+    invokeAfterDesktopFadeOut("hide_aux_window", { kind: "settings" }).catch(console.error);
   });
   ui.openTextButton.addEventListener("click", () => {
     invoke?.("open_aux_window", { kind: "input" }).catch(console.error);

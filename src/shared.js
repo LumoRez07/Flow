@@ -63,6 +63,7 @@ export const defaultState = {
     textScale: 100,
     textColor: "#ffffff",
     textOpacity: 88,
+    scrollStartDelaySeconds: 3,
     voiceLanguage: "en-US",
     voiceScrollStyle: "highlight",
     appWideVoiceCommands: false,
@@ -401,6 +402,8 @@ const UI_STRINGS = {
     "settings.updaterInstallFailed": "Update install failed: {error}",
     "settings.speedSlider": "Left speed slider",
     "settings.speedSliderHelp": "Shows the vertical WPM slider on the left side while playing.",
+    "settings.scrollStartDelay": "Text start delay",
+    "settings.scrollStartDelayHelp": "After the 3, 2, 1 countdown, keeps the text still for this many seconds before scroll mode starts moving.",
     "settings.performance": "Performance mode",
     "settings.performanceHelp": "Disables UI animations and forces normal scrolling for smoother performance.",
     "settings.autoHideToolbar": "Auto-hide top bar",
@@ -617,6 +620,8 @@ const UI_STRINGS = {
     "settings.voiceModelDownloadFailed": "Seçilen Vosk modeli indirilemedi.",
     "settings.speedSlider": "Sol hız kaydırıcısı",
     "settings.speedSliderHelp": "Oynatma sırasında solda dikey WPM kaydırıcısını gösterir.",
+    "settings.scrollStartDelay": "Metin başlama gecikmesi",
+    "settings.scrollStartDelayHelp": "3, 2, 1 geri sayımından sonra, kaydırma modu hareket etmeden önce metni bu kadar saniye sabit tutar.",
     "settings.performance": "Performans modu",
     "settings.performanceHelp": "Daha akıcı performans için arayüz animasyonlarını kapatır ve normal kaydırmayı zorlar.",
     "settings.autoHideToolbar": "Üst çubuğu otomatik gizle",
@@ -796,6 +801,8 @@ const UI_STRINGS = {
     "settings.voiceModelDownloadFailed": "تعذر تنزيل نموذج Vosk المحدد.",
     "settings.speedSlider": "شريط السرعة الأيسر",
     "settings.speedSliderHelp": "يعرض منزلق WPM عموديًا على الجانب الأيسر أثناء التشغيل.",
+    "settings.scrollStartDelay": "تأخير بدء النص",
+    "settings.scrollStartDelayHelp": "بعد العد التنازلي 3 و2 و1، يُبقي النص ثابتًا لهذه المدة قبل أن يبدأ وضع التمرير بالحركة.",
     "settings.performance": "وضع الأداء",
     "settings.performanceHelp": "يعطّل حركات الواجهة ويفرض التمرير العادي لأداء أكثر سلاسة.",
     "settings.autoHideToolbar": "إخفاء الشريط العلوي تلقائيًا",
@@ -975,6 +982,8 @@ const UI_STRINGS = {
     "settings.voiceModelDownloadFailed": "Das ausgewählte Vosk-Modell konnte nicht heruntergeladen werden.",
     "settings.speedSlider": "Linker Geschwindigkeitsregler",
     "settings.speedSliderHelp": "Zeigt beim Abspielen links einen vertikalen WPM-Regler an.",
+    "settings.scrollStartDelay": "Text-Startverzögerung",
+    "settings.scrollStartDelayHelp": "Nach dem 3-2-1-Countdown bleibt der Text für diese Anzahl Sekunden stehen, bevor der Scrollmodus losläuft.",
     "settings.performance": "Performance-Modus",
     "settings.performanceHelp": "Deaktiviert UI-Animationen und erzwingt normales Scrollen für flüssigere Leistung.",
     "settings.autoHideToolbar": "Obere Leiste automatisch ausblenden",
@@ -1350,6 +1359,12 @@ Object.assign(UI_STRINGS.en, {
   "common.thirdPerson": "Third person",
   "common.appLanguage": "App language",
   "common.aggressive": "Aggressive",
+  "input.groqImportButton": "Import file to Groq",
+  "input.groqImportClear": "Remove file",
+  "input.groqImportHelp": "Attach a TXT, DOCX, PDF, or other readable text file for Groq to work from.",
+  "input.groqImporting": "Preparing {name} for Groq...",
+  "input.groqImportAttached": "{name} is attached. Groq will use it as the source text instead of the editor content.",
+  "input.groqImportFailed": "Could not read that file for Groq.",
   "input.assistantHelp": "Saved preferences shape every Groq request, while your instruction stays the task-specific command.",
   "input.profileTitle": "Writing profile",
   "input.profileHelp": "These preferences bias tone and delivery, but your instruction still wins when it conflicts.",
@@ -1395,6 +1410,12 @@ Object.assign(UI_STRINGS.tr, {
   "common.thirdPerson": "Üçüncü kişi",
   "common.appLanguage": "Uygulama dili",
   "common.aggressive": "Agresif",
+  "input.groqImportButton": "Dosyayı Groq'a aktar",
+  "input.groqImportClear": "Dosyayı kaldır",
+  "input.groqImportHelp": "Groq'un kullanması için bir TXT, DOCX, PDF veya okunabilir başka bir metin dosyası ekleyin.",
+  "input.groqImporting": "{name} Groq için hazırlanıyor...",
+  "input.groqImportAttached": "{name} eklendi. Groq bunu düzenleyici içeriği yerine kaynak metin olarak kullanacak.",
+  "input.groqImportFailed": "Bu dosya Groq için okunamadı.",
   "input.assistantHelp": "Kaydedilen tercihler her Groq isteğini şekillendirir, talimatınız ise göreve özel komut olarak kalır.",
   "input.profileTitle": "Yazım profili",
   "input.profileHelp": "Bu tercihler tonu ve akışı yönlendirir, ancak çakışma olursa talimatınız baskın gelir.",
@@ -1440,6 +1461,12 @@ Object.assign(UI_STRINGS.ar, {
   "common.thirdPerson": "الغائب",
   "common.appLanguage": "لغة التطبيق",
   "common.aggressive": "مكثف",
+  "input.groqImportButton": "استيراد ملف إلى Groq",
+  "input.groqImportClear": "إزالة الملف",
+  "input.groqImportHelp": "أرفق ملف TXT أو DOCX أو PDF أو أي ملف نصي قابل للقراءة ليستخدمه Groq.",
+  "input.groqImporting": "جارٍ تجهيز {name} لـ Groq...",
+  "input.groqImportAttached": "تم إرفاق {name}. سيستخدمه Groq كنص المصدر بدلًا من محتوى المحرر.",
+  "input.groqImportFailed": "تعذر قراءة هذا الملف لاستخدامه مع Groq.",
   "input.assistantHelp": "تؤثر التفضيلات المحفوظة في كل طلب Groq، بينما تبقى تعليماتك هي الأمر الخاص بالمهمة.",
   "input.profileTitle": "ملف أسلوب الكتابة",
   "input.profileHelp": "توجّه هذه التفضيلات النبرة والإلقاء، لكن تعليماتك تظل المرجع عند التعارض.",
@@ -1485,6 +1512,12 @@ Object.assign(UI_STRINGS.de, {
   "common.thirdPerson": "Dritte Person",
   "common.appLanguage": "App-Sprache",
   "common.aggressive": "Aggressiv",
+  "input.groqImportButton": "Datei zu Groq importieren",
+  "input.groqImportClear": "Datei entfernen",
+  "input.groqImportHelp": "Hänge eine TXT-, DOCX-, PDF- oder andere lesbare Textdatei an, mit der Groq arbeiten soll.",
+  "input.groqImporting": "{name} wird für Groq vorbereitet...",
+  "input.groqImportAttached": "{name} ist angehängt. Groq verwendet sie als Quelltext statt des Editorinhalts.",
+  "input.groqImportFailed": "Diese Datei konnte für Groq nicht gelesen werden.",
   "input.assistantHelp": "Gespeicherte Präferenzen formen jede Groq-Anfrage, während deine Anweisung der aufgabenspezifische Befehl bleibt.",
   "input.profileTitle": "Schreibprofil",
   "input.profileHelp": "Diese Präferenzen lenken Ton und Vortrag, aber deine Anweisung hat im Konfliktfall Vorrang.",
@@ -1798,6 +1831,8 @@ UI_STRINGS.fr = {
   "settings.voiceModelDownloadFailed": "Impossible de télécharger le modèle Vosk sélectionné.",
   "settings.speedSlider": "Curseur de vitesse à gauche",
   "settings.speedSliderHelp": "Affiche le curseur WPM vertical à gauche pendant la lecture.",
+  "settings.scrollStartDelay": "Délai avant le départ du texte",
+  "settings.scrollStartDelayHelp": "Après le compte à rebours 3, 2, 1, garde le texte immobile pendant ce nombre de secondes avant que le mode défilement commence.",
   "settings.performance": "Mode performance",
   "settings.performanceHelp": "Désactive les animations et force le défilement normal pour une meilleure fluidité.",
   "settings.autoHideToolbar": "Masquer automatiquement la barre du haut",
@@ -1850,6 +1885,12 @@ UI_STRINGS.fr = {
   "input.thinking": "Réflexion en cours...",
   "input.groqUpdated": "Groq a mis à jour votre script.",
   "input.groqFailed": "La requête Groq a échoué.",
+  "input.groqImportButton": "Importer un fichier vers Groq",
+  "input.groqImportClear": "Retirer le fichier",
+  "input.groqImportHelp": "Ajoutez un fichier TXT, DOCX, PDF ou un autre fichier texte lisible pour que Groq s'en serve.",
+  "input.groqImporting": "Préparation de {name} pour Groq...",
+  "input.groqImportAttached": "{name} est joint. Groq l'utilisera comme texte source à la place du contenu de l'éditeur.",
+  "input.groqImportFailed": "Impossible de lire ce fichier pour Groq.",
   "input.saved": "Enregistré localement.",
   "input.assistantHelp": "Les préférences enregistrées influencent chaque requête Groq, tandis que votre instruction reste la commande spécifique à la tâche.",
   "input.profileTitle": "Profil d'écriture",
@@ -2381,8 +2422,8 @@ const LANGUAGE_SYSTEM_FONT_STACKS = {
 
 const RTL_CHARACTERS = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/g;
 const LTR_CHARACTERS = /[A-Za-z\u00C0-\u024F]/g;
-const MIN_SPEED = 60;
-const MAX_SPEED = 360;
+const MIN_SPEED = 1;
+const MAX_SPEED = 500;
 const ACCESS_PASSWORD_WORDS = [
   "amber", "anchor", "apricot", "arcade", "arrow", "atlas", "aurora", "autumn",
   "bamboo", "banner", "beacon", "berry", "blossom", "border", "breeze", "brook",
@@ -2426,6 +2467,12 @@ function normalizeTextScale(value, fallback) {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
   return clamp(Math.round(numeric), 30, 180);
+}
+
+function normalizeScrollStartDelaySeconds(value, fallback) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return clamp(Math.round(numeric), 0, 10);
 }
 
 function normalizeFontFamily(value, fallback) {
@@ -2582,6 +2629,7 @@ export function buildGroqRequest({
     "If existing teleprompter text is provided, use it as the source text and rewrite or transform it according to the user's instruction.",
     "If no existing teleprompter text is provided, generate new teleprompter text from the user's instruction only.",
     "If the user's direct instruction conflicts with a saved preference, follow the user's direct instruction.",
+    "Make sure that there are no hallucinated facts in the output and make sure that you do not add any hallucinated letters or words that don't make sense or are in the wrong language.",
     "Return only the final teleprompter text.",
     "Do not include any intro, label, explanation, notes, or quotation marks.",
     `PREFERENCES:\n${preferences.join("\n")}`,
@@ -2834,6 +2882,10 @@ export function normalizeState(rawState = {}) {
   normalized.appearance.appWideVoiceCommands = Boolean(normalized.appearance.appWideVoiceCommands);
   normalized.appearance.appOpacity = normalizeAppOpacity(normalized.appearance.appOpacity, defaults.appearance.appOpacity);
   normalized.appearance.textScale = normalizeTextScale(normalized.appearance.textScale, defaults.appearance.textScale);
+  normalized.appearance.scrollStartDelaySeconds = normalizeScrollStartDelaySeconds(
+    normalized.appearance.scrollStartDelaySeconds,
+    defaults.appearance.scrollStartDelaySeconds
+  );
   normalized.appearance.textColor = normalizeTeleprompterTextColor(
     normalized.appearance.textColor,
     getThemeTeleprompterTextColor(normalized.appearance.theme)
@@ -3393,6 +3445,243 @@ export function applyAppearanceToDocument(appearance = {}, target = document) {
   target.body.dataset.toolbarAutoHide = merged.autoHideToolbar ? "true" : "false";
   target.body.dataset.performanceMode = merged.performanceMode ? "true" : "false";
   target.documentElement?.style?.setProperty("--flow-app-opacity", String(clamp(merged.appOpacity / 100, 0.15, 1)));
+}
+
+const DESKTOP_WINDOW_FADE_MS = 230;
+
+function scheduleAnimationFrame(callback) {
+  let frameId = 0;
+
+  return () => {
+    if (frameId) {
+      window.cancelAnimationFrame(frameId);
+    }
+
+    frameId = window.requestAnimationFrame(() => {
+      frameId = 0;
+      callback();
+    });
+  };
+}
+
+function waitForMs(ms) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function revealDesktopWindow(target = document) {
+  const body = target?.body;
+  if (!body) {
+    return;
+  }
+
+  body.classList.remove("window-closing");
+  body.classList.remove("window-ready");
+
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      body.classList.add("window-ready");
+    });
+  });
+}
+
+export function initializeDesktopWindowOpacityFade(target = document) {
+  const body = target?.body;
+  if (!body) {
+    return;
+  }
+
+  body.classList.add("desktop-window-opacity-fade");
+  revealDesktopWindow(target);
+
+  window.addEventListener("focus", () => {
+    if (body.classList.contains("window-closing") || !body.classList.contains("window-ready")) {
+      revealDesktopWindow(target);
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && body.classList.contains("window-closing")) {
+      revealDesktopWindow(target);
+    }
+  });
+}
+
+export function initializeSmoothScrollbox(hostOrSelector = ".page-shell", target = document) {
+  const host = typeof hostOrSelector === "string"
+    ? target.querySelector(hostOrSelector)
+    : hostOrSelector;
+
+  if (!host || host.dataset.smoothScrollboxReady === "true") {
+    return;
+  }
+
+  host.dataset.smoothScrollboxReady = "true";
+  host.classList.add("smooth-scrollbox-host");
+
+  const rail = document.createElement("div");
+  rail.className = "smooth-scrollbox";
+
+  const thumb = document.createElement("div");
+  thumb.className = "smooth-scrollbox-thumb";
+
+  rail.append(thumb);
+  host.append(rail);
+
+  let currentThumbHeight = 0;
+  let activePointerId = null;
+  let pointerOffsetY = 0;
+  const railInset = 12;
+
+  const setScrollFromPointer = (clientY) => {
+    const clientHeight = host.clientHeight;
+    const scrollHeight = host.scrollHeight;
+    const maxScrollTop = Math.max(scrollHeight - clientHeight, 0);
+    const hostRect = host.getBoundingClientRect();
+    const railTop = hostRect.top + railInset;
+    const railHeight = Math.max(host.clientHeight - railInset * 2, 0);
+    const maxOffset = Math.max(railHeight - currentThumbHeight, 0);
+
+    if (maxScrollTop <= 0 || maxOffset <= 0) {
+      return;
+    }
+
+    const nextOffset = clamp(clientY - railTop - pointerOffsetY, 0, maxOffset);
+    const progress = nextOffset / maxOffset;
+    host.scrollTop = progress * maxScrollTop;
+    updateThumb();
+  };
+
+  const stopDragging = () => {
+    activePointerId = null;
+    host.classList.remove("is-dragging-scrollbox");
+  };
+
+  const updateThumb = () => {
+    const clientHeight = host.clientHeight;
+    const scrollHeight = host.scrollHeight;
+    const maxScrollTop = Math.max(scrollHeight - clientHeight, 0);
+    const railHeight = rail.clientHeight;
+    const hasOverflow = scrollHeight > clientHeight + 1 && railHeight > 0;
+
+    rail.style.transform = `translateY(${host.scrollTop}px)`;
+
+    host.classList.toggle("has-smooth-scrollbox", hasOverflow);
+
+    if (!hasOverflow) {
+      currentThumbHeight = 0;
+      thumb.style.height = "0px";
+      thumb.style.transform = "translateY(0px)";
+      return;
+    }
+
+    const thumbHeight = Math.max((clientHeight / scrollHeight) * railHeight, 34);
+    const maxOffset = Math.max(railHeight - thumbHeight, 0);
+    const progress = maxScrollTop > 0 ? host.scrollTop / maxScrollTop : 0;
+    const offset = progress * maxOffset;
+
+    currentThumbHeight = thumbHeight;
+    thumb.style.height = `${thumbHeight}px`;
+    thumb.style.transform = `translateY(${offset}px)`;
+  };
+
+  const scheduleUpdate = scheduleAnimationFrame(updateThumb);
+  const resizeObserver = new ResizeObserver(scheduleUpdate);
+  const mutationObserver = new MutationObserver(scheduleUpdate);
+
+  resizeObserver.observe(host);
+
+  Array.from(host.children).forEach((child) => {
+    if (child !== rail) {
+      resizeObserver.observe(child);
+    }
+  });
+
+  mutationObserver.observe(host, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["class", "hidden", "aria-hidden"]
+  });
+
+  host.addEventListener("scroll", () => {
+    if (activePointerId !== null) {
+      updateThumb();
+      return;
+    }
+
+    scheduleUpdate();
+  }, { passive: true });
+  window.addEventListener("resize", scheduleUpdate);
+
+  rail.addEventListener("pointerdown", (event) => {
+    if (!host.classList.contains("has-smooth-scrollbox")) {
+      return;
+    }
+
+    const thumbRect = thumb.getBoundingClientRect();
+    const startedFromThumb = event.target === thumb || thumb.contains(event.target);
+
+    activePointerId = event.pointerId;
+    pointerOffsetY = startedFromThumb
+      ? clamp(event.clientY - thumbRect.top, 0, currentThumbHeight)
+      : currentThumbHeight * 0.5;
+
+    host.classList.add("is-dragging-scrollbox");
+    rail.setPointerCapture?.(event.pointerId);
+    setScrollFromPointer(event.clientY);
+    event.preventDefault();
+  });
+
+  rail.addEventListener("pointermove", (event) => {
+    if (event.pointerId !== activePointerId) {
+      return;
+    }
+
+    setScrollFromPointer(event.clientY);
+    event.preventDefault();
+  });
+
+  rail.addEventListener("pointerup", (event) => {
+    if (event.pointerId !== activePointerId) {
+      return;
+    }
+
+    rail.releasePointerCapture?.(event.pointerId);
+    stopDragging();
+  });
+
+  rail.addEventListener("pointercancel", (event) => {
+    if (event.pointerId !== activePointerId) {
+      return;
+    }
+
+    rail.releasePointerCapture?.(event.pointerId);
+    stopDragging();
+  });
+
+  scheduleUpdate();
+}
+
+export async function fadeOutDesktopWindow(target = document, durationMs = DESKTOP_WINDOW_FADE_MS) {
+  const body = target?.body;
+  if (!body) {
+    return;
+  }
+
+  body.classList.add("window-closing");
+  body.classList.remove("window-ready");
+  await waitForMs(durationMs);
+}
+
+export async function invokeAfterDesktopFadeOut(command, args = {}, durationMs = DESKTOP_WINDOW_FADE_MS) {
+  if (!tauriInvoke) {
+    return;
+  }
+
+  await fadeOutDesktopWindow(document, durationMs);
+  await tauriInvoke(command, args);
 }
 
 export function estimateMinutes(wordCount, speed) {

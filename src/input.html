@@ -174,6 +174,12 @@
 
         <label class="field-label" for="groqPromptInput" data-i18n="input.instruction">Instruction</label>
         <textarea id="groqPromptInput" class="page-textarea small-textarea" data-i18n-placeholder="input.instructionPlaceholder" placeholder="Example: Rewrite this to sound more natural and easier to read on camera."></textarea>
+        <div class="editor-import-row groq-import-row">
+          <button class="secondary-action compact-action" id="groqImportButton" type="button" data-i18n="input.groqImportButton">Import file to Groq</button>
+          <input id="groqImportInput" type="file" class="hidden-file-input" accept=".txt,.text,.md,.markdown,.csv,.tsv,.json,.xml,.html,.htm,.docx,.pdf,text/plain,text/markdown,text/csv,application/json,application/xml,text/xml,text/html,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+          <button class="secondary-action compact-action hidden" id="groqImportClearButton" type="button" data-i18n="input.groqImportClear">Remove file</button>
+          <span class="helper-text import-status" id="groqImportStatus" data-i18n="input.groqImportHelp">Attach a TXT, DOCX, PDF, or other readable text file for Groq to work from.</span>
+        </div>
         <p class="helper-text" data-i18n="input.assistantHelp">Saved preferences shape every Groq request, while your instruction stays the task-specific command.</p>
 
         <div class="settings-subgroup assistant-profile-group">
@@ -183,62 +189,122 @@
           <p class="helper-text" data-i18n="input.profileHelp">These preferences bias tone and delivery, but your instruction still wins when it conflicts.</p>
 
           <div class="group-grid settings-subgroup-grid">
-            <label>
-              <span data-i18n="input.personality">Personality</span>
-              <select id="groqPersonalitySelect" class="page-input">
-                <option value="natural" data-i18n="input.personality.natural">Natural</option>
-                <option value="confident" data-i18n="input.personality.confident">Confident</option>
-                <option value="friendly" data-i18n="input.personality.friendly">Friendly</option>
-                <option value="professional" data-i18n="input.personality.professional">Professional</option>
-                <option value="persuasive" data-i18n="input.personality.persuasive">Persuasive</option>
-              </select>
-            </label>
+            <div class="choice-field">
+              <label class="field-label compact-field-label" for="groqPersonalitySelect" data-i18n="input.personality">Personality</label>
+              <div class="choice-picker" id="groqPersonalityPicker">
+                <select id="groqPersonalitySelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="natural" data-i18n="input.personality.natural">Natural</option>
+                  <option value="confident" data-i18n="input.personality.confident">Confident</option>
+                  <option value="friendly" data-i18n="input.personality.friendly">Friendly</option>
+                  <option value="professional" data-i18n="input.personality.professional">Professional</option>
+                  <option value="persuasive" data-i18n="input.personality.persuasive">Persuasive</option>
+                </select>
+                <button class="choice-trigger" id="groqPersonalityTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="groqPersonalityTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="groqPersonalityTriggerLabel">Natural</span>
+                    <span class="choice-trigger-preview hidden" id="groqPersonalityTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="groqPersonalityMenu" role="listbox"></div>
+              </div>
+            </div>
 
-            <label>
-              <span data-i18n="input.grammarLevel">Grammar level</span>
-              <select id="groqGrammarLevelSelect" class="page-input">
-                <option value="relaxed" data-i18n="input.grammarLevel.relaxed">Relaxed</option>
-                <option value="standard" data-i18n="input.grammarLevel.standard">Standard</option>
-                <option value="polished" data-i18n="input.grammarLevel.polished">Polished</option>
-              </select>
-            </label>
+            <div class="choice-field">
+              <label class="field-label compact-field-label" for="groqGrammarLevelSelect" data-i18n="input.grammarLevel">Grammar level</label>
+              <div class="choice-picker" id="groqGrammarLevelPicker">
+                <select id="groqGrammarLevelSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="relaxed" data-i18n="input.grammarLevel.relaxed">Relaxed</option>
+                  <option value="standard" data-i18n="input.grammarLevel.standard">Standard</option>
+                  <option value="polished" data-i18n="input.grammarLevel.polished">Polished</option>
+                </select>
+                <button class="choice-trigger" id="groqGrammarLevelTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="groqGrammarLevelTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="groqGrammarLevelTriggerLabel">Standard</span>
+                    <span class="choice-trigger-preview hidden" id="groqGrammarLevelTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="groqGrammarLevelMenu" role="listbox"></div>
+              </div>
+            </div>
 
-            <label>
-              <span data-i18n="input.emojiUsage">Emoji usage</span>
-              <select id="groqEmojiUsageSelect" class="page-input">
-                <option value="off" data-i18n="common.off">Off</option>
-                <option value="on" data-i18n="common.on">On</option>
-              </select>
-            </label>
+            <div class="choice-field">
+              <label class="field-label compact-field-label" for="groqEmojiUsageSelect" data-i18n="input.emojiUsage">Emoji usage</label>
+              <div class="choice-picker" id="groqEmojiUsagePicker">
+                <select id="groqEmojiUsageSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="off" data-i18n="common.off">Off</option>
+                  <option value="on" data-i18n="common.on">On</option>
+                </select>
+                <button class="choice-trigger" id="groqEmojiUsageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="groqEmojiUsageTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="groqEmojiUsageTriggerLabel">Off</span>
+                    <span class="choice-trigger-preview hidden" id="groqEmojiUsageTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="groqEmojiUsageMenu" role="listbox"></div>
+              </div>
+            </div>
 
-            <label>
-              <span data-i18n="input.academicWordUsage">Academic words</span>
-              <select id="groqAcademicWordUsageSelect" class="page-input">
-                <option value="off" data-i18n="input.academicWordUsage.off">Off</option>
-                <option value="on" data-i18n="input.academicWordUsage.on">On</option>
-                <option value="aggressive" data-i18n="input.academicWordUsage.aggressive">Aggressive</option>
-              </select>
-            </label>
+            <div class="choice-field">
+              <label class="field-label compact-field-label" for="groqAcademicWordUsageSelect" data-i18n="input.academicWordUsage">Academic words</label>
+              <div class="choice-picker" id="groqAcademicWordUsagePicker">
+                <select id="groqAcademicWordUsageSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="off" data-i18n="input.academicWordUsage.off">Off</option>
+                  <option value="on" data-i18n="input.academicWordUsage.on">On</option>
+                  <option value="aggressive" data-i18n="input.academicWordUsage.aggressive">Aggressive</option>
+                </select>
+                <button class="choice-trigger" id="groqAcademicWordUsageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="groqAcademicWordUsageTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="groqAcademicWordUsageTriggerLabel">Off</span>
+                    <span class="choice-trigger-preview hidden" id="groqAcademicWordUsageTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="groqAcademicWordUsageMenu" role="listbox"></div>
+              </div>
+            </div>
 
-            <label>
-              <span data-i18n="input.pointOfView">Speech point of view</span>
-              <select id="groqPointOfViewSelect" class="page-input">
-                <option value="first-person" data-i18n="input.pointOfView.firstPerson">First person (I / me)</option>
-                <option value="third-person" data-i18n="input.pointOfView.thirdPerson">Third person</option>
-              </select>
-            </label>
+            <div class="choice-field">
+              <label class="field-label compact-field-label" for="groqPointOfViewSelect" data-i18n="input.pointOfView">Speech point of view</label>
+              <div class="choice-picker" id="groqPointOfViewPicker">
+                <select id="groqPointOfViewSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="first-person" data-i18n="input.pointOfView.firstPerson">First person (I / me)</option>
+                  <option value="third-person" data-i18n="input.pointOfView.thirdPerson">Third person</option>
+                </select>
+                <button class="choice-trigger" id="groqPointOfViewTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="groqPointOfViewTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="groqPointOfViewTriggerLabel">First person (I / me)</span>
+                    <span class="choice-trigger-preview hidden" id="groqPointOfViewTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="groqPointOfViewMenu" role="listbox"></div>
+              </div>
+            </div>
 
-            <label>
-              <span data-i18n="input.outputLanguage">Output language</span>
-              <select id="groqOutputLanguageSelect" class="page-input">
-                <option value="app" data-i18n="input.outputLanguage.app">App language</option>
-                <option value="en" data-i18n="language.en">English</option>
-                <option value="tr" data-i18n="language.tr">Turkish</option>
-                <option value="ar" data-i18n="language.ar">Arabic</option>
-                <option value="de" data-i18n="language.de">German</option>
-                <option value="fr" data-i18n="language.fr">French</option>
-              </select>
-            </label>
+            <div class="choice-field">
+              <label class="field-label compact-field-label" for="groqOutputLanguageSelect" data-i18n="input.outputLanguage">Output language</label>
+              <div class="choice-picker" id="groqOutputLanguagePicker">
+                <select id="groqOutputLanguageSelect" class="choice-select-native" aria-hidden="true" tabindex="-1">
+                  <option value="app" data-i18n="input.outputLanguage.app">App language</option>
+                  <option value="en" data-i18n="language.en">English</option>
+                  <option value="tr" data-i18n="language.tr">Turkish</option>
+                  <option value="ar" data-i18n="language.ar">Arabic</option>
+                  <option value="de" data-i18n="language.de">German</option>
+                  <option value="fr" data-i18n="language.fr">French</option>
+                </select>
+                <button class="choice-trigger" id="groqOutputLanguageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="groqOutputLanguageTriggerLabel">
+                  <span class="choice-trigger-copy">
+                    <span class="choice-trigger-label" id="groqOutputLanguageTriggerLabel">App language</span>
+                    <span class="choice-trigger-preview hidden" id="groqOutputLanguageTriggerPreview"></span>
+                  </span>
+                  <i class="ph ph-caret-down choice-trigger-caret" aria-hidden="true"></i>
+                </button>
+                <div class="choice-menu hidden" id="groqOutputLanguageMenu" role="listbox"></div>
+              </div>
+            </div>
           </div>
 
           <label class="field-label" for="groqUserContextInput" data-i18n="input.userContext">Context about you</label>

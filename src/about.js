@@ -8,7 +8,7 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTranslationsToDocument, initializePersistentStorage, loadState } from "./shared.js";
+import { applyAppearanceToDocument, applyTranslationsToDocument, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState } from "./shared.js";
 
 await initializePersistentStorage();
 
@@ -25,7 +25,11 @@ function bootAboutPage() {
   syncTheme();
 
   document.querySelector("#closeWindowButton")?.addEventListener("click", () => {
-    invoke?.("hide_aux_window", { kind: "about" }).catch(console.error);
+    if (!invoke) {
+      return;
+    }
+
+    invokeAfterDesktopFadeOut("hide_aux_window", { kind: "about" }).catch(console.error);
   });
 
   document.querySelector("#openSettingsButton")?.addEventListener("click", () => {
@@ -49,6 +53,9 @@ function bootAboutPage() {
   window.addEventListener("focus", syncTheme);
   window.addEventListener("storage", syncTheme);
   window.addEventListener("flow-state-updated", syncTheme);
+
+  initializeDesktopWindowOpacityFade();
+  initializeSmoothScrollbox();
 }
 
 if (document.readyState === "loading") {

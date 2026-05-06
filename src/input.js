@@ -8,7 +8,7 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, initializePersistentStorage, loadState, parseWaitCardText, saveState, splitWords, translate } from "./shared.js";
+import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState, parseWaitCardText, saveState, splitWords, translate } from "./shared.js";
 
 await initializePersistentStorage();
 
@@ -61,12 +61,46 @@ const ui = {
   importStatus: document.querySelector("#importStatus"),
   groqKeyInput: document.querySelector("#groqKeyInput"),
   groqPromptInput: document.querySelector("#groqPromptInput"),
+  groqImportButton: document.querySelector("#groqImportButton"),
+  groqImportInput: document.querySelector("#groqImportInput"),
+  groqImportClearButton: document.querySelector("#groqImportClearButton"),
+  groqImportStatus: document.querySelector("#groqImportStatus"),
+  groqPersonalityPicker: document.querySelector("#groqPersonalityPicker"),
   groqPersonalitySelect: document.querySelector("#groqPersonalitySelect"),
+  groqPersonalityTrigger: document.querySelector("#groqPersonalityTrigger"),
+  groqPersonalityTriggerLabel: document.querySelector("#groqPersonalityTriggerLabel"),
+  groqPersonalityTriggerPreview: document.querySelector("#groqPersonalityTriggerPreview"),
+  groqPersonalityMenu: document.querySelector("#groqPersonalityMenu"),
+  groqGrammarLevelPicker: document.querySelector("#groqGrammarLevelPicker"),
   groqGrammarLevelSelect: document.querySelector("#groqGrammarLevelSelect"),
+  groqGrammarLevelTrigger: document.querySelector("#groqGrammarLevelTrigger"),
+  groqGrammarLevelTriggerLabel: document.querySelector("#groqGrammarLevelTriggerLabel"),
+  groqGrammarLevelTriggerPreview: document.querySelector("#groqGrammarLevelTriggerPreview"),
+  groqGrammarLevelMenu: document.querySelector("#groqGrammarLevelMenu"),
+  groqEmojiUsagePicker: document.querySelector("#groqEmojiUsagePicker"),
   groqEmojiUsageSelect: document.querySelector("#groqEmojiUsageSelect"),
+  groqEmojiUsageTrigger: document.querySelector("#groqEmojiUsageTrigger"),
+  groqEmojiUsageTriggerLabel: document.querySelector("#groqEmojiUsageTriggerLabel"),
+  groqEmojiUsageTriggerPreview: document.querySelector("#groqEmojiUsageTriggerPreview"),
+  groqEmojiUsageMenu: document.querySelector("#groqEmojiUsageMenu"),
+  groqAcademicWordUsagePicker: document.querySelector("#groqAcademicWordUsagePicker"),
   groqAcademicWordUsageSelect: document.querySelector("#groqAcademicWordUsageSelect"),
+  groqAcademicWordUsageTrigger: document.querySelector("#groqAcademicWordUsageTrigger"),
+  groqAcademicWordUsageTriggerLabel: document.querySelector("#groqAcademicWordUsageTriggerLabel"),
+  groqAcademicWordUsageTriggerPreview: document.querySelector("#groqAcademicWordUsageTriggerPreview"),
+  groqAcademicWordUsageMenu: document.querySelector("#groqAcademicWordUsageMenu"),
+  groqPointOfViewPicker: document.querySelector("#groqPointOfViewPicker"),
   groqPointOfViewSelect: document.querySelector("#groqPointOfViewSelect"),
+  groqPointOfViewTrigger: document.querySelector("#groqPointOfViewTrigger"),
+  groqPointOfViewTriggerLabel: document.querySelector("#groqPointOfViewTriggerLabel"),
+  groqPointOfViewTriggerPreview: document.querySelector("#groqPointOfViewTriggerPreview"),
+  groqPointOfViewMenu: document.querySelector("#groqPointOfViewMenu"),
+  groqOutputLanguagePicker: document.querySelector("#groqOutputLanguagePicker"),
   groqOutputLanguageSelect: document.querySelector("#groqOutputLanguageSelect"),
+  groqOutputLanguageTrigger: document.querySelector("#groqOutputLanguageTrigger"),
+  groqOutputLanguageTriggerLabel: document.querySelector("#groqOutputLanguageTriggerLabel"),
+  groqOutputLanguageTriggerPreview: document.querySelector("#groqOutputLanguageTriggerPreview"),
+  groqOutputLanguageMenu: document.querySelector("#groqOutputLanguageMenu"),
   groqUserContextInput: document.querySelector("#groqUserContextInput"),
   groqButton: document.querySelector("#groqButton"),
   saveScriptButton: document.querySelector("#saveScriptButton"),
@@ -82,6 +116,7 @@ const DIRECT_TEXT_EXTENSIONS = new Set(["txt", "text", "md", "markdown", "csv", 
 let pdfModulePromise = null;
 let mammothModulePromise = null;
 let nativeDropUnlisten = null;
+let groqImportedFile = null;
 const customInputSelectControllers = [];
 const RTL_TEXT_PATTERN = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
 const INPUT_SECTION_CHOICE_METADATA = {
@@ -110,6 +145,80 @@ const BUILT_IN_SCRIPT_CARD_TEMPLATES = [
 
 let scriptCardTemplates = [];
 let scriptCardPanelCollapsed = false;
+
+function detectTextEncoding(bytes) {
+  if (!bytes?.length) {
+    return "utf-8";
+  }
+
+  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
+    return "utf-8-bom";
+  }
+
+  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return "utf-16le-bom";
+  }
+
+  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return "utf-16be-bom";
+  }
+
+  const sampleSize = Math.min(bytes.length, 512);
+  let evenNulls = 0;
+  let oddNulls = 0;
+
+  for (let index = 0; index < sampleSize; index += 1) {
+    if (bytes[index] !== 0x00) {
+      continue;
+    }
+
+    if (index % 2 === 0) {
+      evenNulls += 1;
+    } else {
+      oddNulls += 1;
+    }
+  }
+
+  if (oddNulls >= 8 && oddNulls > evenNulls * 3) {
+    return "utf-16le";
+  }
+
+  if (evenNulls >= 8 && evenNulls > oddNulls * 3) {
+    return "utf-16be";
+  }
+
+  return "utf-8";
+}
+
+function decodeTextBytes(input) {
+  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input || []);
+  const encoding = detectTextEncoding(bytes);
+
+  if (encoding === "utf-8-bom") {
+    return new TextDecoder("utf-8").decode(bytes.subarray(3));
+  }
+
+  if (encoding === "utf-16le-bom") {
+    return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+  }
+
+  if (encoding === "utf-16be-bom") {
+    return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+  }
+
+  const decoded = new TextDecoder(encoding).decode(bytes).replace(/^\uFEFF/, "");
+  const replacementCount = (decoded.match(/\uFFFD/g) || []).length;
+
+  if (encoding === "utf-8" && replacementCount > Math.max(2, Math.floor(decoded.length * 0.02))) {
+    try {
+      return new TextDecoder("windows-1252").decode(bytes).replace(/^\uFEFF/, "");
+    } catch {
+      return decoded;
+    }
+  }
+
+  return decoded;
+}
 
 function t(key, params = {}) {
   return translate(key, state.language, params);
@@ -236,16 +345,56 @@ function getCustomSelectEntries(select) {
   return entries;
 }
 
-function closeCustomInputSelect(controller) {
-  controller.menu.classList.add("hidden");
-  controller.trigger.setAttribute("aria-expanded", "false");
-  controller.picker.classList.remove("is-open");
+const MENU_CLOSE_ANIMATION_MS = 170;
+
+function resetAnimatedMenuState(menu) {
+  if (menu?._closeTimer) {
+    window.clearTimeout(menu._closeTimer);
+    menu._closeTimer = 0;
+  }
+
+  menu?.classList.remove("is-closing");
+  menu?.querySelectorAll(".is-selection-fading").forEach((element) => {
+    element.classList.remove("is-selection-fading");
+  });
+}
+
+function openAnimatedMenu(menu, trigger, picker) {
+  resetAnimatedMenuState(menu);
+  menu.classList.remove("hidden");
+  trigger.setAttribute("aria-expanded", "true");
+  picker.classList.add("is-open");
+}
+
+function closeAnimatedMenu(menu, trigger, picker, selectedOption = null, onAfterClose = null) {
+  if (menu.classList.contains("hidden") && !menu.classList.contains("is-closing")) {
+    onAfterClose?.();
+    return;
+  }
+
+  resetAnimatedMenuState(menu);
+  menu.classList.remove("hidden");
+  menu.classList.add("is-closing");
+  trigger.setAttribute("aria-expanded", "false");
+  picker.classList.remove("is-open");
+
+  if (selectedOption) {
+    selectedOption.classList.add("is-selection-fading");
+  }
+
+  menu._closeTimer = window.setTimeout(() => {
+    menu.classList.add("hidden");
+    resetAnimatedMenuState(menu);
+    onAfterClose?.();
+  }, MENU_CLOSE_ANIMATION_MS);
+}
+
+function closeCustomInputSelect(controller, selectedOption = null, onAfterClose = null) {
+  closeAnimatedMenu(controller.menu, controller.trigger, controller.picker, selectedOption, onAfterClose);
 }
 
 function openCustomInputSelect(controller) {
-  controller.menu.classList.remove("hidden");
-  controller.trigger.setAttribute("aria-expanded", "true");
-  controller.picker.classList.add("is-open");
+  openAnimatedMenu(controller.menu, controller.trigger, controller.picker);
   queueChoiceTickerOverflowRefresh(controller.trigger, controller.menu);
 }
 
@@ -302,9 +451,11 @@ function renderCustomInputSelect(controller) {
     button.append(copy);
     button.addEventListener("click", () => {
       controller.select.value = option.value;
-      renderCustomInputSelect(controller);
-      closeCustomInputSelect(controller);
-      controller.onSelect?.(option.value);
+      closeCustomInputSelect(controller, button, () => {
+        renderCustomInputSelect(controller);
+        controller.select.dispatchEvent(new Event("change", { bubbles: true }));
+        controller.onSelect?.(option.value);
+      });
     });
     controller.menu.append(button);
   });
@@ -357,6 +508,54 @@ function initializeCustomInputSelects() {
       preview: ui.scriptCardPlacementTriggerPreview,
       menu: ui.scriptCardPlacementMenu,
       onSelect: () => renderScriptCardPreview()
+    },
+    {
+      picker: ui.groqPersonalityPicker,
+      select: ui.groqPersonalitySelect,
+      trigger: ui.groqPersonalityTrigger,
+      label: ui.groqPersonalityTriggerLabel,
+      preview: ui.groqPersonalityTriggerPreview,
+      menu: ui.groqPersonalityMenu
+    },
+    {
+      picker: ui.groqGrammarLevelPicker,
+      select: ui.groqGrammarLevelSelect,
+      trigger: ui.groqGrammarLevelTrigger,
+      label: ui.groqGrammarLevelTriggerLabel,
+      preview: ui.groqGrammarLevelTriggerPreview,
+      menu: ui.groqGrammarLevelMenu
+    },
+    {
+      picker: ui.groqEmojiUsagePicker,
+      select: ui.groqEmojiUsageSelect,
+      trigger: ui.groqEmojiUsageTrigger,
+      label: ui.groqEmojiUsageTriggerLabel,
+      preview: ui.groqEmojiUsageTriggerPreview,
+      menu: ui.groqEmojiUsageMenu
+    },
+    {
+      picker: ui.groqAcademicWordUsagePicker,
+      select: ui.groqAcademicWordUsageSelect,
+      trigger: ui.groqAcademicWordUsageTrigger,
+      label: ui.groqAcademicWordUsageTriggerLabel,
+      preview: ui.groqAcademicWordUsageTriggerPreview,
+      menu: ui.groqAcademicWordUsageMenu
+    },
+    {
+      picker: ui.groqPointOfViewPicker,
+      select: ui.groqPointOfViewSelect,
+      trigger: ui.groqPointOfViewTrigger,
+      label: ui.groqPointOfViewTriggerLabel,
+      preview: ui.groqPointOfViewTriggerPreview,
+      menu: ui.groqPointOfViewMenu
+    },
+    {
+      picker: ui.groqOutputLanguagePicker,
+      select: ui.groqOutputLanguageSelect,
+      trigger: ui.groqOutputLanguageTrigger,
+      label: ui.groqOutputLanguageTriggerLabel,
+      preview: ui.groqOutputLanguageTriggerPreview,
+      menu: ui.groqOutputLanguageMenu
     }
   ].forEach((controller) => {
     if (!controller.picker || !controller.select || !controller.trigger || !controller.label || !controller.menu) {
@@ -827,6 +1026,7 @@ function syncFromStorage() {
   syncCustomInputSelects();
   refreshMeta();
   setImportStatus("input.importHelp");
+  syncGroqImportUi();
 }
 
 function refreshMeta() {
@@ -837,6 +1037,22 @@ function refreshMeta() {
 
 function setImportStatus(key, params = {}) {
   ui.importStatus.textContent = t(key, params);
+}
+
+function setGroqImportStatus(key, params = {}) {
+  ui.groqImportStatus.textContent = t(key, params);
+}
+
+function syncGroqImportUi() {
+  const fileName = String(groqImportedFile?.name || "").trim();
+  ui.groqImportClearButton?.classList.toggle("hidden", !fileName);
+
+  if (fileName) {
+    setGroqImportStatus("input.groqImportAttached", { name: fileName });
+    return;
+  }
+
+  setGroqImportStatus("input.groqImportHelp");
 }
 
 function setActiveInputSection(section = ui.inputSectionSelect?.value || "editor") {
@@ -1017,7 +1233,17 @@ async function extractImportedText(file) {
     return extractDocxText(file);
   }
 
-  return file.text();
+  return decodeTextBytes(await file.arrayBuffer());
+}
+
+async function readImportedText(file) {
+  const text = (await extractImportedText(file)).trim();
+
+  if (!text) {
+    throw new Error("empty");
+  }
+
+  return text;
 }
 
 async function importFile(file) {
@@ -1028,11 +1254,7 @@ async function importFile(file) {
   setImportStatus("input.importing", { name: file.name });
 
   try {
-    const text = (await extractImportedText(file)).trim();
-    if (!text) {
-      throw new Error("empty");
-    }
-
+    const text = await readImportedText(file);
     ui.scriptInput.value = text;
     persist();
     ui.scriptInput.focus();
@@ -1062,6 +1284,35 @@ async function createImportedFileFromPath(filePath) {
 async function importDroppedPath(filePath) {
   const file = await createImportedFileFromPath(filePath);
   await importFile(file);
+}
+
+async function importFileToGroq(file) {
+  if (!file) {
+    return;
+  }
+
+  setGroqImportStatus("input.groqImporting", { name: file.name });
+
+  try {
+    const text = await readImportedText(file);
+    groqImportedFile = {
+      name: file.name,
+      text
+    };
+    syncGroqImportUi();
+    ui.groqPromptInput.focus();
+  } catch (error) {
+    console.error(error);
+    setGroqImportStatus(error?.message === "unsupported" ? "input.importUnsupported" : "input.groqImportFailed");
+  }
+}
+
+function clearGroqImportedFile() {
+  groqImportedFile = null;
+  if (ui.groqImportInput) {
+    ui.groqImportInput.value = "";
+  }
+  syncGroqImportUi();
 }
 
 function handleDroppedFiles(event) {
@@ -1164,20 +1415,21 @@ async function useGroq() {
   const key = ui.groqKeyInput.value.trim();
   const instruction = ui.groqPromptInput.value.trim();
   const script = ui.scriptInput.value.trim();
+  const sourceText = String(groqImportedFile?.text || "").trim() || script;
 
   if (!key) {
     ui.groqStatus.textContent = t("input.needKey");
     return;
   }
 
-  if (!instruction && !script) {
+  if (!instruction && !sourceText) {
     ui.groqStatus.textContent = t("input.needInstructionOrScript");
     return;
   }
 
   const request = buildGroqRequest({
     instruction,
-    script,
+    script: sourceText,
     groqSettings: getGroqSettingsFromForm(),
     appLanguage: state.language
   });
@@ -1272,6 +1524,18 @@ function bootInputPage() {
       ui.uploadFileInput.value = "";
     });
   });
+  ui.groqImportButton?.addEventListener("click", () => {
+    ui.groqImportInput?.click();
+  });
+  ui.groqImportInput?.addEventListener("change", () => {
+    const [file] = ui.groqImportInput.files || [];
+    importFileToGroq(file).catch(console.error).finally(() => {
+      if (ui.groqImportInput) {
+        ui.groqImportInput.value = "";
+      }
+    });
+  });
+  ui.groqImportClearButton?.addEventListener("click", clearGroqImportedFile);
   ["dragenter", "dragover"].forEach((eventName) => {
     window.addEventListener(eventName, (event) => {
       if (!eventHasFiles(event)) {
@@ -1335,7 +1599,11 @@ function bootInputPage() {
   });
   ui.groqButton.addEventListener("click", useGroq);
   ui.closeWindowButton.addEventListener("click", () => {
-    invoke?.("hide_aux_window", { kind: "input" }).catch(console.error);
+    if (!invoke) {
+      return;
+    }
+
+    invokeAfterDesktopFadeOut("hide_aux_window", { kind: "input" }).catch(console.error);
   });
   ui.openSettingsButton.addEventListener("click", () => {
     invoke?.("open_aux_window", { kind: "settings" }).catch(console.error);
@@ -1361,6 +1629,9 @@ function bootInputPage() {
 
     syncFromStorage();
   });
+
+  initializeDesktopWindowOpacityFade();
+  initializeSmoothScrollbox();
 }
 
 window.addEventListener("beforeunload", () => {

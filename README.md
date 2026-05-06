@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.7.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.8.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.7.0-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.8.0-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -44,12 +44,11 @@ Please consider starring this repo if it helps you! ⭐
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.7.0
+## What's New in 1.8.0
 
-- Redesigned the settings and editor dropdowns with custom menus across browse options, templates, styles, themes, voice controls, window position, and input devices.
-- Added richer picker visuals with professional icons, live theme swatches, and smooth scrolling labels for long option names.
-- Added cue cards as a new scripting feature, with built-in card types and custom cue-card templates managed directly from the Template picker.
-- Refined multilingual UI presentation so translated app text stays consistent across the interface, including Arabic UI text rendered left-to-right.
+- Big visual enhancements and UI refinement across the app.
+- Added the ability to give Groq a file and let it edit or interact with that file according to the instruction you provide.
+- Fixed the update section so it retrieves release data correctly.
 
 ## Preview
 
@@ -129,7 +128,7 @@ npm run tauri build
 
 Publish these files from `src-tauri/target/release/bundle` to the GitHub release:
 
-- `msi/flow_1.7.0_x64_en-US.msi`
+- `msi/flow_1.8.0_x64_en-US.msi`
 - `latest.json`
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.

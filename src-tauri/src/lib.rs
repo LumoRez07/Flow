@@ -69,10 +69,31 @@ const MAX_MESSAGE_STATUS_HISTORY: usize = 64;
 const VOICE_MODEL_DOWNLOAD_EVENT: &str = "flow-voice-model-download";
 const APP_STATE_FILE_NAME: &str = "state.json";
 const VOICE_MODEL_REGISTRY_FILE_NAME: &str = "voice-model-registry.json";
+const SETTINGS_WINDOW_WIDTH: f64 = 620.0;
+const SETTINGS_WINDOW_HEIGHT: f64 = 700.0;
+const UPDATER_FEED_URL: &str = "https://github.com/LumoRez07/Flow/releases/latest/download/latest.json";
 const BUNDLED_ENGLISH_VOSK_MODEL: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../src/assets/vosk-model-small-en-us-0.15.tar.gz"
 ));
+
+#[derive(Debug, Serialize, Deserialize)]
+struct UpdaterFeedMetadata {
+    version: String,
+    #[serde(rename = "publishedAt")]
+    published_at: String,
+    notes: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawUpdaterFeedMetadata {
+    #[serde(default)]
+    version: String,
+    #[serde(default)]
+    notes: String,
+    #[serde(default, alias = "date")]
+    pub_date: String,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum BundledVoiceArchiveKind {
@@ -1103,7 +1124,13 @@ fn ensure_window(
 fn ensure_aux_window(app: &tauri::AppHandle, kind: &str) -> Result<&'static str, String> {
     let (label, title, path, width, height) = match kind {
         "input" => ("input", "Flow Text", "input.html", 860.0, 860.0),
-        "settings" => ("settings", "Flow Settings", "settings.html", 520.0, 520.0),
+        "settings" => (
+            "settings",
+            "Flow Settings",
+            "settings.html",
+            SETTINGS_WINDOW_WIDTH,
+            SETTINGS_WINDOW_HEIGHT,
+        ),
         "about" => ("about", "About Flow", "about.html", 520.0, 420.0),
         "remote-inbox" => (
             "remote-inbox",
@@ -1216,6 +1243,55 @@ fn remove_tray_icon(app: &tauri::AppHandle) {
 fn exit_app(app: &tauri::AppHandle) {
     remove_tray_icon(app);
     app.exit(0);
+}
+
+fn show_aux_window_impl(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    set_main_always_on_top(app, false);
+
+    if let Some(desktop) = app.try_state::<DesktopState>() {
+        let _ = set_clickthrough_impl(app, &desktop, false);
+    }
+
+    let window = app
+        .get_webview_window(label)
+        .ok_or_else(|| format!("Window '{label}' was not created"))?;
+
+    window
+        .set_always_on_top(true)
+        .map_err(|error| error.to_string())?;
+    window.show().map_err(|error| error.to_string())?;
+    window.set_focus().map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+fn hide_aux_window_impl(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
+    let window = app
+        .get_webview_window(label)
+        .ok_or_else(|| format!("Window '{label}' was not created"))?;
+
+    window.hide().map_err(|error| error.to_string())?;
+    set_main_always_on_top(app, true);
+
+    Ok(())
+}
+
+fn show_main_window(app: &tauri::AppHandle) {
+    if let Some(desktop) = app.try_state::<DesktopState>() {
+        let _ = set_clickthrough_impl(app, &desktop, false);
+    }
+
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_always_on_top(true);
+        let _ = window.set_focus();
+    }
+}
+
+fn hide_main_window_impl(app: &tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.hide();
+    }
 }
 
 fn set_tray_enabled_impl(app: &tauri::AppHandle, enabled: bool) -> Result<(), String> {
@@ -1363,34 +1439,14 @@ fn open_aux_window(
 ) -> Result<(), String> {
     let label = ensure_aux_window(&app, &kind)?;
 
-    set_main_always_on_top(&app, false);
     let _ = set_clickthrough_impl(&app, &desktop, false);
-
-    let window = app
-        .get_webview_window(label)
-        .ok_or_else(|| format!("Window '{label}' was not created"))?;
-
-    window
-        .set_always_on_top(true)
-        .map_err(|error| error.to_string())?;
-    window.show().map_err(|error| error.to_string())?;
-    window.set_focus().map_err(|error| error.to_string())?;
-
-    Ok(())
+    show_aux_window_impl(&app, label)
 }
 
 #[tauri::command]
 fn hide_aux_window(app: tauri::AppHandle, kind: String) -> Result<(), String> {
     let label = ensure_aux_window(&app, &kind)?;
-
-    let window = app
-        .get_webview_window(label)
-        .ok_or_else(|| format!("Window '{label}' was not created"))?;
-
-    window.hide().map_err(|error| error.to_string())?;
-    set_main_always_on_top(&app, true);
-
-    Ok(())
+    hide_aux_window_impl(&app, label)
 }
 
 #[tauri::command]
@@ -1474,6 +1530,35 @@ fn get_voice_model_status(
     let spec = get_voice_model_spec(&language, model_id.as_deref())
         .ok_or_else(|| "Unsupported voice language or model".to_string())?;
     build_voice_model_status(&app, spec)
+}
+
+#[tauri::command]
+async fn fetch_updater_feed_metadata() -> Result<UpdaterFeedMetadata, String> {
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|error| error.to_string())?;
+
+    let response_text = client
+        .get(UPDATER_FEED_URL)
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .await
+        .map_err(|error| error.to_string())?
+        .error_for_status()
+        .map_err(|error| error.to_string())?
+        .text()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let payload = serde_json::from_str::<RawUpdaterFeedMetadata>(&response_text)
+        .map_err(|error| error.to_string())?;
+
+    Ok(UpdaterFeedMetadata {
+        version: payload.version.trim().to_string(),
+        published_at: payload.pub_date.trim().to_string(),
+        notes: payload.notes.trim().to_string(),
+    })
 }
 
 #[tauri::command]
@@ -1666,7 +1751,14 @@ fn read_import_file(path: String) -> Result<ImportedFilePayload, String> {
 
 fn setup_aux_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
     ensure_window(app, "input", "Flow Text", "input.html", 860.0, 860.0)?;
-    ensure_window(app, "settings", "Flow Settings", "settings.html", 520.0, 520.0)?;
+    ensure_window(
+        app,
+        "settings",
+        "Flow Settings",
+        "settings.html",
+        SETTINGS_WINDOW_WIDTH,
+        SETTINGS_WINDOW_HEIGHT,
+    )?;
     ensure_window(app, "about", "About Flow", "about.html", 520.0, 420.0)?;
 
     Ok(())
@@ -1674,35 +1766,7 @@ fn setup_aux_windows(app: &tauri::AppHandle) -> tauri::Result<()> {
 
 fn show_window(app: &tauri::AppHandle, label: &str) {
     let _ = ensure_aux_window(app, label);
-    set_main_always_on_top(app, false);
-
-    if let Some(desktop) = app.try_state::<DesktopState>() {
-        let _ = set_clickthrough_impl(app, &desktop, false);
-    }
-
-    if let Some(window) = app.get_webview_window(label) {
-        let _ = window.set_always_on_top(true);
-        let _ = window.show();
-        let _ = window.set_focus();
-    }
-}
-
-fn show_main_window(app: &tauri::AppHandle) {
-    if let Some(desktop) = app.try_state::<DesktopState>() {
-        let _ = set_clickthrough_impl(app, &desktop, false);
-    }
-
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_always_on_top(true);
-        let _ = window.set_focus();
-    }
-}
-
-fn hide_main_window_impl(app: &tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.hide();
-    }
+    let _ = show_aux_window_impl(app, label);
 }
 
 #[allow(dead_code)]
@@ -2385,6 +2449,7 @@ pub fn run() {
             load_persisted_app_data,
             save_persisted_app_state,
             save_persisted_voice_model_registry,
+            fetch_updater_feed_metadata,
             list_voice_models,
             get_voice_model_status,
             download_voice_model,
@@ -2439,6 +2504,8 @@ pub fn run() {
                     apply_capture_protection(&main_window, preferences.hide_from_capture);
                 }
             }
+
+            show_main_window(app.handle());
 
             Ok(())
         })

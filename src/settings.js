@@ -58,6 +58,8 @@ const tauriApp = window.__TAURI__?.app;
 const tauriWindow = window.__TAURI__?.window;
 const tauriDpi = window.__TAURI__?.dpi;
 const tauriEvent = window.__TAURI__?.event;
+let isMicrosoftStoreBuild = null;
+let microsoftStoreBuildPromise = null;
 
 const state = loadState();
 state.window = state.window || structuredClone(defaultState.window);
@@ -88,6 +90,9 @@ const ui = {
   speedRailEnabledInput: document.querySelector("#speedRailEnabledInput"),
   scrollStartDelayInput: document.querySelector("#scrollStartDelayInput"),
   scrollStartDelayValue: document.querySelector("#scrollStartDelayValue"),
+  voiceConfidenceGroup: document.querySelector("#voiceConfidenceGroup"),
+  voiceConfidenceInput: document.querySelector("#voiceConfidenceInput"),
+  voiceConfidenceValue: document.querySelector("#voiceConfidenceValue"),
   voiceLanguageGroup: document.querySelector("#voiceLanguageGroup"),
   voiceLanguagePicker: document.querySelector("#voiceLanguagePicker"),
   voiceLanguageSelect: document.querySelector("#voiceLanguageSelect"),
@@ -169,6 +174,7 @@ const ui = {
   settingsSectionTriggerLabel: document.querySelector("#settingsSectionTriggerLabel"),
   settingsSectionTriggerPreview: document.querySelector("#settingsSectionTriggerPreview"),
   settingsSectionMenu: document.querySelector("#settingsSectionMenu"),
+  settingsUpdatesOption: document.querySelector('#settingsSectionSelect option[value="updates"]'),
   stylePicker: document.querySelector("#stylePicker"),
   styleTrigger: document.querySelector("#styleTrigger"),
   styleTriggerLabel: document.querySelector("#styleTriggerLabel"),
@@ -180,6 +186,7 @@ const ui = {
   themeTriggerPreview: document.querySelector("#themeTriggerPreview"),
   themeMenu: document.querySelector("#themeMenu"),
   settingsSections: document.querySelectorAll("[data-settings-section]"),
+  updatesSection: document.querySelector('[data-settings-section="updates"]'),
   windowStatus: document.querySelector("#windowStatus"),
   updaterCurrentVersion: document.querySelector("#updaterCurrentVersion"),
   updaterAvailableVersion: document.querySelector("#updaterAvailableVersion"),
@@ -443,6 +450,20 @@ function formatSoundInputGain(value) {
   return `${normalizeSoundInputGain(value).toFixed(2)}x`;
 }
 
+function normalizeVoiceConfidenceThreshold(value) {
+  const fallback = Number(defaultState.voiceTracking?.confidenceThreshold) || 0.35;
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  return clampNumber(numericValue, 0.1, 0.9, fallback);
+}
+
+function formatVoiceConfidenceThreshold(value) {
+  return `${Math.round(normalizeVoiceConfidenceThreshold(value) * 100)}%`;
+}
+
 function setSoundInputLevel(level = 0) {
   const normalizedLevel = Math.min(Math.max(Number(level) || 0, 0), 1);
   const percent = Math.round(normalizedLevel * 100);
@@ -487,6 +508,17 @@ function describeSoundInputDevice(device, index) {
   return `${t("settings.soundInputDeviceUnnamed")} ${index + 1}`;
 }
 
+async function listNativeSoundInputDevices() {
+  if (!invoke) {
+    return [];
+  }
+
+  return invoke("list_input_devices").catch((error) => {
+    console.error(error);
+    return [];
+  });
+}
+
 async function refreshSoundInputDevices(options = {}) {
   const { preserveSelection = true } = options;
 
@@ -504,6 +536,10 @@ async function refreshSoundInputDevices(options = {}) {
     return [];
   });
   const audioInputs = devices.filter((device) => device.kind === "audioinput");
+  const shouldUseNativeLabels = audioInputs.some((device) => !String(device?.label || "").trim());
+  const nativeAudioInputs = shouldUseNativeLabels
+    ? await listNativeSoundInputDevices()
+    : [];
   const optionDescriptors = [
     {
       value: SOUND_INPUT_DEFAULT_DEVICE_ID,
@@ -516,9 +552,11 @@ async function refreshSoundInputDevices(options = {}) {
       return;
     }
 
+    const nativeLabel = String(nativeAudioInputs[index]?.label || "").trim();
+
     optionDescriptors.push({
       value: device.deviceId,
-      label: describeSoundInputDevice(device, index)
+      label: describeSoundInputDevice({ ...device, label: nativeLabel || device.label }, index)
     });
   });
 
@@ -543,7 +581,7 @@ async function refreshSoundInputDevices(options = {}) {
   ui.soundInputDeviceSelect.disabled = optionDescriptors.length <= 1 && !audioInputs.length;
   syncCustomSettingsSelects();
 
-  if (!audioInputs.length && ui.settingsSectionSelect?.value === "sound-input") {
+  if (!audioInputs.length && !nativeAudioInputs.length && ui.settingsSectionSelect?.value === "sound-input") {
     setSoundInputStatus("settings.soundInputNoDevices");
   }
 }
@@ -759,11 +797,55 @@ function formatPublishedDate(value) {
 }
 
 function getUpdaterCheckAvailable() {
-  return Boolean(invoke);
+  return !isMicrosoftStoreBuild && Boolean(invoke);
 }
 
 function getUpdaterInstallAvailable() {
-  return Boolean(invoke && tauriCore?.Channel);
+  return !isMicrosoftStoreBuild && Boolean(invoke && tauriCore?.Channel);
+}
+
+function syncUpdatesSettingsVisibility() {
+  const hideUpdates = Boolean(isMicrosoftStoreBuild);
+
+  if (ui.settingsUpdatesOption) {
+    ui.settingsUpdatesOption.hidden = hideUpdates;
+    ui.settingsUpdatesOption.disabled = hideUpdates;
+  }
+
+  if (hideUpdates && ui.settingsSectionSelect?.value === "updates") {
+    ui.settingsSectionSelect.value = "appearance";
+  }
+}
+
+async function resolveMicrosoftStoreBuild() {
+  if (typeof isMicrosoftStoreBuild === "boolean") {
+    return isMicrosoftStoreBuild;
+  }
+
+  if (!invoke) {
+    isMicrosoftStoreBuild = false;
+    return isMicrosoftStoreBuild;
+  }
+
+  if (microsoftStoreBuildPromise) {
+    return microsoftStoreBuildPromise;
+  }
+
+  microsoftStoreBuildPromise = invoke("get_distribution_channel")
+    .then((channel) => {
+      isMicrosoftStoreBuild = String(channel || "").trim().toLowerCase() === "store";
+      return isMicrosoftStoreBuild;
+    })
+    .catch((error) => {
+      console.error("Failed to resolve distribution channel", error);
+      isMicrosoftStoreBuild = false;
+      return isMicrosoftStoreBuild;
+    })
+    .finally(() => {
+      microsoftStoreBuildPromise = null;
+    });
+
+  return microsoftStoreBuildPromise;
 }
 
 function setUpdaterProgress(progress = null) {
@@ -895,9 +977,10 @@ function handleUpdaterDownloadEvent(event) {
 
 async function checkForAppUpdates(options = {}) {
   const { silentNoUpdate = false, installIfAvailable = false } = options;
+  const storeBuild = await resolveMicrosoftStoreBuild();
   await ensureCurrentAppVersion();
 
-  if (!getUpdaterCheckAvailable()) {
+  if (storeBuild || !getUpdaterCheckAvailable()) {
     setUpdaterState({
       update: null,
       checking: false,
@@ -1412,6 +1495,9 @@ const FONT_PICKER_METADATA = {
   outfit: {
     sample: () => "Modern geometric"
   },
+  "noto-sans": {
+    sample: () => "Wide language support"
+  },
   "english-pro": {
     sample: () => "English"
   },
@@ -1422,14 +1508,31 @@ const FONT_PICKER_METADATA = {
     sample: () => "العربية",
     dir: "rtl"
   },
+  "arabic-naskh": {
+    sample: () => "العربية",
+    dir: "rtl"
+  },
+  amiri: {
+    sample: () => "العربية",
+    dir: "rtl"
+  },
   "turkish-pro": {
     sample: () => "Türkçe"
   },
   "german-pro": {
     sample: () => "Deutsch"
   },
+  "spanish-pro": {
+    sample: () => "Español"
+  },
   system: {
     sample: (previewLanguage) => translate(`language.${previewLanguage}`, previewLanguage)
+  },
+  "ibm-plex-serif": {
+    sample: () => "Editorial serif"
+  },
+  lora: {
+    sample: () => "Readable serif"
   },
   merriweather: {
     sample: () => "Editorial serif"
@@ -1534,14 +1637,14 @@ function getCustomSelectEntries(select) {
     if (child instanceof HTMLOptGroupElement) {
       entries.push({ type: "group", label: child.label });
       Array.from(child.children).forEach((option) => {
-        if (option instanceof HTMLOptionElement) {
+        if (option instanceof HTMLOptionElement && !option.hidden) {
           entries.push({ type: "option", option, groupLabel: child.label });
         }
       });
       return;
     }
 
-    if (child instanceof HTMLOptionElement) {
+    if (child instanceof HTMLOptionElement && !child.hidden) {
       entries.push({ type: "option", option: child, groupLabel: "" });
     }
   });
@@ -1846,6 +1949,7 @@ function updateValueLabels() {
   ui.widthValue.textContent = `${ui.widthInput.value} px`;
   ui.heightValue.textContent = `${ui.heightInput.value} px`;
   ui.scrollStartDelayValue.textContent = `${ui.scrollStartDelayInput.value} s`;
+  ui.voiceConfidenceValue.textContent = formatVoiceConfidenceThreshold(Number(ui.voiceConfidenceInput.value) / 100);
   ui.appOpacityValue.textContent = `${ui.appOpacityInput.value}%`;
   ui.textSizeValue.textContent = `${ui.textSizeInput.value}%`;
   ui.textOpacityValue.textContent = `${ui.textOpacityInput.value}%`;
@@ -1863,12 +1967,14 @@ function updateAppearanceAvailability() {
   ui.modeSelect.disabled = false;
   ui.speedRailEnabledInput.disabled = false;
   const isVoiceMode = ui.modeSelect.value === "voice";
-  const isScrollMode = ui.modeSelect.value === "scroll";
-  ui.scrollStartDelayInput.disabled = !isScrollMode;
+  const supportsStartDelay = ["highlight", "scroll", "line"].includes(ui.modeSelect.value);
+  ui.scrollStartDelayInput.disabled = !supportsStartDelay;
   ui.voiceLanguageGroup.classList.toggle("hidden", !isVoiceMode);
   ui.voiceLanguageSelect.disabled = !isVoiceMode;
   ui.voiceStyleGroup.classList.toggle("hidden", !isVoiceMode);
   ui.voiceStyleSelect.disabled = !isVoiceMode;
+  ui.voiceConfidenceGroup.classList.toggle("hidden", !isVoiceMode);
+  ui.voiceConfidenceInput.disabled = !isVoiceMode;
   ui.textColorInput.disabled = false;
 
   if (isVoiceMode) {
@@ -1881,14 +1987,18 @@ function updateRemoteModeUi() {
 }
 
 function setActiveSettingsSection(section = ui.settingsSectionSelect?.value || "appearance") {
-  const activeSection = String(section || "appearance");
+  const requestedSection = String(section || "appearance");
+  const activeSection = isMicrosoftStoreBuild && requestedSection === "updates"
+    ? "appearance"
+    : requestedSection;
 
   if (ui.settingsSectionSelect) {
     ui.settingsSectionSelect.value = activeSection;
   }
 
   ui.settingsSections.forEach((element) => {
-    const selected = element.dataset.settingsSection === activeSection;
+    const selected = element.dataset.settingsSection === activeSection
+      && !(isMicrosoftStoreBuild && element.dataset.settingsSection === "updates");
     element.classList.toggle("hidden", !selected);
     element.setAttribute("aria-hidden", selected ? "false" : "true");
   });
@@ -2062,6 +2172,7 @@ function fillForm() {
   ui.presetSelect.value = state.window.preset || "top-center";
   ui.modeSelect.value = state.appearance?.mode || defaultState.appearance.mode;
   setSliderValue(ui.scrollStartDelayInput, state.appearance?.scrollStartDelaySeconds ?? defaultState.appearance.scrollStartDelaySeconds);
+  setSliderValue(ui.voiceConfidenceInput, normalizeVoiceConfidenceThreshold(state.voiceTracking?.confidenceThreshold) * 100);
   ui.fontSelect.value = state.appearance?.fontFamily || defaultState.appearance.fontFamily;
   ui.languageSelect.value = state.language || defaultState.language;
   ui.remoteAccessPasswordInput.value = state.remote?.accessPassword || "";
@@ -2166,6 +2277,11 @@ function collectFormState() {
     accessPassword: state.remote?.accessPassword || defaultState.remote.accessPassword,
     publicHost: "",
   };
+  state.voiceTracking = {
+    ...(defaultState.voiceTracking || {}),
+    ...(state.voiceTracking || {}),
+    confidenceThreshold: normalizeVoiceConfidenceThreshold(Number(ui.voiceConfidenceInput.value) / 100)
+  };
   state.appearance = {
     ...defaultState.appearance,
     ...(state.appearance || {}),
@@ -2258,6 +2374,7 @@ async function applyWindowSettings() {
       },
       desktop: state.desktop,
       remote: state.remote,
+      voiceTracking: state.voiceTracking,
       language: state.language,
       appearance: state.appearance
     });
@@ -2357,6 +2474,8 @@ async function refreshRemoteStatus() {
 }
 
 async function bootSettingsPage() {
+  await resolveMicrosoftStoreBuild();
+  syncUpdatesSettingsVisibility();
   await configureSliderRanges();
   initializeCustomSettingsSelects();
   fillForm();
@@ -2381,7 +2500,7 @@ async function bootSettingsPage() {
     });
   }
 
-  [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.scrollStartDelayInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput, ui.soundInputNoiseGateInput, ui.soundInputGainInput].forEach((input) => {
+  [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.scrollStartDelayInput, ui.voiceConfidenceInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput, ui.soundInputNoiseGateInput, ui.soundInputGainInput].forEach((input) => {
     syncSliderProgress(input);
     input.addEventListener("input", () => {
       syncSliderProgress(input);

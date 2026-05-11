@@ -19,7 +19,8 @@ use std::{
 
 use cpal::{
     traits::{DeviceTrait, HostTrait, StreamTrait},
-    Device, SampleFormat, SampleRate, Stream, StreamConfig, SupportedStreamConfig,
+    BufferSize, Device, SampleFormat, SampleRate, Stream, StreamConfig, SupportedBufferSize,
+    SupportedStreamConfig,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, State};
@@ -29,7 +30,9 @@ use crate::{ensure_voice_model_ready_for_model, normalize_voice_language};
 
 const NATIVE_VOICE_EVENT: &str = "flow-native-voice-event";
 const TARGET_SAMPLE_RATE: f32 = 16_000.0;
-const AUDIO_QUEUE_CAPACITY: usize = 24;
+const AUDIO_QUEUE_CAPACITY: usize = 6;
+const INPUT_BUFFER_TARGET_MS: u32 = 12;
+const RECOGNIZER_BATCH_SAMPLES: usize = 320;
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,6 +56,12 @@ impl VoiceInputSettings {
     fn normalized_input_gain(&self) -> f32 {
         self.input_gain.unwrap_or(2.0).clamp(0.5, 4.0)
     }
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct VoiceInputDeviceInfo {
+    pub(crate) label: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -251,6 +260,21 @@ pub(crate) fn get_voice_engine_debug_state(
 ) -> Result<VoiceEngineDebugState, String> {
     let engine = voice_engine.lock();
     Ok(engine.build_debug_state())
+}
+
+#[tauri::command]
+pub(crate) fn list_input_devices() -> Result<Vec<VoiceInputDeviceInfo>, String> {
+    let host = cpal::default_host();
+    let devices = host
+        .input_devices()
+        .map_err(|error| format!("Failed to enumerate microphones: {error}"))?;
+
+    Ok(devices
+        .filter_map(|device| {
+            let label = device.name().unwrap_or_default().trim().to_string();
+            (!label.is_empty()).then_some(VoiceInputDeviceInfo { label })
+        })
+        .collect())
 }
 
 impl VoiceEngine {
@@ -668,7 +692,8 @@ fn build_input_stream(
 ) -> Result<Stream, String> {
     let channels = config.channels() as usize;
     let input_sample_rate = config.sample_rate().0 as f32;
-    let stream_config: StreamConfig = config.clone().into();
+    let mut stream_config: StreamConfig = config.clone().into();
+    stream_config.buffer_size = select_input_buffer_size(config);
     let error_shared = shared.clone();
     let error_callback = move |error| {
         if let Ok(shared) = error_shared.lock() {
@@ -720,6 +745,17 @@ fn build_input_stream(
     }
 }
 
+fn select_input_buffer_size(config: &SupportedStreamConfig) -> BufferSize {
+    let target_frames = ((config.sample_rate().0 as u64 * INPUT_BUFFER_TARGET_MS as u64) / 1000)
+        .max(128)
+        .min(u32::MAX as u64) as u32;
+
+    match config.buffer_size() {
+        SupportedBufferSize::Range { min, max } => BufferSize::Fixed(target_frames.clamp(*min, *max)),
+        SupportedBufferSize::Unknown => BufferSize::Default,
+    }
+}
+
 fn forward_audio_chunk(audio_tx: &SyncSender<Vec<i16>>, samples: Vec<i16>, shared: &Arc<Mutex<SharedVoiceState>>) {
     if samples.is_empty() {
         return;
@@ -749,11 +785,31 @@ fn process_audio_chunk(shared: &Arc<Mutex<SharedVoiceState>>, samples: &[i16]) {
     let app = shared.app.clone();
 
     if let Some(tracking) = shared.tracking.as_mut() {
-        feed_recognizer(&app, "tracking", tracking, samples);
+        feed_recognizer_in_batches(&app, "tracking", tracking, samples);
     }
 
     if let Some(commands) = shared.commands.as_mut() {
-        feed_recognizer(&app, "commands", commands, samples);
+        feed_recognizer_in_batches(&app, "commands", commands, samples);
+    }
+}
+
+fn feed_recognizer_in_batches(
+    app: &AppHandle,
+    channel: &str,
+    recognizer: &mut ActiveRecognizer,
+    samples: &[i16],
+) {
+    if samples.len() <= RECOGNIZER_BATCH_SAMPLES {
+        feed_recognizer(app, channel, recognizer, samples);
+        return;
+    }
+
+    for chunk in samples.chunks(RECOGNIZER_BATCH_SAMPLES) {
+        if chunk.is_empty() {
+            continue;
+        }
+
+        feed_recognizer(app, channel, recognizer, chunk);
     }
 }
 

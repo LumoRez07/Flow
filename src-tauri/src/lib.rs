@@ -1562,6 +1562,13 @@ async fn fetch_updater_feed_metadata() -> Result<UpdaterFeedMetadata, String> {
 }
 
 #[tauri::command]
+fn get_distribution_channel() -> String {
+    option_env!("FLOW_DISTRIBUTION_CHANNEL")
+        .unwrap_or("public")
+        .to_string()
+}
+
+#[tauri::command]
 async fn download_voice_model(
     app: tauri::AppHandle,
     window: tauri::WebviewWindow,
@@ -2449,10 +2456,12 @@ pub fn run() {
             load_persisted_app_data,
             save_persisted_app_state,
             save_persisted_voice_model_registry,
+            get_distribution_channel,
             fetch_updater_feed_metadata,
             list_voice_models,
             get_voice_model_status,
             download_voice_model,
+            voice_engine::list_input_devices,
             voice_engine::start_voice_tracking,
             voice_engine::stop_voice_tracking,
             voice_engine::start_voice_command_listener,

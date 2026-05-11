@@ -71,6 +71,9 @@ export const defaultState = {
     soundInputDeviceLabel: "",
     soundInputNoiseGate: 0.01,
     soundInputGain: 2
+  },
+  voiceTracking: {
+    confidenceThreshold: 0.35
   }
 };
 
@@ -91,7 +94,8 @@ export const LANGUAGE_OPTIONS = [
   { value: "tr", label: "Türkçe" },
   { value: "ar", label: "العربية" },
   { value: "de", label: "Deutsch" },
-  { value: "fr", label: "Français" }
+  { value: "fr", label: "Français" },
+  { value: "es", label: "Español" }
 ];
 
 export const GROQ_PERSONALITY_OPTIONS = [
@@ -142,12 +146,18 @@ export const FONT_OPTIONS = [
   { value: "inter", label: "Inter" },
   { value: "space-grotesk", label: "Space Grotesk" },
   { value: "outfit", label: "Outfit" },
+  { value: "noto-sans", label: "Noto Sans" },
   { value: "english-pro", label: "English Pro" },
   { value: "dutch-pro", label: "Dutch Pro" },
   { value: "arabic-pro", label: "Arabic Pro" },
+  { value: "arabic-naskh", label: "Arabic Naskh" },
+  { value: "amiri", label: "Amiri" },
   { value: "turkish-pro", label: "Turkish Pro" },
   { value: "german-pro", label: "German Pro" },
+  { value: "spanish-pro", label: "Spanish Pro" },
   { value: "system", label: "System UI" },
+  { value: "ibm-plex-serif", label: "IBM Plex Serif" },
+  { value: "lora", label: "Lora" },
   { value: "merriweather", label: "Merriweather" },
   { value: "source-serif", label: "Source Serif 4" },
   { value: "georgia", label: "Georgia" },
@@ -292,6 +302,7 @@ const UI_STRINGS = {
     "settings.custom": "Custom x / y",
     "settings.drag": "Free drag",
     "settings.appearance": "Appearance",
+    "settings.appearanceTitle": "Typography and visuals",
     "settings.sizeAndPlayback": "Size and playback style",
     "settings.scrolling": "Scrolling",
     "settings.scrollingTitle": "Playback and tracking",
@@ -309,6 +320,10 @@ const UI_STRINGS = {
     "settings.mode.voice": "Voice tracking",
     "settings.voiceTrackingStyle": "Voice tracking style",
     "settings.voiceTrackingStyleHelp": "Choose how the matched position is shown while speaking.",
+    "settings.voiceConfidence": "Confidence level",
+    "settings.voiceConfidenceHelp": "Higher values make Flow stricter about low-confidence speech matches.",
+    "settings.voiceConfidenceSkips": "If Flow skips ahead or jumps over words, increase this value.",
+    "settings.voiceConfidenceStalls": "If Flow does not move even when you read clearly, decrease this value.",
     "settings.voiceStyle.highlight": "Word highlight",
     "settings.voiceStyle.line": "Line highlight",
     "settings.voiceStyle.plain": "Plain text",
@@ -434,7 +449,7 @@ const UI_STRINGS = {
     "input.importUnsupported": "That file type is not supported. Use TXT, DOCX, PDF, or another readable text file.",
     "input.importFailed": "Could not read that file.",
     "input.meta": "{count} words · {minutes} min read",
-    "input.editorHelp": "Formatting works like Reddit-style markdown for <strong>**bold**</strong> and <em>*italic*</em>, plus tags for <span class=\"toolbar-underline\">[u]underline[/u]</span>, <mark class=\"mark-yellow\">[yellow]highlight[/yellow]</mark>, <mark class=\"mark-blue\">[blue]highlight[/blue]</mark>, and <mark class=\"mark-red\">[red]highlight[/red]</mark>.",
+    "input.editorHelp": "Formatting works like Reddit-style markdown for <strong>**bold**</strong>, <em>*italic*</em>, bullet lists with <strong>- item</strong>, numbered lists with <strong>1. item</strong>, blockquotes with <strong>&gt; quote</strong>, plus tags for <span class=\"toolbar-underline\">[u]underline[/u]</span>, <span class=\"tone-white\">[white]white[/white]</span>, <span class=\"tone-softwhite\">[softwhite]soft white[/softwhite]</span>, <mark class=\"mark-yellow\">[yellow]highlight[/yellow]</mark>, <mark class=\"mark-blue\">[blue]highlight[/blue]</mark>, and <mark class=\"mark-red\">[red]highlight[/red]</mark>.",
     "input.cardBuilder": "Cue cards",
     "input.cardBuilderHelp": "Insert presenter cues as styled cards inside the script. Centered cards break onto their own line, while between-words cards stay compact inline.",
     "input.cardPanelCollapse": "Collapse cue cards",
@@ -567,6 +582,7 @@ const UI_STRINGS = {
     "settings.custom": "Özel x / y",
     "settings.drag": "Serbest sürükleme",
     "settings.appearance": "Görünüm",
+    "settings.appearanceTitle": "Tipografi ve görseller",
     "settings.sizeAndPlayback": "Boyut ve oynatma stili",
     "settings.group.windowSize": "Pencere boyutu",
     "settings.group.playback": "Oynatma",
@@ -582,6 +598,10 @@ const UI_STRINGS = {
     "settings.mode.voice": "Ses takibi",
     "settings.voiceTrackingStyle": "Ses takibi stili",
     "settings.voiceTrackingStyleHelp": "Konuşurken eşleşen konumun nasıl gösterileceğini seçin.",
+    "settings.voiceConfidence": "Güven seviyesi",
+    "settings.voiceConfidenceHelp": "Daha yüksek değerler, düşük güvenli konuşma eşleşmelerinde Flow'u daha katı yapar.",
+    "settings.voiceConfidenceSkips": "Flow kelimeleri atlıyor veya ileri sıçrıyorsa bu değeri artırın.",
+    "settings.voiceConfidenceStalls": "Net okumanıza rağmen hiç ilerlemiyorsa bu değeri azaltın.",
     "settings.voiceStyle.highlight": "Kelime vurgusu",
     "settings.voiceStyle.line": "Satır vurgusu",
     "settings.voiceStyle.plain": "Düz metin",
@@ -642,7 +662,7 @@ const UI_STRINGS = {
     "input.toolbar": "Biçimlendirme araç çubuğu",
     "input.scriptPlaceholder": "Metninizi buraya yapıştırın veya yazın...",
     "input.meta": "{count} kelime · {minutes} dk okuma",
-    "input.editorHelp": "Biçimlendirme, <strong>**kalın**</strong> ve <em>*italik*</em> için Reddit tarzı markdown gibi çalışır; ayrıca <span class=\"toolbar-underline\">[u]altı çizili[/u]</span>, <mark class=\"mark-yellow\">[yellow]vurgu[/yellow]</mark>, <mark class=\"mark-blue\">[blue]vurgu[/blue]</mark> ve <mark class=\"mark-red\">[red]vurgu[/red]</mark> etiketlerini destekler.",
+    "input.editorHelp": "Biçimlendirme; <strong>**kalın**</strong>, <em>*italik*</em>, <strong>- öğe</strong> ile madde işaretli listeler, <strong>1. öğe</strong> ile numaralı listeler, <strong>&gt; alıntı</strong> ile alıntı blokları ve ayrıca <span class=\"toolbar-underline\">[u]altı çizili[/u]</span>, <span class=\"tone-white\">[white]beyaz[/white]</span>, <span class=\"tone-softwhite\">[softwhite]kırık beyaz[/softwhite]</span>, <mark class=\"mark-yellow\">[yellow]vurgu[/yellow]</mark>, <mark class=\"mark-blue\">[blue]vurgu[/blue]</mark> ve <mark class=\"mark-red\">[red]vurgu[/red]</mark> etiketleri için Reddit tarzı markdown gibi çalışır.",
     "input.groq": "Groq",
     "input.draftHelper": "Taslak yardımcısı",
     "input.apiKey": "API anahtarı",
@@ -748,6 +768,7 @@ const UI_STRINGS = {
     "settings.custom": "مخصص x / y",
     "settings.drag": "سحب حر",
     "settings.appearance": "المظهر",
+    "settings.appearanceTitle": "الطباعة والمظهر",
     "settings.sizeAndPlayback": "الحجم ونمط التشغيل",
     "settings.group.windowSize": "حجم النافذة",
     "settings.group.playback": "التشغيل",
@@ -763,6 +784,10 @@ const UI_STRINGS = {
     "settings.mode.voice": "تتبع الصوت",
     "settings.voiceTrackingStyle": "نمط تتبع الصوت",
     "settings.voiceTrackingStyleHelp": "اختر كيف يظهر الموضع المطابق أثناء التحدث.",
+    "settings.voiceConfidence": "مستوى الثقة",
+    "settings.voiceConfidenceHelp": "القيم الأعلى تجعل Flow أكثر تشددًا مع مطابقات الكلام منخفضة الثقة.",
+    "settings.voiceConfidenceSkips": "إذا كان Flow يقفز فوق الكلمات أو يتقدم كثيرًا، فزد هذه القيمة.",
+    "settings.voiceConfidenceStalls": "إذا لم يتحرك إطلاقًا رغم قراءتك بوضوح، فخفّض هذه القيمة.",
     "settings.voiceStyle.highlight": "تمييز الكلمة",
     "settings.voiceStyle.line": "تمييز السطر",
     "settings.voiceStyle.plain": "نص عادي",
@@ -823,7 +848,7 @@ const UI_STRINGS = {
     "input.toolbar": "شريط التنسيق",
     "input.scriptPlaceholder": "الصق أو اكتب النص هنا...",
     "input.meta": "{count} كلمة · {minutes} دقيقة قراءة",
-    "input.editorHelp": "يعمل التنسيق مثل Markdown بأسلوب Reddit مع <strong>**عريض**</strong> و<em>*مائل*</em>، بالإضافة إلى الوسوم <span class=\"toolbar-underline\">[u]تسطير[/u]</span> و<mark class=\"mark-yellow\">[yellow]تمييز[/yellow]</mark> و<mark class=\"mark-blue\">[blue]تمييز[/blue]</mark> و<mark class=\"mark-red\">[red]تمييز[/red]</mark>.",
+    "input.editorHelp": "يعمل التنسيق مثل Markdown بأسلوب Reddit مع <strong>**عريض**</strong> و<em>*مائل*</em> والقوائم النقطية باستخدام <strong>- عنصر</strong> والقوائم المرقمة باستخدام <strong>1. عنصر</strong> والاقتباسات باستخدام <strong>&gt; اقتباس</strong>، بالإضافة إلى الوسوم <span class=\"toolbar-underline\">[u]تسطير[/u]</span> و<span class=\"tone-white\">[white]أبيض[/white]</span> و<span class=\"tone-softwhite\">[softwhite]أبيض مائل للرمادي[/softwhite]</span> و<mark class=\"mark-yellow\">[yellow]تمييز[/yellow]</mark> و<mark class=\"mark-blue\">[blue]تمييز[/blue]</mark> و<mark class=\"mark-red\">[red]تمييز[/red]</mark>.",
     "input.groq": "Groq",
     "input.draftHelper": "مساعد المسودة",
     "input.apiKey": "مفتاح API",
@@ -929,6 +954,7 @@ const UI_STRINGS = {
     "settings.custom": "Benutzerdefiniert x / y",
     "settings.drag": "Freies Ziehen",
     "settings.appearance": "Darstellung",
+    "settings.appearanceTitle": "Typografie und Darstellung",
     "settings.sizeAndPlayback": "Größe und Wiedergabestil",
     "settings.group.windowSize": "Fenstergröße",
     "settings.group.playback": "Wiedergabe",
@@ -944,6 +970,10 @@ const UI_STRINGS = {
     "settings.mode.voice": "Sprachverfolgung",
     "settings.voiceTrackingStyle": "Sprachstil",
     "settings.voiceTrackingStyleHelp": "Wähle, wie die erkannte Position beim Sprechen angezeigt wird.",
+    "settings.voiceConfidence": "Konfidenzniveau",
+    "settings.voiceConfidenceHelp": "Höhere Werte machen Flow bei Sprachtreffern mit niedriger Sicherheit strenger.",
+    "settings.voiceConfidenceSkips": "Wenn Flow Wörter überspringt oder zu weit vorspringt, erhöhe diesen Wert.",
+    "settings.voiceConfidenceStalls": "Wenn sich nichts bewegt, obwohl du klar sprichst, senke diesen Wert.",
     "settings.voiceStyle.highlight": "Worthervorhebung",
     "settings.voiceStyle.line": "Zeilenhervorhebung",
     "settings.voiceStyle.plain": "Klartext",
@@ -1004,7 +1034,7 @@ const UI_STRINGS = {
     "input.toolbar": "Formatierungsleiste",
     "input.scriptPlaceholder": "Füge dein Skript hier ein oder schreibe es...",
     "input.meta": "{count} Wörter · {minutes} Min. Lesezeit",
-    "input.editorHelp": "Die Formatierung funktioniert wie Reddit-Markdown für <strong>**fett**</strong> und <em>*kursiv*</em> sowie mit Tags für <span class=\"toolbar-underline\">[u]Unterstreichung[/u]</span>, <mark class=\"mark-yellow\">[yellow]Hervorhebung[/yellow]</mark>, <mark class=\"mark-blue\">[blue]Hervorhebung[/blue]</mark> und <mark class=\"mark-red\">[red]Hervorhebung[/red]</mark>.",
+    "input.editorHelp": "Die Formatierung funktioniert wie Reddit-Markdown für <strong>**fett**</strong>, <em>*kursiv*</em>, Aufzählungen mit <strong>- Punkt</strong>, nummerierte Listen mit <strong>1. Punkt</strong>, Blockzitate mit <strong>&gt; Zitat</strong> sowie mit Tags für <span class=\"toolbar-underline\">[u]Unterstreichung[/u]</span>, <span class=\"tone-white\">[white]Weiß[/white]</span>, <span class=\"tone-softwhite\">[softwhite]Off-White[/softwhite]</span>, <mark class=\"mark-yellow\">[yellow]Hervorhebung[/yellow]</mark>, <mark class=\"mark-blue\">[blue]Hervorhebung[/blue]</mark> und <mark class=\"mark-red\">[red]Hervorhebung[/red]</mark>.",
     "input.groq": "Groq",
     "input.draftHelper": "Entwurfshilfe",
     "input.apiKey": "API-Schlüssel",
@@ -1789,6 +1819,7 @@ UI_STRINGS.fr = {
   "settings.custom": "x / y personnalisés",
   "settings.drag": "Glisser librement",
   "settings.appearance": "Apparence",
+  "settings.appearanceTitle": "Typographie et visuels",
   "settings.sizeAndPlayback": "Taille et style de lecture",
   "settings.group.windowSize": "Taille de la fenêtre",
   "settings.group.playback": "Lecture",
@@ -1806,6 +1837,10 @@ UI_STRINGS.fr = {
   "settings.mode.voice": "Suivi vocal",
   "settings.voiceTrackingStyle": "Style du suivi vocal",
   "settings.voiceTrackingStyleHelp": "Choisissez comment la position détectée est affichée pendant que vous parlez.",
+  "settings.voiceConfidence": "Niveau de confiance",
+  "settings.voiceConfidenceHelp": "Des valeurs plus élevées rendent Flow plus strict avec les correspondances vocales peu fiables.",
+  "settings.voiceConfidenceSkips": "Si Flow saute des mots ou avance trop loin, augmentez cette valeur.",
+  "settings.voiceConfidenceStalls": "S'il ne bouge pas du tout alors que vous lisez clairement, baissez cette valeur.",
   "settings.voiceStyle.highlight": "Mise en évidence du mot",
   "settings.voiceStyle.line": "Mise en évidence de la ligne",
   "settings.voiceStyle.plain": "Texte brut",
@@ -1870,7 +1905,7 @@ UI_STRINGS.fr = {
   "input.importUnsupported": "Ce type de fichier n'est pas pris en charge. Utilisez TXT, DOCX, PDF ou un autre fichier texte lisible.",
   "input.importFailed": "Impossible de lire ce fichier.",
   "input.meta": "{count} mots · {minutes} min de lecture",
-  "input.editorHelp": "Le formatage fonctionne comme du markdown façon Reddit pour <strong>**gras**</strong> et <em>*italique*</em>, avec en plus des balises pour <span class=\"toolbar-underline\">[u]souligné[/u]</span>, <mark class=\"mark-yellow\">[yellow]surbrillance[/yellow]</mark>, <mark class=\"mark-blue\">[blue]surbrillance[/blue]</mark> et <mark class=\"mark-red\">[red]surbrillance[/red]</mark>.",
+  "input.editorHelp": "Le formatage fonctionne comme du markdown façon Reddit pour <strong>**gras**</strong>, <em>*italique*</em>, les listes à puces avec <strong>- élément</strong>, les listes numérotées avec <strong>1. élément</strong>, les citations avec <strong>&gt; citation</strong>, avec en plus des balises pour <span class=\"toolbar-underline\">[u]souligné[/u]</span>, <span class=\"tone-white\">[white]blanc[/white]</span>, <span class=\"tone-softwhite\">[softwhite]blanc cassé[/softwhite]</span>, <mark class=\"mark-yellow\">[yellow]surbrillance[/yellow]</mark>, <mark class=\"mark-blue\">[blue]surbrillance[/blue]</mark> et <mark class=\"mark-red\">[red]surbrillance[/red]</mark>.",
   "input.groq": "Groq",
   "input.draftHelper": "Assistant de rédaction",
   "input.apiKey": "Clé API",
@@ -1990,6 +2025,7 @@ Object.assign(UI_STRINGS.fr, {
 
 UI_STRINGS.es = {
   ...UI_STRINGS.en,
+  "doc.teleprompterTitle": "Teleprónter Flow",
   "doc.settingsTitle": "Flow · Configuración",
   "doc.textTitle": "Flow · Texto",
   "doc.aboutTitle": "Flow · Acerca de",
@@ -1998,6 +2034,24 @@ UI_STRINGS.es = {
   "common.close": "Cerrar",
   "common.on": "Activado",
   "common.off": "Desactivado",
+  "common.ai": "IA",
+  "common.wpm": "ppm",
+  "common.slower": "Más lento",
+  "common.faster": "Más rápido",
+  "common.speedAria": "Velocidad en palabras por minuto",
+  "common.generatePrompt": "Generar instrucción",
+  "common.play": "Reproducir",
+  "common.continue": "Continuar",
+  "common.pause": "Pausar",
+  "common.replayStart": "Reiniciar desde el principio",
+  "common.stopKeep": "Detener y mantener la posición",
+  "common.openTextPage": "Abrir la página de texto",
+  "common.openSettings": "Abrir configuración",
+  "common.pinWindow": "Fijar ventana",
+  "common.unpinWindow": "Soltar ventana",
+  "common.closeApp": "Cerrar la aplicación",
+  "common.collapse": "Contraer teleprónter",
+  "common.expand": "Expandir teleprónter",
   "common.language": "Idioma",
   "common.copy": "Copiar",
   "common.copyLink": "Copiar enlace",
@@ -2012,6 +2066,172 @@ UI_STRINGS.es = {
   "language.de": "Alemán",
   "language.fr": "Francés",
   "language.es": "Español",
+  "tele.status.ready": "Listo",
+  "tele.status.stopped": "Detenido",
+  "tele.status.paused": "En pausa",
+  "tele.status.arrowPaused": "Modo flecha en pausa",
+  "tele.status.performance": "Desplazamiento de rendimiento",
+  "tele.status.scrolling": "Desplazándose",
+  "tele.status.line": "Línea por línea",
+  "tele.status.arrow": "Modo flecha",
+  "tele.status.highlight": "Resaltando",
+  "tele.progress": "Palabra {current} / {total}",
+  "tele.floatingStats": "{words} restantes · {minutes} min restantes",
+  "tele.empty": "Abre el editor de texto y añade tu guion.",
+  "tele.status.micBlocked": "Micrófono bloqueado por la privacidad de Windows",
+  "tele.status.noMic": "No se detectó micrófono",
+  "tele.status.micUnavailable": "Micrófono no disponible",
+  "tele.voiceFeedback.micBlocked": "El acceso al micrófono está bloqueado en la configuración de privacidad de Windows.\nVuelve a permitir el acceso al micrófono para Flow y prueba otra vez el seguimiento por voz.\n\nTu guion sigue guardado.",
+  "tele.voiceFeedback.noMic": "No se detectó ningún micrófono.\nConecta o habilita un micrófono y vuelve a probar el seguimiento por voz.\n\nTu guion sigue guardado.",
+  "tele.voiceFeedback.micUnavailable": "Flow no pudo iniciar el seguimiento por voz porque el micrófono no está disponible o no funciona.\nComprueba el dispositivo de entrada seleccionado y vuelve a intentarlo.\n\nTu guion sigue guardado.",
+  "tele.addGroqKey": "Añade primero la clave API de Groq desde la página de texto",
+  "tele.promptExisting": "Describe cómo debe Groq reescribir el texto actual del teleprónter:",
+  "tele.promptExistingDefault": "Reescribe esto con un tono, una personalidad y un estilo visual diferentes en unas 200 palabras.",
+  "tele.promptNew": "Describe el texto de teleprónter que quieres que Groq genere:",
+  "tele.promptNewDefault": "Un discurso breve para lanzar un producto con un ritmo seguro y natural.",
+  "tele.cancelled": "Generación cancelada",
+  "tele.generating": "Generando con Groq...",
+  "tele.generated": "Groq generó un nuevo guion",
+  "tele.pinned": "Ventana fijada",
+  "tele.unpinned": "Ventana en modo arrastre libre",
+  "tele.groqFailed": "Groq falló: {error}",
+  "tele.clickthroughEnabled": "Modo clic a través activado",
+  "tele.clickthroughDisabled": "Modo clic a través desactivado",
+  "tele.opened": "Se abrió {kind}",
+  "tele.failedOpenInput": "No se pudo abrir el texto: {error}",
+  "tele.failedOpenSettings": "No se pudo abrir la configuración: {error}",
+  "tele.failedCloseApp": "No se pudo cerrar la aplicación: {error}",
+  "settings.kicker": "Configuración",
+  "settings.title": "Controles en vivo",
+  "settings.section": "Sección",
+  "settings.sectionTitle": "Explorar configuración",
+  "settings.section.remote": "Remoto",
+  "settings.section.appearance": "Apariencia",
+  "settings.section.scrolling": "Desplazamiento",
+  "settings.section.positioning": "Posicionamiento",
+  "settings.section.windowSettings": "Configuración de la ventana",
+  "settings.section.privacy": "Privacidad y sistema",
+  "settings.section.usability": "Usabilidad",
+  "settings.positioning": "Posicionamiento",
+  "settings.windowSettings": "Configuración de la ventana",
+  "settings.windowSettingsTitle": "Posición y tamaño",
+  "settings.windowPlacement": "Ubicación de la ventana",
+  "settings.windowLocation": "Posición de la ventana",
+  "settings.privacy": "Privacidad y sistema",
+  "settings.desktopBehavior": "Comportamiento del escritorio",
+  "settings.hideFromCapture": "Invisible en capturas de pantalla",
+  "settings.hideFromCaptureHelp": "Mantiene a Flow fuera de capturas y grabaciones de pantalla en sistemas Windows compatibles.",
+  "settings.systemTray": "Usar el icono de la bandeja del sistema",
+  "settings.systemTrayHelp": "Cuando está activado, Flow se oculta de la barra de tareas y sigue disponible desde la bandeja del sistema. Cuando está desactivado, Flow aparece en la barra de tareas.",
+  "settings.preventSleep": "Evitar el modo de suspensión",
+  "settings.preventSleepHelp": "Mantiene la pantalla y el sistema despiertos mientras Flow está en ejecución.",
+  "settings.usability": "Usabilidad",
+  "settings.shortcuts": "Atajos de teclado",
+  "settings.clickthroughShortcut": "Atajo para modo clic a través",
+  "settings.clickthroughShortcutHelp": "Permite alternar el modo clic a través con Ctrl + Shift + X.",
+  "settings.shortcutPlayStop": "Reproducir / detener",
+  "settings.shortcutReset": "Reiniciar al inicio",
+  "settings.shortcutBackward": "Desplazar hacia atrás",
+  "settings.shortcutSpeed": "Bajar / subir velocidad durante la reproducción",
+  "settings.shortcutPause": "Pausar / continuar",
+  "settings.shortcutPauseValue": "Espacio",
+  "settings.x": "X",
+  "settings.y": "Y",
+  "settings.topCenter": "Arriba al centro",
+  "settings.center": "Centro",
+  "settings.custom": "x / y personalizados",
+  "settings.drag": "Arrastre libre",
+  "settings.appearance": "Apariencia",
+  "settings.appearanceTitle": "Tipografía y aspecto",
+  "settings.sizeAndPlayback": "Tamaño y estilo de reproducción",
+  "settings.scrolling": "Desplazamiento",
+  "settings.scrollingTitle": "Reproducción y seguimiento",
+  "settings.group.windowSize": "Tamaño de la ventana",
+  "settings.group.playback": "Reproducción",
+  "settings.group.typography": "Tipografía",
+  "settings.group.visuals": "Aspecto visual",
+  "settings.width": "Ancho",
+  "settings.height": "Alto",
+  "settings.animationStyle": "Modo de desplazamiento",
+  "settings.mode.highlight": "Modo de resaltado",
+  "settings.mode.scroll": "Modo de desplazamiento normal",
+  "settings.mode.line": "Resaltado línea por línea",
+  "settings.mode.arrow": "Modo flecha",
+  "settings.mode.voice": "Seguimiento por voz",
+  "settings.voiceTrackingStyle": "Estilo de seguimiento por voz",
+  "settings.voiceTrackingStyleHelp": "Elige cómo se muestra la posición detectada mientras hablas.",
+  "settings.voiceConfidence": "Nivel de confianza",
+  "settings.voiceConfidenceHelp": "Los valores más altos hacen que Flow sea más estricto con coincidencias de voz de baja confianza.",
+  "settings.voiceConfidenceSkips": "Si Flow se salta palabras o avanza demasiado, aumenta este valor.",
+  "settings.voiceConfidenceStalls": "Si no avanza aunque leas con claridad, reduce este valor.",
+  "settings.voiceStyle.highlight": "Resaltado de palabra",
+  "settings.voiceStyle.line": "Resaltado de línea",
+  "settings.voiceStyle.plain": "Texto plano",
+  "settings.appWideVoiceCommands": "Comandos de voz de Flow en toda la aplicación",
+  "settings.appWideVoiceCommandsHelp": "Permite que comandos en inglés como 'Hey Flow pause' o 'Hey Flow down' funcionen también fuera del seguimiento por voz. Actualmente es inestable y puede no funcionar de forma fiable.",
+  "settings.font": "Fuente",
+  "settings.textSize": "Tamaño del texto",
+  "settings.style": "Estilo",
+  "settings.style.main": "Principal",
+  "settings.style.glass": "Cristal esmerilado",
+  "settings.style.minimal": "Minimalista",
+  "settings.theme": "Tema",
+  "settings.theme.main": "Principal",
+  "settings.theme.dark": "Oscuro",
+  "settings.theme.bright": "Claro",
+  "settings.theme.meadow": "Amarillo verdoso",
+  "settings.voiceLanguage": "Idioma de voz",
+  "settings.voiceModeHelp": "Usa el idioma seleccionado para el seguimiento por voz y los comandos globales de Flow.",
+  "settings.speedSlider": "Deslizador de velocidad izquierdo",
+  "settings.speedSliderHelp": "Muestra el control vertical de PPM en el lado izquierdo durante la reproducción.",
+  "settings.scrollStartDelay": "Retraso de inicio del texto",
+  "settings.scrollStartDelayHelp": "Después de la cuenta atrás 3, 2, 1, mantiene el texto quieto durante estos segundos antes de que empiece a moverse.",
+  "settings.performance": "Modo de rendimiento",
+  "settings.performanceHelp": "Desactiva las animaciones de la interfaz y fuerza el desplazamiento normal para un rendimiento más fluido.",
+  "settings.autoHideToolbar": "Ocultar automáticamente la barra superior",
+  "settings.autoHideToolbarHelp": "Muestra una pequeña pestaña arriba y revela la barra solo cuando el teleprónter está enfocado o bajo el cursor.",
+  "settings.mirrorMode": "Reflejar texto horizontalmente",
+  "settings.mirrorModeHelp": "Invierte el teleprónter de lado a lado para que el reflejo se lea correctamente a través de un espejo físico.",
+  "settings.mirrorVertical": "Voltear el texto boca abajo",
+  "settings.mirrorVerticalHelp": "Invierte el teleprónter de arriba abajo para que los montajes con espejo puedan colocarse desde cualquiera de los lados.",
+  "settings.textColor": "Color del texto",
+  "settings.textTransparency": "Transparencia del texto",
+  "settings.appTransparency": "Transparencia de la aplicación",
+  "settings.synced": "La configuración se sincronizó con la ventana principal actual.",
+  "settings.applied": "Los cambios se aplicaron automáticamente.",
+  "settings.autoApply": "Los cambios se aplican automáticamente al mover deslizadores o elegir una opción.",
+  "input.kicker": "Texto nuevo",
+  "input.title": "Editor de guiones",
+  "input.section": "Sección",
+  "input.sectionTitle": "Elegir panel del editor",
+  "input.section.editor": "Editor",
+  "input.section.assistant": "Asistente de Groq",
+  "input.teleprompterText": "Texto del teleprónter",
+  "input.toolbar": "Barra de formato",
+  "input.scriptPlaceholder": "Pega o escribe tu guion aquí...",
+  "input.meta": "{count} palabras · {minutes} min de lectura",
+  "input.groq": "Groq",
+  "input.draftHelper": "Asistente de redacción",
+  "input.apiKey": "Clave API",
+  "input.apiKeyPlaceholder": "Pega tu clave API de Groq",
+  "input.instruction": "Instrucción",
+  "input.instructionPlaceholder": "Ejemplo: Reescribe esto para que suene más natural y sea más fácil de leer ante la cámara.",
+  "input.saveText": "Guardar texto",
+  "input.useGroq": "Usar Groq",
+  "input.groqOptional": "Groq es opcional. Tu clave permanece guardada localmente en este dispositivo.",
+  "input.needKey": "Añade primero tu clave API de Groq.",
+  "input.needInstructionOrScript": "Añade primero una instrucción o algo de texto.",
+  "input.thinking": "Pensando...",
+  "input.groqUpdated": "Groq actualizó tu guion.",
+  "input.groqFailed": "La solicitud a Groq falló.",
+  "input.saved": "Guardado localmente.",
+  "about.kicker": "Acerca de",
+  "about.title": "Acerca de este proyecto",
+  "about.summary": "Un teleprónter de escritorio moderno para leer con fluidez, editar rápido, usar controles por voz e inyectar mensajes remotos.",
+  "about.p1": "Flow es una aplicación de teleprónter creada con tecnologías web y Tauri. Está diseñada para ser simple, ligera y personalizable.",
+  "about.p2": "Este proyecto es de código abierto y está disponible en mi <a href=\"https://github.com/LumoRez07\">cuenta de GitHub</a>. Si tienes preguntas, sugerencias o quieres contribuir, no dudes en escribirme o abrir un issue.",
+  "about.p3": "Este proyecto fue creado por <a href=\"https://lumorez.vercel.app/\">LumoRez</a> con ❤️ en 2026.",
+  "about.p4": "Flow incluye edición de guiones, varios modos de reproducción, seguimiento por voz, redacción asistida por IA, notificaciones remotas, controles de bandeja y opciones de privacidad centradas en Windows como la protección frente a capturas.",
   "tele.updaterChecking": "Comprobando actualizaciones de Flow...",
   "tele.updaterInstalling": "Instalando Flow {version}...",
   "tele.updaterDownloading": "Descargando Flow {version}: {progress}%",
@@ -2380,6 +2600,7 @@ Object.assign(UI_STRINGS.fr, {
 });
 
 Object.assign(UI_STRINGS.es, {
+  "common.startFresh": "Iniciar (desde el principio)",
   "input.cardPreset.warningAlert": "ADVERTENCIA / ALERTA",
   "input.cardPreset.speakLouder": "HABLA MÁS FUERTE",
   "input.cardPreset.shortPause": "PAUSA CORTA",
@@ -2393,19 +2614,110 @@ Object.assign(UI_STRINGS.es, {
   "input.cardPreset.smile": "SONRÍE",
   "input.cardPreset.gesture": "GESTO",
   "input.cardPreset.nameTitle": "NOMBRE / TÍTULO",
-  "input.cardPreset.startEnd": "INICIO / FIN"
+  "input.cardPreset.startEnd": "INICIO / FIN",
+  "input.editorHelp": "El formato funciona como markdown estilo Reddit para <strong>**negrita**</strong>, <em>*cursiva*</em>, listas con viñetas usando <strong>- elemento</strong>, listas numeradas usando <strong>1. elemento</strong>, citas usando <strong>&gt; cita</strong>, además de etiquetas para <span class=\"toolbar-underline\">[u]subrayado[/u]</span>, <span class=\"tone-white\">[white]blanco[/white]</span>, <span class=\"tone-softwhite\">[softwhite]blanco suave[/softwhite]</span>, <mark class=\"mark-yellow\">[yellow]resaltado[/yellow]</mark>, <mark class=\"mark-blue\">[blue]resaltado[/blue]</mark> y <mark class=\"mark-red\">[red]resaltado[/red]</mark>."
+});
+
+Object.assign(UI_STRINGS.en, {
+  "input.toolbar.bold": "Bold",
+  "input.toolbar.italic": "Italic",
+  "input.toolbar.underline": "Underline",
+  "input.toolbar.white": "White",
+  "input.toolbar.softWhite": "Soft white",
+  "input.toolbar.bullets": "Bullets",
+  "input.toolbar.numbered": "Numbered",
+  "input.toolbar.quote": "Quote",
+  "input.toolbar.highlightYellow": "Yellow",
+  "input.toolbar.highlightBlue": "Blue",
+  "input.toolbar.highlightRed": "Red"
+});
+
+Object.assign(UI_STRINGS.tr, {
+  "input.toolbar.bold": "Kalın",
+  "input.toolbar.italic": "İtalik",
+  "input.toolbar.underline": "Altı çizili",
+  "input.toolbar.white": "Beyaz",
+  "input.toolbar.softWhite": "Kırık beyaz",
+  "input.toolbar.bullets": "Madde",
+  "input.toolbar.numbered": "Numaralı",
+  "input.toolbar.quote": "Alıntı",
+  "input.toolbar.highlightYellow": "Sarı",
+  "input.toolbar.highlightBlue": "Mavi",
+  "input.toolbar.highlightRed": "Kırmızı"
+});
+
+Object.assign(UI_STRINGS.ar, {
+  "input.toolbar.bold": "عريض",
+  "input.toolbar.italic": "مائل",
+  "input.toolbar.underline": "تحته خط",
+  "input.toolbar.white": "أبيض",
+  "input.toolbar.softWhite": "أبيض مائل للرمادي",
+  "input.toolbar.bullets": "نقاط",
+  "input.toolbar.numbered": "مرقمة",
+  "input.toolbar.quote": "اقتباس",
+  "input.toolbar.highlightYellow": "أصفر",
+  "input.toolbar.highlightBlue": "أزرق",
+  "input.toolbar.highlightRed": "أحمر"
+});
+
+Object.assign(UI_STRINGS.de, {
+  "input.toolbar.bold": "Fett",
+  "input.toolbar.italic": "Kursiv",
+  "input.toolbar.underline": "Unterstrichen",
+  "input.toolbar.white": "Weiß",
+  "input.toolbar.softWhite": "Off-White",
+  "input.toolbar.bullets": "Aufzählung",
+  "input.toolbar.numbered": "Nummeriert",
+  "input.toolbar.quote": "Zitat",
+  "input.toolbar.highlightYellow": "Gelb",
+  "input.toolbar.highlightBlue": "Blau",
+  "input.toolbar.highlightRed": "Rot"
+});
+
+Object.assign(UI_STRINGS.fr, {
+  "input.toolbar.bold": "Gras",
+  "input.toolbar.italic": "Italique",
+  "input.toolbar.underline": "Souligné",
+  "input.toolbar.white": "Blanc",
+  "input.toolbar.softWhite": "Blanc cassé",
+  "input.toolbar.bullets": "Puces",
+  "input.toolbar.numbered": "Numérotée",
+  "input.toolbar.quote": "Citation",
+  "input.toolbar.highlightYellow": "Jaune",
+  "input.toolbar.highlightBlue": "Bleu",
+  "input.toolbar.highlightRed": "Rouge"
+});
+
+Object.assign(UI_STRINGS.es, {
+  "input.toolbar.bold": "Negrita",
+  "input.toolbar.italic": "Cursiva",
+  "input.toolbar.underline": "Subrayado",
+  "input.toolbar.white": "Blanco",
+  "input.toolbar.softWhite": "Blanco suave",
+  "input.toolbar.bullets": "Viñetas",
+  "input.toolbar.numbered": "Numerada",
+  "input.toolbar.quote": "Cita",
+  "input.toolbar.highlightYellow": "Amarillo",
+  "input.toolbar.highlightBlue": "Azul",
+  "input.toolbar.highlightRed": "Rojo"
 });
 
 const FONT_STACKS = {
   inter: 'Inter, "Segoe UI", Arial, sans-serif',
   "space-grotesk": '"Space Grotesk", "Segoe UI", Arial, sans-serif',
   outfit: '"Outfit", "Segoe UI", Arial, sans-serif',
+  "noto-sans": '"Noto Sans", "Segoe UI", Arial, sans-serif',
   "english-pro": 'Inter, "Segoe UI", "Arial Nova", Arial, sans-serif',
   "dutch-pro": '"IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
   "arabic-pro": '"Cairo", "Noto Naskh Arabic", "Segoe UI", Tahoma, Arial, sans-serif',
+  "arabic-naskh": '"Noto Naskh Arabic", "Amiri", "Segoe UI", Tahoma, serif',
+  amiri: '"Amiri", "Noto Naskh Arabic", "Segoe UI", Tahoma, serif',
   "turkish-pro": '"Manrope", "Segoe UI", "Arial Nova", Arial, sans-serif',
   "german-pro": '"IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif',
+  "spanish-pro": '"Noto Sans", "Segoe UI", "Arial Nova", Arial, sans-serif',
   system: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  "ibm-plex-serif": '"IBM Plex Serif", Georgia, "Times New Roman", serif',
+  lora: '"Lora", Georgia, "Times New Roman", serif',
   merriweather: '"Merriweather", Georgia, "Times New Roman", serif',
   "source-serif": '"Source Serif 4", Georgia, "Times New Roman", serif',
   georgia: 'Georgia, "Times New Roman", serif',
@@ -2417,6 +2729,10 @@ const FONT_STACKS = {
 
 const LANGUAGE_SYSTEM_FONT_STACKS = {
   default: '"Segoe UI Variable Text", "Segoe UI Variable Display", "Segoe UI", "Arial Nova", Arial, sans-serif',
+  de: '"IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, sans-serif',
+  es: '"Noto Sans", "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, sans-serif',
+  fr: '"Noto Sans", "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, sans-serif',
+  tr: '"IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, sans-serif',
   ar: '"Segoe UI Variable Text", "Segoe UI", Tahoma, "Noto Sans Arabic UI", "Noto Sans Arabic", Arial, sans-serif'
 };
 
@@ -2855,6 +3171,10 @@ export function normalizeState(rawState = {}) {
       ...defaults.remote,
       ...(rawState.remote || {})
     },
+    voiceTracking: {
+      ...defaults.voiceTracking,
+      ...(rawState.voiceTracking || {})
+    },
     window: normalizeWindowSettings(rawState.window, defaults.window),
     appearance: {
       ...defaults.appearance,
@@ -2922,6 +3242,12 @@ function mergeState(currentState, nextState = {}) {
           ...nextState.remote
         }
       : currentState.remote,
+    voiceTracking: nextState.voiceTracking
+      ? {
+          ...currentState.voiceTracking,
+          ...nextState.voiceTracking
+        }
+      : currentState.voiceTracking,
     window: nextState.window
       ? {
           ...currentState.window,
@@ -3024,6 +3350,37 @@ function pushToken(tokens, token) {
   tokens.push(token);
 }
 
+function matchLineBlockMarker(source, index) {
+  const slice = source.slice(index);
+  const match = slice.match(/^(?:[ \t]{0,3})(>+[ \t]+|[-*+][ \t]+|(\d+)[.)][ \t]+)/u);
+  if (!match) {
+    return null;
+  }
+
+  if (match[2]) {
+    return {
+      type: "list-item-start",
+      ordered: true,
+      marker: `${match[2]}.`,
+      length: match[0].length
+    };
+  }
+
+  if (match[1]?.trim().startsWith(">")) {
+    return {
+      type: "blockquote-start",
+      length: match[0].length
+    };
+  }
+
+  return {
+    type: "list-item-start",
+    ordered: false,
+    marker: "•",
+    length: match[0].length
+  };
+}
+
 function flushBuffer(tokens, buffer, style) {
   if (!buffer) return;
 
@@ -3063,11 +3420,14 @@ export function parseFormattedScript(text) {
   const source = String(text || "");
   const tokens = [];
   let buffer = "";
+  let atLineStart = true;
+  let activeLineBlock = null;
   let style = {
     bold: false,
     italic: false,
     underline: false,
-    highlight: null
+    highlight: null,
+    textTone: null
   };
 
   const applyTag = (tag) => {
@@ -3077,6 +3437,18 @@ export function parseFormattedScript(text) {
         return true;
       case "/u":
         style = { ...style, underline: false };
+        return true;
+      case "white":
+        style = { ...style, textTone: "white" };
+        return true;
+      case "/white":
+        style = { ...style, textTone: style.textTone === "white" ? null : style.textTone };
+        return true;
+      case "softwhite":
+        style = { ...style, textTone: "softwhite" };
+        return true;
+      case "/softwhite":
+        style = { ...style, textTone: style.textTone === "softwhite" ? null : style.textTone };
         return true;
       case "yellow":
         style = { ...style, highlight: "yellow" };
@@ -3106,7 +3478,36 @@ export function parseFormattedScript(text) {
     buffer = "";
   };
 
+  const closeLineBlock = () => {
+    if (!activeLineBlock) {
+      return;
+    }
+
+    tokens.push({ type: "block-end", blockKind: activeLineBlock });
+    activeLineBlock = null;
+  };
+
   for (let index = 0; index < source.length; index += 1) {
+    if (source[index] === "\r") {
+      continue;
+    }
+
+    if (atLineStart) {
+      const blockMarker = matchLineBlockMarker(source, index);
+      if (blockMarker) {
+        flush();
+        activeLineBlock = blockMarker.type === "blockquote-start" ? "blockquote" : "list-item";
+        tokens.push(blockMarker);
+        index += blockMarker.length - 1;
+        atLineStart = false;
+        continue;
+      }
+
+      if (source[index] === " " || source[index] === "\t") {
+        continue;
+      }
+    }
+
     if (source[index] === "[") {
       const closingIndex = source.indexOf("]", index + 1);
       if (closingIndex !== -1) {
@@ -3135,7 +3536,7 @@ export function parseFormattedScript(text) {
           }
         }
 
-        const isFormattingTag = ["u", "/u", "yellow", "/yellow", "blue", "/blue", "red", "/red"].includes(tag);
+        const isFormattingTag = ["u", "/u", "white", "/white", "softwhite", "/softwhite", "yellow", "/yellow", "blue", "/blue", "red", "/red"].includes(tag);
         if (isFormattingTag) {
           flush();
           applyTag(tag);
@@ -3165,10 +3566,23 @@ export function parseFormattedScript(text) {
       continue;
     }
 
+    if (source[index] === "\n") {
+      flush();
+      if (activeLineBlock) {
+        closeLineBlock();
+      } else {
+        pushToken(tokens, { type: "newline" });
+      }
+      atLineStart = true;
+      continue;
+    }
+
     buffer += source[index];
+    atLineStart = false;
   }
 
   flush();
+  closeLineBlock();
 
   while (tokens[tokens.length - 1]?.type === "space" || tokens[tokens.length - 1]?.type === "newline") {
     tokens.pop();

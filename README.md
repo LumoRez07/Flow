@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.8.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.8.1</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.8.0-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.8.1-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -44,11 +44,10 @@ Please consider starring this repo if it helps you! ⭐
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.8.0
+## What's New in 1.8.1
 
-- Big visual enhancements and UI refinement across the app.
-- Added the ability to give Groq a file and let it edit or interact with that file according to the instruction you provide.
-- Fixed the update section so it retrieves release data correctly.
+- Improved packaged playback stability, including pause and continue behavior in the teleprompter.
+- Fixed packaged-settings issues around microphone device labels, bright-theme contrast, and free-drag collapse/minimize glitches.
 
 ## Preview
 
@@ -128,7 +127,7 @@ npm run tauri build
 
 Publish these files from `src-tauri/target/release/bundle` to the GitHub release:
 
-- `msi/flow_1.8.0_x64_en-US.msi`
+- `msi/flow_1.8.1_x64_en-US.msi`
 - `latest.json`
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.
@@ -161,12 +160,10 @@ This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
 
 Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
 
-### 1.7.0 Sürümündeki Yenilikler
+### 1.8.1 Sürümündeki Yenilikler
 
-- Ayarlar ve duzenleyici acilir menuleri; goz at secenekleri, sablonlar, stiller, temalar, ses kontrolleri, pencere konumu ve giris aygitlari icin ozel menulerle yeniden tasarlandi.
-- Bu secicilere profesyonel simgeler, canli tema onizleme daireleri ve uzun secenek adlari icin akici kayan etiketler eklendi.
-- Cue card'lar yeni bir metin yazim ozelligi olarak eklendi; yerlesik kart turleri ve ozel cue card sablonlari dogrudan Template secicisinden yonetilebiliyor.
-- Cok dilli arayuz sunumu duzenlendi; cevrilmis uygulama metinleri arayuz genelinde daha tutarli kalirken Arapca UI metinleri de soldan saga gosteriliyor.
+- Artık Groq'a bir dosya verip sağladığınız talimata göre o dosyayı düzenletmek veya onunla etkileşime girmesini sağlamak mümkün.
+- Güncelleme bölümü düzeltildi; artık sürüm verilerini daha doğru şekilde alıyor.
 
 ### Öne Çıkanlar
 
@@ -230,12 +227,10 @@ Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderic
 
 Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
 
-### الجديد في 1.7.0
+### الجديد في 1.8.1
 
-- أُعيد تصميم القوائم المنسدلة في الإعدادات والمحرر بقوائم مخصصة تغطي خيارات التصفح والقوالب والأنماط والسمات وعناصر التحكم الصوتية وموقع النافذة وأجهزة الإدخال.
-- أُضيفت مؤشرات بصرية أوضح داخل هذه القوائم، بما في ذلك أيقونات احترافية ومعاينات دائرية للسمات وتسميات متحركة بسلاسة للأسماء الطويلة.
-- أُضيفت cue cards كميزة جديدة لكتابة النصوص، مع أنواع بطاقات مدمجة وقوالب cue card مخصصة يمكن إدارتها مباشرة من محدد Template.
-- تم تحسين العرض متعدد اللغات للواجهة بحيث يبقى النص المترجم متناسقاً عبر التطبيق، بما في ذلك عرض نص واجهة العربية من اليسار إلى اليمين.
+- أصبح بإمكانك الآن تزويد Groq بملف وطلب تعديله أو التفاعل معه وفقاً للتعليمات التي تكتبها.
+- تم إصلاح قسم التحديثات بحيث يجلب بيانات الإصدارات بشكل صحيح.
 
 ### أبرز الميزات
 
@@ -299,12 +294,10 @@ npm run tauri build
 
 Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
 
-### Nouveautes de la version 1.7.0
+### Nouveautes de la version 1.8.1
 
-- Refonte des menus deroulants des parametres et de l'editeur avec des menus personnalises pour la navigation, les modeles, les styles, les themes, les commandes vocales, la position de fenetre et les peripheriques d'entree.
-- Ajout d'indices visuels plus riches dans ces selecteurs avec icones, apercus circulaires des themes et defilement fluide pour les libelles trop longs.
-- Les cue cards arrivent comme nouvelle fonction d'ecriture, avec des types de cartes integres et des modeles personnalises geres directement depuis le selecteur Template.
-- La presentation multilingue de l'interface a ete harmonisee afin que le texte traduit reste coherent dans toute l'application, y compris l'interface arabe affichee de gauche a droite.
+- Il est maintenant possible de donner un fichier a Groq pour qu'il le modifie ou interagisse avec lui selon l'instruction que vous fournissez.
+- La section de mise a jour a ete corrigee et recupere maintenant correctement les donnees de release.
 
 ### Points forts
 
@@ -368,12 +361,10 @@ Flow inclut un emetteur distant et une boite de reception pour envoyer du texte 
 
 Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
 
-### Neu in 1.7.0
+### Neu in 1.8.1
 
-- Die Dropdowns in Einstellungen und Editor wurden mit benutzerdefinierten Menues fuer Browse-Optionen, Vorlagen, Stile, Themes, Sprachsteuerung, Fensterposition und Eingabegeraete neu gestaltet.
-- Diese Auswahlen zeigen jetzt klarere visuelle Hinweise mit passenden Symbolen, Theme-Vorschaurunden und sanft scrollenden Labels fuer lange Eintraege.
-- Cue Cards sind jetzt ein neues Schreibwerkzeug mit integrierten Kartentypen und benutzerdefinierten Vorlagen, die direkt im Template-Auswahlfeld verwaltet werden.
-- Die mehrsprachige UI-Darstellung wurde vereinheitlicht, sodass uebersetzter App-Text durchgaengig konsistent bleibt, einschliesslich links-nach-rechts dargestellter arabischer UI-Texte.
+- Du kannst Groq jetzt eine Datei geben, damit es sie gemaess deiner Anweisung bearbeitet oder mit ihr interagiert.
+- Der Update-Bereich wurde behoben und ruft Release-Daten nun korrekt ab.
 
 ### Highlights
 
@@ -437,12 +428,10 @@ Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufend
 
 Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
 
-### Novedades en 1.7.0
+### Novedades en 1.8.1
 
-- Se redisenaron los menus desplegables de configuracion y del editor con menus personalizados para opciones de navegacion, plantillas, estilos, temas, controles de voz, posicion de ventana y dispositivos de entrada.
-- Se agregaron senales visuales mas claras en esos selectores con iconos, vistas previas circulares de temas y etiquetas con desplazamiento suave para nombres largos.
-- Se agregaron cue cards como una funcion nueva de escritura, con tipos de tarjetas integrados y plantillas personalizadas gestionadas directamente desde el selector Template.
-- Se ajusto la presentacion multilingue de la interfaz para que el texto traducido se mantenga consistente en toda la app, incluida la interfaz arabe mostrada de izquierda a derecha.
+- Ahora puedes darle un archivo a Groq para que lo edite o interactue con el segun la instruccion que le indiques.
+- Se corrigio la seccion de actualizaciones para que recupere correctamente los datos de las releases.
 
 ### Puntos destacados
 

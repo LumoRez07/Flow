@@ -56,12 +56,50 @@
 
         <label class="field-label" for="scriptInput" data-i18n="input.teleprompterText">Teleprompter text</label>
         <div class="editor-toolbar" data-i18n-aria-label="input.toolbar" aria-label="Formatting toolbar">
-          <button class="toolbar-button" type="button" data-wrap-before="**" data-wrap-after="**" data-placeholder="bold text"><strong>B</strong></button>
-          <button class="toolbar-button" type="button" data-wrap-before="*" data-wrap-after="*" data-placeholder="italic text"><em>I</em></button>
-          <button class="toolbar-button" type="button" data-wrap-before="[u]" data-wrap-after="[/u]" data-placeholder="underlined text"><span class="toolbar-underline">U</span></button>
-          <button class="toolbar-button highlight-yellow" type="button" data-wrap-before="[yellow]" data-wrap-after="[/yellow]" data-placeholder="yellow highlight">Y</button>
-          <button class="toolbar-button highlight-blue" type="button" data-wrap-before="[blue]" data-wrap-after="[/blue]" data-placeholder="blue highlight">B</button>
-          <button class="toolbar-button highlight-red" type="button" data-wrap-before="[red]" data-wrap-after="[/red]" data-placeholder="red highlight">R</button>
+          <button class="toolbar-button" type="button" data-wrap-before="**" data-wrap-after="**" data-placeholder="bold text" data-i18n-aria-label="input.toolbar.bold" aria-label="Bold">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-text-bolder"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.bold">Bold</span>
+          </button>
+          <button class="toolbar-button" type="button" data-wrap-before="*" data-wrap-after="*" data-placeholder="italic text" data-i18n-aria-label="input.toolbar.italic" aria-label="Italic">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-text-italic"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.italic">Italic</span>
+          </button>
+          <button class="toolbar-button" type="button" data-wrap-before="[u]" data-wrap-after="[/u]" data-placeholder="underlined text" data-i18n-aria-label="input.toolbar.underline" aria-label="Underline">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-text-underline"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.underline">Underline</span>
+          </button>
+          <button class="toolbar-button tone-white" type="button" data-wrap-before="[white]" data-wrap-after="[/white]" data-placeholder="white text" data-i18n-aria-label="input.toolbar.white" aria-label="White text">
+            <span class="toolbar-button-icon toolbar-button-tone-swatch" aria-hidden="true">A</span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.white">White</span>
+          </button>
+          <button class="toolbar-button tone-softwhite" type="button" data-wrap-before="[softwhite]" data-wrap-after="[/softwhite]" data-placeholder="soft white text" data-i18n-aria-label="input.toolbar.softWhite" aria-label="Soft white text">
+            <span class="toolbar-button-icon toolbar-button-tone-swatch" aria-hidden="true">A</span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.softWhite">Soft white</span>
+          </button>
+          <button class="toolbar-button" type="button" data-line-prefix="- " data-placeholder="list item" data-i18n-aria-label="input.toolbar.bullets" aria-label="Bullets">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-list-bullets"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.bullets">Bullets</span>
+          </button>
+          <button class="toolbar-button" type="button" data-line-prefix="numbered" data-placeholder="list item" data-i18n-aria-label="input.toolbar.numbered" aria-label="Numbered list">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-list-numbers"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.numbered">Numbered</span>
+          </button>
+          <button class="toolbar-button" type="button" data-line-prefix="> " data-placeholder="quoted text" data-i18n-aria-label="input.toolbar.quote" aria-label="Quote">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-quotes"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.quote">Quote</span>
+          </button>
+          <button class="toolbar-button highlight-yellow" type="button" data-wrap-before="[yellow]" data-wrap-after="[/yellow]" data-placeholder="yellow highlight" data-i18n-aria-label="input.toolbar.highlightYellow" aria-label="Yellow highlight">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter-circle"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.highlightYellow">Yellow</span>
+          </button>
+          <button class="toolbar-button highlight-blue" type="button" data-wrap-before="[blue]" data-wrap-after="[/blue]" data-placeholder="blue highlight" data-i18n-aria-label="input.toolbar.highlightBlue" aria-label="Blue highlight">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter-circle"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.highlightBlue">Blue</span>
+          </button>
+          <button class="toolbar-button highlight-red" type="button" data-wrap-before="[red]" data-wrap-after="[/red]" data-placeholder="red highlight" data-i18n-aria-label="input.toolbar.highlightRed" aria-label="Red highlight">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter-circle"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.highlightRed">Red</span>
+          </button>
         </div>
 
         <div class="editor-import-row">
@@ -158,7 +196,7 @@
         </section>
 
         <div class="input-meta" id="scriptMeta">0 words</div>
-        <div class="helper-text editor-help" data-i18n-html="input.editorHelp">Formatting works like Reddit-style markdown for <strong>**bold**</strong> and <em>*italic*</em>, plus tags for <span class="toolbar-underline">[u]underline[/u]</span>, <mark class="mark-yellow">[yellow]highlight[/yellow]</mark>, <mark class="mark-blue">[blue]highlight[/blue]</mark>, and <mark class="mark-red">[red]highlight[/red]</mark>.</div>
+        <div class="helper-text editor-help" data-i18n-html="input.editorHelp">Formatting works like Reddit-style markdown for <strong>**bold**</strong>, <em>*italic*</em>, bullet lists with <strong>- item</strong>, numbered lists with <strong>1. item</strong>, blockquotes with <strong>&gt; quote</strong>, plus tags for <span class="toolbar-underline">[u]underline[/u]</span>, <mark class="mark-yellow">[yellow]highlight[/yellow]</mark>, <mark class="mark-blue">[blue]highlight[/blue]</mark>, and <mark class="mark-red">[red]highlight[/red]</mark>.</div>
       </section>
 
       <section class="panel-card wide-card groq-card input-section-panel hidden" data-input-section="assistant">

@@ -57,6 +57,10 @@ const SPEED_RAIL_TRANSITION_MS = 220;
 const PLAYBACK_COUNTDOWN_STEPS = ["3", "2", "1"];
 const PLAYBACK_COUNTDOWN_STEP_MS = 1000;
 const PLAYBACK_COUNTDOWN_SETTLE_MS = 0;
+const PLAYBACK_ARROW_HOLD_INITIAL_DELAY_MS = 180;
+const PLAYBACK_ARROW_HOLD_BASE_INTERVAL_MS = 160;
+const PLAYBACK_ARROW_HOLD_MIN_INTERVAL_MS = 46;
+const PLAYBACK_ARROW_HOLD_ACCELERATION_MS = 420;
 const SCROLL_PLAYBACK_START_HOLD_MIN_SECONDS = 0;
 const SCROLL_PLAYBACK_START_HOLD_MAX_SECONDS = 10;
 const WAIT_CARD_STEP_MS = 1000;
@@ -65,10 +69,12 @@ const WAIT_CARD_TRIGGER_VIEWPORT_OFFSET = 0.5;
 const TOP_CENTER_X_OFFSET = 32;
 const VOICE_WORD_VIEWPORT_OFFSET = 0.42;
 const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
-const VOICE_SCROLL_EASING = 0.1;
-const VOICE_SCROLL_MAX_STEP = 10;
-const VOICE_TRACKING_PARTIAL_MIN_INTERVAL_MS = 90;
-const VOICE_TRACKING_PARTIAL_REPEAT_GUARD_MS = 180;
+const VOICE_SCROLL_EASING = 0.18;
+const VOICE_SCROLL_MAX_STEP = 18;
+const VOICE_TRACKING_PARTIAL_MIN_INTERVAL_MS = 45;
+const VOICE_TRACKING_PARTIAL_REPEAT_GUARD_MS = 90;
+const VOICE_TRACKING_ADVANCE_STEP_MS = 28;
+const VOICE_TRACKING_MAX_ANIMATED_JUMP = 8;
 const VOICE_TRACKING_MATCH_RADIUS = 2;
 const VOICE_FORWARD_SKIP_CONFIRM_MS = 2500;
 const VOICE_COMMAND_SOUND_URL = new URL("./assets/voice-command-recognized.mp3", import.meta.url).href;
@@ -126,6 +132,8 @@ const tauriApp = window.__TAURI__?.app;
 const tauriWindow = window.__TAURI__?.window;
 const tauriDpi = window.__TAURI__?.dpi;
 const tauriEvent = window.__TAURI__?.event;
+let isMicrosoftStoreBuild = null;
+let microsoftStoreBuildPromise = null;
 
 const state = loadState();
 state.desktop = state.desktop || structuredClone(defaultState.desktop);
@@ -152,6 +160,7 @@ let currentIndex = 0;
 let isPlaying = false;
 let isPaused = false;
 let isCollapsed = false;
+let collapseTransitionToken = 0;
 let currentWindowHeight = null;
 let resizeAnimationToken = 0;
 let isSpeedRailVisible = false;
@@ -216,6 +225,9 @@ let lastVoiceTrackingAudioProcessAt = 0;
 let lastVoiceTrackingPartialHandledAt = 0;
 let lastVoiceTrackingPartialKey = "";
 let pendingForwardVoiceSkip = null;
+let voiceTrackingAdvanceFrame = null;
+let voiceTrackingAdvanceTarget = -1;
+let voiceTrackingAdvanceLastStepAt = 0;
 let voiceCommandListenerSession = 0;
 let voiceCommandResumeListenersInstalled = false;
 let voiceCommandSyncPromise = Promise.resolve();
@@ -245,6 +257,11 @@ let frozenReadingViewportHeight = 0;
 let autoUpdateCheckTimer = null;
 let isAutoUpdateChecking = false;
 let isAutoUpdateInstalling = false;
+let playbackArrowHoldDirection = 0;
+let playbackArrowHoldMode = "";
+let playbackArrowHoldFrame = null;
+let playbackArrowHoldStartedAt = 0;
+let playbackArrowHoldLastStepAt = 0;
 const voiceModelStatusCache = new Map();
 const voiceCaptureWorkletModulePromises = new WeakMap();
 let promptFeedbackState = null;
@@ -632,6 +649,7 @@ function buildNativeVoicePayload(languageTag = getVoiceLanguageTag(), options = 
   return {
     language: normalizeVoiceLanguage(languageTag),
     modelId,
+    confidenceThreshold: getVoiceTrackingConfidenceThreshold(),
     soundInput: {
       deviceId: soundInput.deviceId,
       deviceLabel: soundInput.deviceLabel,
@@ -705,6 +723,9 @@ function handleNativeVoiceEvent(payload) {
 
     if (payload.stage === "partial") {
       lastVoiceTrackingAudioProcessAt = performance.now();
+      if (applyVoiceTrackingWordHints(payload.words, { confidence: payload.confidence ?? 0 })) {
+        return;
+      }
       applyVoiceTrackingTranscript(payload.text, { isFinal: false, confidence: payload.confidence ?? 0 });
       return;
     }
@@ -930,6 +951,13 @@ function syncStateFromStorage() {
   Object.assign(state, latest);
 }
 
+function getVoiceTrackingConfidenceThreshold() {
+  const threshold = Number(state.voiceTracking?.confidenceThreshold);
+  return Number.isFinite(threshold)
+    ? clamp(threshold, 0.1, 0.9)
+    : (defaultState.voiceTracking?.confidenceThreshold || 0.35);
+}
+
 function normalizeRemoteCloudUrl(value) {
   return String(value || "").trim().replace(/\/$/, "");
 }
@@ -965,7 +993,38 @@ function t(key, params = {}) {
 }
 
 function getAutoUpdaterAvailable() {
-  return Boolean(invoke && tauriCore?.Channel);
+  return !isMicrosoftStoreBuild && Boolean(invoke && tauriCore?.Channel);
+}
+
+async function resolveMicrosoftStoreBuild() {
+  if (typeof isMicrosoftStoreBuild === "boolean") {
+    return isMicrosoftStoreBuild;
+  }
+
+  if (!invoke) {
+    isMicrosoftStoreBuild = false;
+    return isMicrosoftStoreBuild;
+  }
+
+  if (microsoftStoreBuildPromise) {
+    return microsoftStoreBuildPromise;
+  }
+
+  microsoftStoreBuildPromise = invoke("get_distribution_channel")
+    .then((channel) => {
+      isMicrosoftStoreBuild = String(channel || "").trim().toLowerCase() === "store";
+      return isMicrosoftStoreBuild;
+    })
+    .catch((error) => {
+      console.error("Failed to resolve distribution channel", error);
+      isMicrosoftStoreBuild = false;
+      return isMicrosoftStoreBuild;
+    })
+    .finally(() => {
+      microsoftStoreBuildPromise = null;
+    });
+
+  return microsoftStoreBuildPromise;
 }
 
 function setAutoUpdaterStatus(key, params = {}) {
@@ -1162,9 +1221,10 @@ function updateDragControls() {
   const isFreeDrag = isFreeDragMode();
   const isPinned = isWindowPinned();
   const pinLabel = isPinned ? t("common.unpinWindow") : t("common.pinWindow");
+  const shouldShowPin = isFreeDrag && !isCollapsed;
 
   if (ui.pinButton) {
-    ui.pinButton.classList.toggle("hidden", !isFreeDrag);
+    ui.pinButton.classList.toggle("hidden", !shouldShowPin);
     setButtonIcon(ui.pinButton, isPinned ? "ph-push-pin" : "ph-map-pin");
     ui.pinButton.title = pinLabel;
     ui.pinButton.setAttribute("aria-label", pinLabel);
@@ -1950,7 +2010,7 @@ async function waitForPlaybackCountdownSettle() {
   return token === playbackCountdownToken;
 }
 
-function getScrollPlaybackStartHoldMs() {
+function getPlaybackStartDelayMs() {
   const configuredSeconds = Number(state.appearance?.scrollStartDelaySeconds);
   const fallbackSeconds = Number(defaultState.appearance?.scrollStartDelaySeconds) || 0;
   const safeSeconds = Number.isFinite(configuredSeconds)
@@ -1960,11 +2020,15 @@ function getScrollPlaybackStartHoldMs() {
   return safeSeconds * 1000;
 }
 
-async function waitForScrollPlaybackStartHold() {
+function supportsPlaybackStartDelay(mode = getActiveMode()) {
+  return ["highlight", "scroll", "line"].includes(mode);
+}
+
+async function waitForPlaybackStartDelay() {
   const token = ++playbackCountdownToken;
   isPlaybackCountdownActive = false;
   setPlaybackCountdownVisible(false);
-  await wait(getScrollPlaybackStartHoldMs());
+  await wait(getPlaybackStartDelayMs());
   return token === playbackCountdownToken && isPlaying && !isPaused;
 }
 
@@ -2133,6 +2197,8 @@ async function animateWindowHeight(targetHeight) {
 async function setCollapsed(nextValue) {
   if (isCollapsed === nextValue) return;
 
+  const transitionToken = ++collapseTransitionToken;
+
   if (nextValue && isPlaying) {
     stopPlayback(true);
   }
@@ -2141,18 +2207,34 @@ async function setCollapsed(nextValue) {
 
   isCollapsed = nextValue;
   updateCollapseButton();
+  updateDragControls();
 
   if (isCollapsed) {
     document.body.classList.add("teleprompter-collapsing");
     document.body.classList.remove("teleprompter-expanding");
     document.body.classList.add("teleprompter-collapsed");
     await animateWindowHeight(COLLAPSED_HEIGHT);
+
+    if (transitionToken !== collapseTransitionToken) {
+      return;
+    }
+
     document.body.classList.remove("teleprompter-collapsing");
   } else {
     document.body.classList.add("teleprompter-expanding");
     document.body.classList.remove("teleprompter-collapsed", "teleprompter-collapsing");
     await animateWindowHeight(expandedHeight);
+
+    if (transitionToken !== collapseTransitionToken) {
+      return;
+    }
+
     await applyStoredWindowSettings();
+
+    if (transitionToken !== collapseTransitionToken) {
+      return;
+    }
+
     document.body.classList.remove("teleprompter-expanding");
   }
 
@@ -2165,14 +2247,15 @@ function rebuildLineMap() {
   lineGroups = [];
   lineIndexByWord = new Array(wordNodes.length).fill(0);
 
-  if (wordNodes.length === 0) {
+  if (wordNodes.length === 0 || !ui.promptText) {
     return;
   }
 
+  const promptRect = ui.promptText.getBoundingClientRect();
   let currentLine = null;
 
   wordNodes.forEach((node, index) => {
-    const top = Math.round(node.offsetTop);
+    const top = Math.round(node.getBoundingClientRect().top - promptRect.top);
     if (!currentLine || Math.abs(currentLine.top - top) > 4) {
       currentLine = {
         top,
@@ -2266,6 +2349,10 @@ function createWordSpan(token, index, options = {}) {
     span.classList.add("is-underlined");
   }
 
+  if (token.style.textTone) {
+    span.classList.add(`is-tone-${token.style.textTone}`);
+  }
+
   if (includeHighlight && token.style.highlight) {
     span.classList.add("is-marked", `is-marked-${token.style.highlight}`);
   }
@@ -2276,6 +2363,10 @@ function createWordSpan(token, index, options = {}) {
 function createDecorationGroupSpan(style) {
   const span = document.createElement("span");
   span.className = "prompt-highlight-group";
+
+  if (style.textTone) {
+    span.classList.add(`is-tone-${style.textTone}`);
+  }
 
   if (style.highlight) {
     span.classList.add("is-marked", `is-marked-${style.highlight}`);
@@ -2337,6 +2428,62 @@ function createPromptCard(token) {
   return element;
 }
 
+function createPromptListItem(token) {
+  const element = document.createElement("div");
+  element.className = "prompt-list-item";
+  element.dataset.listOrdered = token.ordered ? "true" : "false";
+
+  const marker = document.createElement("span");
+  marker.className = "prompt-list-marker";
+  marker.dataset.markerValue = token.marker || (token.ordered ? "1." : "•");
+  marker.textContent = marker.dataset.markerValue;
+  if (token.ordered) {
+    marker.setAttribute("dir", "ltr");
+    marker.dataset.textDirection = "ltr";
+  }
+
+  const content = document.createElement("span");
+  content.className = "prompt-list-content";
+
+  element.append(marker, content);
+  return { element, content };
+}
+
+function createPromptBlockquote() {
+  const element = document.createElement("div");
+  element.className = "prompt-blockquote";
+
+  const content = document.createElement("span");
+  content.className = "prompt-blockquote-content";
+
+  element.append(content);
+  return { element, content };
+}
+
+function syncPromptBlockDirection(content) {
+  if (!content) {
+    return;
+  }
+
+  const direction = applyTextDirection(content, content.textContent || "");
+  const block = content.parentElement;
+  if (!block) {
+    return;
+  }
+
+  block.setAttribute("dir", direction);
+  block.dataset.textDirection = direction;
+
+  const marker = block.querySelector(".prompt-list-marker");
+  if (!marker || block.dataset.listOrdered !== "true") {
+    return;
+  }
+
+  const sourceMarker = marker.dataset.markerValue || marker.textContent || "1.";
+  const numericPart = sourceMarker.replace(/[^\p{N}]+/gu, "") || "1";
+  marker.textContent = direction === "rtl" ? `.${numericPart}` : `${numericPart}.`;
+}
+
 function getDecorationSignature(style = {}) {
   if (!style.highlight && !style.underline) {
     return "";
@@ -2344,7 +2491,8 @@ function getDecorationSignature(style = {}) {
 
   return JSON.stringify({
     highlight: style.highlight || null,
-    underline: Boolean(style.underline)
+    underline: Boolean(style.underline),
+    textTone: style.textTone || null
   });
 }
 
@@ -2380,17 +2528,50 @@ function renderScript() {
   let wordIndex = 0;
   let currentDecorationGroup = null;
   let currentDecorationSignature = "";
+  let currentBlockContent = null;
 
   const closeDecorationGroup = () => {
     currentDecorationGroup = null;
     currentDecorationSignature = "";
   };
 
+  const closeBlock = () => {
+    closeDecorationGroup();
+    currentBlockContent = null;
+  };
+
+  const getInlineTarget = () => currentBlockContent || fragment;
+
   tokens.forEach((token, tokenIndex) => {
+    if (token.type === "blockquote-start") {
+      closeBlock();
+      const blockquote = createPromptBlockquote();
+      fragment.appendChild(blockquote.element);
+      currentBlockContent = blockquote.content;
+      return;
+    }
+
+    if (token.type === "list-item-start") {
+      closeBlock();
+      const listItem = createPromptListItem(token);
+      fragment.appendChild(listItem.element);
+      currentBlockContent = listItem.content;
+      return;
+    }
+
+    if (token.type === "block-end") {
+      closeBlock();
+      return;
+    }
+
     if (token.type === "card") {
       closeDecorationGroup();
       const cardElement = createPromptCard(token);
-      fragment.appendChild(cardElement);
+      getInlineTarget().appendChild(cardElement);
+
+      if (currentBlockContent) {
+        syncPromptBlockDirection(currentBlockContent);
+      }
 
       const waitSeconds = Number(cardElement.dataset.waitSeconds || 0);
       if (waitSeconds > 0) {
@@ -2414,14 +2595,14 @@ function renderScript() {
             if (!currentDecorationGroup || currentDecorationSignature !== decorationSignature) {
               currentDecorationGroup = createDecorationGroupSpan(token.style);
               currentDecorationSignature = decorationSignature;
-              fragment.appendChild(currentDecorationGroup);
+              getInlineTarget().appendChild(currentDecorationGroup);
             }
 
             return currentDecorationGroup;
           })()
         : (() => {
             closeDecorationGroup();
-            return fragment;
+            return getInlineTarget();
           })();
 
       const span = createWordSpan(token, wordIndex, {
@@ -2431,6 +2612,9 @@ function renderScript() {
 
       wordNodes.push(span);
       target.appendChild(span);
+      if (currentBlockContent) {
+        syncPromptBlockDirection(currentBlockContent);
+      }
       wordIndex += 1;
       return;
     }
@@ -2449,7 +2633,11 @@ function renderScript() {
         currentDecorationGroup.appendChild(document.createTextNode(" "));
       } else {
         closeDecorationGroup();
-        fragment.appendChild(document.createTextNode(" "));
+        getInlineTarget().appendChild(document.createTextNode(" "));
+      }
+
+      if (currentBlockContent) {
+        syncPromptBlockDirection(currentBlockContent);
       }
       return;
     }
@@ -2873,6 +3061,36 @@ function getLineTargetTop(lineIndex) {
   return Math.max(line.top - viewportHeight * getPlaybackViewportOffset(0.28, VOICE_LINE_VIEWPORT_OFFSET), 0);
 }
 
+function getLineIndexForScrollTop(scrollTop) {
+  if (lineGroups.length === 0) {
+    return 0;
+  }
+
+  const normalizedTop = Math.max(Number(scrollTop) || 0, 0);
+  let low = 0;
+  let high = lineGroups.length - 1;
+  let bestIndex = 0;
+
+  while (low <= high) {
+    const middle = Math.floor((low + high) / 2);
+    const middleTop = getLineTargetTop(middle);
+
+    if (middleTop <= normalizedTop + 1) {
+      bestIndex = middle;
+      low = middle + 1;
+    } else {
+      high = middle - 1;
+    }
+  }
+
+  return bestIndex;
+}
+
+function getPlaybackIndexForScrollTop(scrollTop) {
+  const lineIndex = getLineIndexForScrollTop(scrollTop);
+  return lineGroups[lineIndex]?.firstIndex ?? 0;
+}
+
 function updateWordState(shouldScroll = true) {
   const activeMode = getActiveMode();
 
@@ -3016,13 +3234,6 @@ async function resumePlayback() {
     return false;
   }
 
-  if (activeMode === "scroll") {
-    const holdCompleted = await waitForScrollPlaybackStartHold();
-    if (!holdCompleted) {
-      return false;
-    }
-  }
-
   isPaused = false;
 
   if (activeMode === "scroll") {
@@ -3097,7 +3308,7 @@ function playScrollMode() {
     const totalScrollable = getCachedPromptScrollableHeight();
     const targetTop = totalScrollable * scrollProgress;
     setViewportPosition(targetTop, "auto");
-    const nextIndex = Math.min(Math.floor(scrollProgress * totalWords), Math.max(wordNodes.length - 1, 0));
+    const nextIndex = Math.min(getPlaybackIndexForScrollTop(targetTop), Math.max(wordNodes.length - 1, 0));
     if (nextIndex !== currentIndex) {
       currentIndex = nextIndex;
     }
@@ -3170,6 +3381,123 @@ function movePlaybackByLine(direction, options = {}) {
 
   jumpToIndex(nextLine.firstIndex);
   return true;
+}
+
+function getPlaybackVerticalArrowMode() {
+  if (wordNodes.length === 0 || lineGroups.length === 0) {
+    return "";
+  }
+
+  const activeMode = getActiveMode();
+  if (activeMode === "arrow") {
+    return isPlaying && !isPaused ? "arrow" : "";
+  }
+
+  if ((isPlaying || isPaused) && ["voice", "line", "scroll"].includes(activeMode)) {
+    return activeMode;
+  }
+
+  return "";
+}
+
+function stepPlaybackWithVerticalArrow(direction) {
+  const activeMode = getPlaybackVerticalArrowMode();
+  if (!activeMode) {
+    return false;
+  }
+
+  if (activeMode === "voice") {
+    return movePlaybackByLine(direction, { allowVoiceModeBackward: true });
+  }
+
+  if (activeMode === "line" || activeMode === "scroll") {
+    stepPlaybackLine(direction);
+    return true;
+  }
+
+  if (activeMode === "arrow") {
+    stepArrowMode(direction);
+    return true;
+  }
+
+  return false;
+}
+
+function stopPlaybackArrowHold() {
+  if (playbackArrowHoldFrame) {
+    cancelAnimationFrame(playbackArrowHoldFrame);
+    playbackArrowHoldFrame = null;
+  }
+
+  playbackArrowHoldDirection = 0;
+  playbackArrowHoldMode = "";
+  playbackArrowHoldStartedAt = 0;
+  playbackArrowHoldLastStepAt = 0;
+}
+
+function tickPlaybackArrowHold(now) {
+  playbackArrowHoldFrame = null;
+
+  if (!playbackArrowHoldDirection) {
+    return;
+  }
+
+  const activeMode = getPlaybackVerticalArrowMode();
+  if (!activeMode || activeMode !== playbackArrowHoldMode) {
+    stopPlaybackArrowHold();
+    return;
+  }
+
+  if (!playbackArrowHoldStartedAt) {
+    playbackArrowHoldStartedAt = now;
+    playbackArrowHoldLastStepAt = now;
+  }
+
+  const heldMs = now - playbackArrowHoldStartedAt;
+  if (heldMs >= PLAYBACK_ARROW_HOLD_INITIAL_DELAY_MS) {
+    const acceleratedMs = heldMs - PLAYBACK_ARROW_HOLD_INITIAL_DELAY_MS;
+    const accelerationRatio = Math.min(acceleratedMs / PLAYBACK_ARROW_HOLD_ACCELERATION_MS, 1);
+    const nextInterval = PLAYBACK_ARROW_HOLD_BASE_INTERVAL_MS
+      - ((PLAYBACK_ARROW_HOLD_BASE_INTERVAL_MS - PLAYBACK_ARROW_HOLD_MIN_INTERVAL_MS) * accelerationRatio);
+
+    if (now - playbackArrowHoldLastStepAt >= nextInterval) {
+      const didStep = stepPlaybackWithVerticalArrow(playbackArrowHoldDirection);
+      playbackArrowHoldLastStepAt = now;
+
+      if (!didStep) {
+        stopPlaybackArrowHold();
+        return;
+      }
+    }
+  }
+
+  playbackArrowHoldFrame = requestAnimationFrame(tickPlaybackArrowHold);
+}
+
+function startPlaybackArrowHold(direction) {
+  const activeMode = getPlaybackVerticalArrowMode();
+  if (!activeMode) {
+    return false;
+  }
+
+  if (playbackArrowHoldDirection !== direction || playbackArrowHoldMode !== activeMode) {
+    stopPlaybackArrowHold();
+    playbackArrowHoldDirection = direction;
+    playbackArrowHoldMode = activeMode;
+  }
+
+  if (!playbackArrowHoldFrame) {
+    playbackArrowHoldFrame = requestAnimationFrame(tickPlaybackArrowHold);
+  }
+
+  return true;
+}
+
+function handlePlaybackHotkeyRelease(event) {
+  if ((event.key === "ArrowDown" && playbackArrowHoldDirection > 0)
+    || (event.key === "ArrowUp" && playbackArrowHoldDirection < 0)) {
+    stopPlaybackArrowHold();
+  }
 }
 
 function beginArrowMode() {
@@ -5158,6 +5486,164 @@ function getVoiceNextIndex(matchedIndex) {
   return Math.min(matchedIndex + 1, wordNodes.length - 1);
 }
 
+function getVoiceTrackingPartialTokenWindow() {
+  if (normalizedWordTokens.length === 0 || lineGroups.length === 0) {
+    return null;
+  }
+
+  const activeLineIndex = clamp(lineIndexByWord[currentIndex] ?? 0, 0, Math.max(lineGroups.length - 1, 0));
+  const endLineIndex = Math.min(activeLineIndex + 1, Math.max(lineGroups.length - 1, 0));
+  const maxIndex = normalizedWordTokens.length - 1;
+  const startIndex = clamp(getNormalizedTokenIndexForWord(Math.max(currentIndex - 1, 0), "start"), 0, maxIndex);
+  const endRange = getNormalizedTokenRangeForLine(endLineIndex);
+
+  return {
+    activeLineIndex,
+    endLineIndex,
+    startIndex,
+    endIndex: clamp(Math.max(endRange?.end ?? startIndex, startIndex + 8), startIndex, maxIndex)
+  };
+}
+
+function stopVoiceTrackingAdvance() {
+  if (voiceTrackingAdvanceFrame) {
+    cancelAnimationFrame(voiceTrackingAdvanceFrame);
+    voiceTrackingAdvanceFrame = null;
+  }
+
+  voiceTrackingAdvanceTarget = -1;
+  voiceTrackingAdvanceLastStepAt = 0;
+}
+
+function commitVoiceTrackingIndex(targetIndex) {
+  const nextIndex = clamp(Number(targetIndex) || 0, 0, Math.max(wordNodes.length - 1, 0));
+  if (nextIndex === currentIndex) {
+    return;
+  }
+
+  const previousLineIndex = lineIndexByWord[currentIndex] ?? 0;
+  const nextLineIndex = lineIndexByWord[nextIndex] ?? previousLineIndex;
+  currentIndex = nextIndex;
+  updateWordState(nextLineIndex !== previousLineIndex);
+
+  if (currentIndex >= wordNodes.length - 1) {
+    finishPlayback();
+    stopVoiceTracking().catch(console.error);
+  }
+}
+
+function scheduleVoiceTrackingAdvance(targetIndex, options = {}) {
+  if (!wordNodes.length) {
+    return;
+  }
+
+  const boundedTarget = clamp(Number(targetIndex) || 0, 0, Math.max(wordNodes.length - 1, 0));
+  if (boundedTarget <= currentIndex) {
+    return;
+  }
+
+  const delta = boundedTarget - currentIndex;
+  if (options.immediate || delta > VOICE_TRACKING_MAX_ANIMATED_JUMP) {
+    stopVoiceTrackingAdvance();
+    commitVoiceTrackingIndex(boundedTarget);
+    return;
+  }
+
+  voiceTrackingAdvanceTarget = Math.max(voiceTrackingAdvanceTarget, boundedTarget);
+  if (voiceTrackingAdvanceFrame) {
+    return;
+  }
+
+  const step = (now) => {
+    voiceTrackingAdvanceFrame = null;
+
+    if (!isPlaying || isPaused || getActiveMode() !== "voice") {
+      stopVoiceTrackingAdvance();
+      return;
+    }
+
+    if (voiceTrackingAdvanceTarget <= currentIndex) {
+      stopVoiceTrackingAdvance();
+      return;
+    }
+
+    if (!voiceTrackingAdvanceLastStepAt || now - voiceTrackingAdvanceLastStepAt >= VOICE_TRACKING_ADVANCE_STEP_MS) {
+      voiceTrackingAdvanceLastStepAt = now;
+      commitVoiceTrackingIndex(Math.min(currentIndex + 1, voiceTrackingAdvanceTarget));
+    }
+
+    if (voiceTrackingAdvanceTarget > currentIndex) {
+      voiceTrackingAdvanceFrame = requestAnimationFrame(step);
+      return;
+    }
+
+    stopVoiceTrackingAdvance();
+  };
+
+  voiceTrackingAdvanceFrame = requestAnimationFrame(step);
+}
+
+function applyVoiceTrackingMatch(match, options = {}) {
+  const bestMatchIndex = match?.matchedWordIndex ?? -1;
+  if (bestMatchIndex < 0 || bestMatchIndex === currentIndex) {
+    return false;
+  }
+
+  if (bestMatchIndex < currentIndex) {
+    return true;
+  }
+
+  const waitCard = getDuePromptWaitCardForVoiceIndex(bestMatchIndex);
+  if (waitCard) {
+    const waitTriggerWordIndex = getPromptWaitCardVoiceTriggerWordIndex(waitCard);
+    if (waitTriggerWordIndex >= 0 && waitTriggerWordIndex !== currentIndex) {
+      stopVoiceTrackingAdvance();
+      currentIndex = waitTriggerWordIndex;
+      updateWordState(true);
+    }
+
+    runPromptWaitPause(waitCard).then((completed) => {
+      if (completed && isPlaying && !isPaused && getActiveMode() === "voice") {
+        updateWordState(false);
+      }
+    }).catch(console.error);
+    return true;
+  }
+
+  scheduleVoiceTrackingAdvance(bestMatchIndex, { immediate: Boolean(options.immediate) });
+  return true;
+}
+
+function applyVoiceTrackingWordHints(words, options = {}) {
+  const { confidence = 0 } = options;
+  if (!Array.isArray(words) || !words.length || Number(confidence) < getVoiceTrackingConfidenceThreshold()) {
+    return false;
+  }
+
+  const spokenTokens = words
+    .flatMap((word) => tokenizeNormalizedText(word?.word || ""))
+    .filter(Boolean);
+  if (spokenTokens.length === 0) {
+    return false;
+  }
+
+  const tokenWindow = getVoiceTrackingPartialTokenWindow();
+  if (!tokenWindow) {
+    return false;
+  }
+
+  const match = clampVoiceTrackingMatchToAdjacentLine(findVoiceExactPhraseMatch(spokenTokens, {
+    minPhraseLength: 1,
+    maxPhraseLength: Math.min(3, spokenTokens.length),
+    startIndex: tokenWindow.startIndex,
+    endIndex: tokenWindow.endIndex,
+    activeLineIndex: tokenWindow.activeLineIndex,
+    lineFilter: ({ lineIndex }) => lineIndex >= tokenWindow.activeLineIndex && lineIndex <= tokenWindow.endLineIndex
+  }));
+
+  return applyVoiceTrackingMatch(match, { immediate: false });
+}
+
 function clearPendingForwardVoiceSkip() {
   pendingForwardVoiceSkip = null;
 }
@@ -5285,6 +5771,7 @@ async function stopVoiceTracking() {
   lastVoiceTrackingAudioProcessAt = 0;
   lastVoiceTrackingPartialHandledAt = 0;
   lastVoiceTrackingPartialKey = "";
+  stopVoiceTrackingAdvance();
   clearPendingForwardVoiceSkip();
 
   disconnectVoiceTrackingAudioGraph();
@@ -5332,12 +5819,19 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
     return;
   }
 
-  const { isFinal = false } = options;
+  const {
+    isFinal = false,
+    confidence = 0
+  } = options;
   if (isPaused) {
     return;
   }
 
   if (activePromptWaitCardId) {
+    return;
+  }
+
+  if (Number(confidence) < getVoiceTrackingConfidenceThreshold()) {
     return;
   }
 
@@ -5379,39 +5873,7 @@ function applyVoiceTrackingTranscript(transcript, options = {}) {
     (isFinal ? findVoiceDistantPhraseMatch(spokenTokens) : null)
       || findVoiceLineMatch(spokenTokens, { radius: VOICE_TRACKING_MATCH_RADIUS, allowExact: true })
   ));
-  const bestMatchIndex = bestLineMatch?.matchedWordIndex ?? -1;
-
-  if (bestMatchIndex >= 0 && bestMatchIndex !== currentIndex) {
-    if (bestMatchIndex < currentIndex) {
-      return;
-    }
-
-    const waitCard = getDuePromptWaitCardForVoiceIndex(bestMatchIndex);
-    if (waitCard) {
-      const waitTriggerWordIndex = getPromptWaitCardVoiceTriggerWordIndex(waitCard);
-      if (waitTriggerWordIndex >= 0 && waitTriggerWordIndex !== currentIndex) {
-        currentIndex = waitTriggerWordIndex;
-        updateWordState(true);
-      }
-
-      runPromptWaitPause(waitCard).then((completed) => {
-        if (completed && isPlaying && !isPaused && getActiveMode() === "voice") {
-          updateWordState(false);
-        }
-      }).catch(console.error);
-      return;
-    }
-
-    const previousLineIndex = lineIndexByWord[currentIndex] ?? 0;
-    const nextLineIndex = bestLineMatch?.lineIndex ?? previousLineIndex;
-    currentIndex = bestMatchIndex;
-    updateWordState(nextLineIndex !== previousLineIndex);
-
-    if (currentIndex >= wordNodes.length - 1) {
-      finishPlayback();
-      stopVoiceTracking().catch(console.error);
-    }
-  }
+  applyVoiceTrackingMatch(bestLineMatch, { immediate: isFinal });
 }
 
 async function startVoiceTracking() {
@@ -5518,8 +5980,8 @@ async function play() {
     return;
   }
 
-  if (activeMode === "scroll") {
-    const holdCompleted = await waitForScrollPlaybackStartHold();
+  if (supportsPlaybackStartDelay(activeMode)) {
+    const holdCompleted = await waitForPlaybackStartDelay();
     if (!holdCompleted) {
       return;
     }
@@ -5967,6 +6429,12 @@ function jumpToIndex(targetIndex) {
 
   if (getActiveMode() === "scroll") {
     setViewportPosition(targetTop, getScrollBehavior());
+
+    if (isPlaying && !isPaused) {
+      resetPromptWaitCards(targetTop, currentIndex);
+      updateWordState(false);
+      return;
+    }
   }
 
   if (isPlaying && !isPaused) {
@@ -6057,6 +6525,24 @@ function handlePlaybackHotkeys(event) {
     }
   }
 
+  if (!event.ctrlKey && !event.metaKey && !event.altKey && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
+    const direction = event.key === "ArrowDown" ? 1 : -1;
+
+    if (event.repeat) {
+      if (getPlaybackVerticalArrowMode()) {
+        event.preventDefault();
+      }
+      return;
+    }
+
+    const handled = stepPlaybackWithVerticalArrow(direction);
+    if (handled) {
+      event.preventDefault();
+      startPlaybackArrowHold(direction);
+      return;
+    }
+  }
+
   if (!event.ctrlKey && !event.metaKey && !event.altKey && (isPlaying || isPaused) && getActiveMode() === "voice") {
     if (event.key === "ArrowDown") {
       event.preventDefault();
@@ -6108,6 +6594,7 @@ function refreshFromStorage() {
     language: state.language,
     desktop: JSON.stringify(state.desktop),
     remote: JSON.stringify(state.remote),
+    voiceTracking: JSON.stringify(state.voiceTracking),
     appearance: JSON.stringify(state.appearance),
     window: JSON.stringify(state.window)
   };
@@ -6331,7 +6818,10 @@ function wireEvents() {
   window.addEventListener("flow-state-updated", refreshFromStorage);
   window.addEventListener("flow-voice-models-updated", refreshFromStorage);
   window.addEventListener("keydown", handlePlaybackHotkeys);
+  window.addEventListener("keyup", handlePlaybackHotkeyRelease);
+  window.addEventListener("blur", stopPlaybackArrowHold);
   window.addEventListener("beforeunload", () => {
+    stopPlaybackArrowHold();
     if (speedPersistTimer) {
       flushPendingSpeedPersist();
     }
@@ -6386,7 +6876,7 @@ async function applyStoredWindowSettings() {
   await positionWindowForCurrentLayout(appWindow);
 }
 
-function bootFlowApp() {
+async function bootFlowApp() {
   try {
     syncStateFromStorage();
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
@@ -6433,7 +6923,9 @@ function bootFlowApp() {
 
     applyStoredWindowSettings().catch(console.error);
 
-    startAutomaticUpdater();
+    if (!(await resolveMicrosoftStoreBuild())) {
+      startAutomaticUpdater();
+    }
 
     initializeDesktopWindowOpacityFade();
   } catch (error) {

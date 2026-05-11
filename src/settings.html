@@ -188,7 +188,7 @@
         <div class="settings-group hidden" data-settings-section="appearance">
           <div>
             <p class="page-kicker" data-i18n="settings.appearance">Appearance</p>
-            <h2>Typography and visuals</h2>
+            <h2 data-i18n="settings.appearanceTitle">Typography and visuals</h2>
           </div>
 
           <div class="settings-subgroup">
@@ -230,6 +230,7 @@
             <div class="language-picker" id="languagePicker">
               <select id="languageSelect" class="language-select-native" aria-hidden="true" tabindex="-1">
                 <option value="en" data-i18n="language.en">English</option>
+                <option value="es" data-i18n="language.es">Spanish</option>
                 <option value="tr" data-i18n="language.tr">Turkish</option>
                 <option value="ar" data-i18n="language.ar">Arabic</option>
                 <option value="de" data-i18n="language.de">German</option>
@@ -244,6 +245,10 @@
                 <button class="language-option" type="button" data-value="en" role="option">
                   <span class="language-flag" data-flag="en" aria-hidden="true"></span>
                   <span class="language-option-label" data-language-label="en">English</span>
+                </button>
+                <button class="language-option" type="button" data-value="es" role="option">
+                  <span class="language-flag" data-flag="es" aria-hidden="true"></span>
+                  <span class="language-option-label" data-language-label="es">Spanish</span>
                 </button>
                 <button class="language-option" type="button" data-value="tr" role="option">
                   <span class="language-flag" data-flag="tr" aria-hidden="true"></span>
@@ -486,6 +491,19 @@
                 </button>
                 <div class="choice-menu hidden" id="voiceStyleMenu" role="listbox"></div>
               </div>
+            </div>
+
+            <div class="settings-subgroup hidden" id="voiceConfidenceGroup">
+              <label class="slider-field">
+                <span class="slider-header">
+                  <span data-i18n="settings.voiceConfidence">Confidence level</span>
+                  <span class="slider-value" id="voiceConfidenceValue">35%</span>
+                </span>
+                <input id="voiceConfidenceInput" class="slider-input" type="range" min="10" max="90" step="5" />
+              </label>
+              <span class="helper-text" data-i18n="settings.voiceConfidenceHelp">Higher values make Flow stricter about low-confidence speech matches.</span>
+              <span class="helper-text" data-i18n="settings.voiceConfidenceSkips">If Flow skips ahead or jumps over words, increase this value.</span>
+              <span class="helper-text" data-i18n="settings.voiceConfidenceStalls">If Flow does not move even when you read clearly, decrease this value.</span>
             </div>
           </div>
         </div>

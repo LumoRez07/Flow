@@ -55,7 +55,7 @@ const ui = {
   scriptCardBuilder: document.querySelector("#scriptCardBuilder"),
   scriptCardBuilderBody: document.querySelector("#scriptCardBuilderBody"),
   toggleScriptCardBuilderButton: document.querySelector("#toggleScriptCardBuilderButton"),
-  formatButtons: document.querySelectorAll("[data-wrap-before]"),
+  formatButtons: document.querySelectorAll("[data-wrap-before], [data-line-prefix]"),
   uploadFileButton: document.querySelector("#uploadFileButton"),
   uploadFileInput: document.querySelector("#uploadFileInput"),
   importStatus: document.querySelector("#importStatus"),
@@ -1411,6 +1411,46 @@ function wrapSelection(before, after = before, fallbackText = "text") {
   persist();
 }
 
+function getContinuedOrderedListStart(source, lineStart) {
+  if (lineStart <= 0) {
+    return 1;
+  }
+
+  const previousLineEnd = Math.max(lineStart - 1, 0);
+  const previousLineStart = source.lastIndexOf("\n", Math.max(previousLineEnd - 1, 0)) + 1;
+  const previousLine = source.slice(previousLineStart, previousLineEnd);
+  const match = previousLine.match(/^[ \t]{0,3}(\d+)[.)][ \t]+/u);
+  if (!match) {
+    return 1;
+  }
+
+  return Number(match[1]) + 1;
+}
+
+function prefixSelectedLines(prefix, options = {}) {
+  const { numbered = false, placeholder = "item" } = options;
+  const start = ui.scriptInput.selectionStart ?? 0;
+  const end = ui.scriptInput.selectionEnd ?? start;
+  const lineStart = ui.scriptInput.value.lastIndexOf("\n", Math.max(start - 1, 0)) + 1;
+  const nextNewline = ui.scriptInput.value.indexOf("\n", end);
+  const lineEnd = nextNewline === -1 ? ui.scriptInput.value.length : nextNewline;
+  const selectedBlock = ui.scriptInput.value.slice(lineStart, lineEnd);
+  const lines = selectedBlock ? selectedBlock.split("\n") : [""];
+  const orderedStart = numbered ? getContinuedOrderedListStart(ui.scriptInput.value, lineStart) : 1;
+  const nextText = lines.map((line, index) => {
+    const baseText = numbered
+      ? line.replace(/^[ \t]{0,3}\d+[.)][ \t]+/u, "") || placeholder
+      : line || placeholder;
+    return numbered
+      ? `${orderedStart + index}. ${baseText}`
+      : `${prefix}${baseText}`;
+  }).join("\n");
+
+  ui.scriptInput.focus();
+  ui.scriptInput.setRangeText(nextText, lineStart, lineEnd, "select");
+  persist();
+}
+
 async function useGroq() {
   const key = ui.groqKeyInput.value.trim();
   const instruction = ui.groqPromptInput.value.trim();
@@ -1465,6 +1505,15 @@ function bootInputPage() {
 
   ui.formatButtons.forEach((button) => {
     button.addEventListener("click", () => {
+      const linePrefix = button.dataset.linePrefix || "";
+      if (linePrefix) {
+        prefixSelectedLines(linePrefix === "numbered" ? "" : linePrefix, {
+          numbered: linePrefix === "numbered",
+          placeholder: button.dataset.placeholder || "item"
+        });
+        return;
+      }
+
       wrapSelection(button.dataset.wrapBefore || "", button.dataset.wrapAfter || "", button.dataset.placeholder || "text");
     });
   });

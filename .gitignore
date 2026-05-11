@@ -14,6 +14,8 @@ dist-ssr
 src-tauri/target/
 src-tauri/gen/
 tmp/
+*.private.json
+*.private.ps1
 
 # Editor directories and files
 .vscode/*

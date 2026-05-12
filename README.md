@@ -40,7 +40,7 @@
 Please consider starring this repo if it helps you! ⭐
 </p>
 
-## Flow is availble on
+## Flow is available on
 <div align="center">
   <a href="https://sourceforge.net/p/flowteleprompter/">
     <img alt="Download Flow Teleprompter" src="https://sourceforge.net/sflogo.php?type=17&amp;group_id=4087698" width="200">

@@ -56,7 +56,11 @@ Please consider starring this repo if it helps you! ⭐
       Flow is an open-source project. By purchasing the Microsoft Store version, you are directly supporting the independent developer and ensuring the continued growth of this tool.
     </i>
   </p>
+  
 </div>
+
+> [!IMPORTANT]
+> Distribution note: the Microsoft Store edition is planned to become a Pro version. Its price is expected to increase to **5 USD** to help compensate for server rental, and hosted services will be turned on once the Pro release reaches the required user threshold. The GitHub version will remain the free open-source build and will continue receiving major features and updates.
 
 ## Overview
 

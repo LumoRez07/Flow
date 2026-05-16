@@ -53,6 +53,8 @@ const MIN_HEIGHT = 200;
 const COLLAPSED_HEIGHT = 56;
 const COLLAPSE_DURATION = 420;
 const SPEED_RAIL_WINDOW_GUTTER = 74;
+const MAX_WIDTH_FALLBACK = 2200;
+const MAX_HEIGHT_FALLBACK = 1400;
 const SPEED_RAIL_TRANSITION_MS = 220;
 const PLAYBACK_COUNTDOWN_STEPS = ["3", "2", "1"];
 const PLAYBACK_COUNTDOWN_STEP_MS = 1000;
@@ -67,6 +69,8 @@ const WAIT_CARD_STEP_MS = 1000;
 const WAIT_CARD_NUMBER_ANIMATION_MS = 360;
 const WAIT_CARD_TRIGGER_VIEWPORT_OFFSET = 0.5;
 const TOP_CENTER_X_OFFSET = 32;
+const WINDOW_POSITION_RETRY_DELAY_MS = 120;
+const MAX_WINDOW_POSITION_RETRIES = 3;
 const VOICE_WORD_VIEWPORT_OFFSET = 0.42;
 const VOICE_LINE_VIEWPORT_OFFSET = 0.38;
 const VOICE_SCROLL_EASING = 0.18;
@@ -182,6 +186,8 @@ let remoteMessages = [];
 const remotePendingActions = new Set();
 let remoteCloudPollDelayMs = CLOUD_POLL_MIN_INTERVAL_MS;
 const remoteCardCollapseTimers = new Map();
+let pendingWindowPositionRetryTimer = 0;
+let windowPositionRetryCount = 0;
 let unlistenClickthroughChanged = null;
 let normalizedWordTokens = [];
 let wordIndexByNormalizedToken = [];
@@ -1249,12 +1255,15 @@ async function captureCurrentWindowState() {
   ]);
 
   const gutterWidth = getSpeedRailWindowGutter();
+  const windowIsCollapsed = Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
 
   return {
-    x: position ? position.x + gutterWidth : state.window?.x ?? null,
+    x: position ? position.x - getWindowPositionOffset(gutterWidth) : state.window?.x ?? null,
     y: position?.y ?? state.window?.y ?? null,
     width: size ? Math.max(size.width - gutterWidth, MIN_WIDTH) : state.window?.width ?? defaultState.window.width,
-    height: size?.height ?? state.window?.height ?? defaultState.window.height
+    height: windowIsCollapsed
+      ? state.window?.height ?? defaultState.window.height
+      : (size?.height ?? state.window?.height ?? defaultState.window.height)
   };
 }
 
@@ -1358,6 +1367,10 @@ function getTargetWindowWidth() {
   return getBaseWindowWidth() + getSpeedRailWindowGutter();
 }
 
+function getWindowPositionOffset(gutterWidth = getSpeedRailWindowGutter()) {
+  return state.window?.preset === "top-center" ? TOP_CENTER_X_OFFSET - gutterWidth : -gutterWidth;
+}
+
 function setSpeedRailGutter(value) {
   const normalizedGutter = Math.max(0, Math.min(SPEED_RAIL_WINDOW_GUTTER, Number(value) || 0));
   document.documentElement.style.setProperty("--speed-rail-gutter-current", `${normalizedGutter}px`);
@@ -1387,33 +1400,65 @@ function clampWindowPositionToMonitor(x, y, monitor, width, height) {
   };
 }
 
-async function positionWindowForCurrentLayout(appWindow, gutterWidth = getSpeedRailWindowGutter()) {
+function usesMonitorRelativeWindowPreset() {
+  return state.window?.preset === "center" || state.window?.preset === "top-center";
+}
+
+async function getSafeWindowGeometry(requestedHeight = state.window.height, requestedGutter = getSpeedRailWindowGutter()) {
+  const monitor = await getPreferredMonitor();
+  const gutterWidth = Math.max(0, Math.min(SPEED_RAIL_WINDOW_GUTTER, Number(requestedGutter) || 0));
+  const requestedWindowHeight = Number(requestedHeight) || defaultState.window.height;
+  const minAllowedHeight = requestedWindowHeight <= COLLAPSED_HEIGHT ? COLLAPSED_HEIGHT : MIN_HEIGHT;
+  const maxContentWidth = Math.max(
+    Math.min((monitor?.size?.width ?? MAX_WIDTH_FALLBACK) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth),
+    MIN_WIDTH
+  );
+  const maxHeight = Math.max(
+    Math.min(monitor?.size?.height ?? MAX_HEIGHT_FALLBACK, MAX_HEIGHT_FALLBACK),
+    minAllowedHeight
+  );
+
+  return {
+    monitor,
+    gutterWidth,
+    width: clamp(getBaseWindowWidth(), MIN_WIDTH, maxContentWidth),
+    height: clamp(requestedWindowHeight, minAllowedHeight, maxHeight),
+    maxHeight
+  };
+}
+
+async function positionWindowForCurrentLayout(appWindow, options = {}) {
+  const gutterWidth = options.gutterWidth ?? getSpeedRailWindowGutter();
+  const targetWidth = Math.max(options.width ?? getBaseWindowWidth(), MIN_WIDTH) + gutterWidth;
+  const targetHeight = Math.max(options.height ?? state.window.height ?? defaultState.window.height, MIN_HEIGHT);
 
   if (state.window.preset === "center") {
-    const monitor = await getPreferredMonitor();
+    const monitor = options.monitor ?? await getPreferredMonitor();
     if (monitor) {
-      const x = monitor.position.x + Math.round((monitor.size.width - getBaseWindowWidth()) / 2) - gutterWidth;
-      const y = monitor.position.y + Math.round((monitor.size.height - state.window.height) / 2);
+      const x = monitor.position.x + Math.round((monitor.size.width - targetWidth) / 2);
+      const y = monitor.position.y + Math.round((monitor.size.height - targetHeight) / 2);
       await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
-      return;
+      return true;
     }
+
+    return false;
   }
 
   if (state.window.preset === "top-center") {
-    const monitor = await getPreferredMonitor();
+    const monitor = options.monitor ?? await getPreferredMonitor();
     if (monitor) {
-      const x = monitor.position.x + Math.round((monitor.size.width - getBaseWindowWidth()) / 2) + TOP_CENTER_X_OFFSET - gutterWidth;
+      const x = monitor.position.x + Math.round((monitor.size.width - targetWidth) / 2) + TOP_CENTER_X_OFFSET;
       await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, monitor.position.y));
-      return;
+      return true;
     }
+
+    return false;
   }
 
   if (state.window.x !== null && state.window.y !== null && tauriDpi.PhysicalPosition) {
-    const monitor = await getPreferredMonitor();
-    const targetWidth = getBaseWindowWidth() + gutterWidth;
-    const targetHeight = Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT);
+    const monitor = options.monitor ?? await getPreferredMonitor();
     const clampedPosition = clampWindowPositionToMonitor(
-      state.window.x - gutterWidth,
+      state.window.x + getWindowPositionOffset(gutterWidth),
       state.window.y,
       monitor,
       targetWidth,
@@ -1421,7 +1466,10 @@ async function positionWindowForCurrentLayout(appWindow, gutterWidth = getSpeedR
     );
 
     await appWindow.setPosition(new tauriDpi.PhysicalPosition(clampedPosition.x, clampedPosition.y));
+    return true;
   }
+
+  return false;
 }
 
 async function applyWindowGeometry(appWindow, gutterWidth = getSpeedRailWindowGutter(), height = state.window.height) {
@@ -1429,9 +1477,9 @@ async function applyWindowGeometry(appWindow, gutterWidth = getSpeedRailWindowGu
     return;
   }
 
-  const width = getBaseWindowWidth() + gutterWidth;
-  await appWindow.setSize(new tauriDpi.LogicalSize(width, height)).catch(console.error);
-  await positionWindowForCurrentLayout(appWindow, gutterWidth).catch(console.error);
+  const geometry = await getSafeWindowGeometry(height, gutterWidth);
+  await appWindow.setSize(new tauriDpi.LogicalSize(geometry.width + geometry.gutterWidth, geometry.height)).catch(console.error);
+  await positionWindowForCurrentLayout(appWindow, geometry).catch(console.error);
 }
 
 function updateSpeedRailVisibility() {
@@ -2125,28 +2173,33 @@ function applyAppearanceSettings() {
 }
 
 async function animateWindowHeight(targetHeight) {
+  const geometry = await getSafeWindowGeometry(targetHeight);
+
   if (state.appearance?.performanceMode) {
-    currentWindowHeight = targetHeight;
+    currentWindowHeight = geometry.height;
     if (tauriWindow?.getCurrentWindow && tauriDpi?.LogicalSize) {
       const appWindow = tauriWindow.getCurrentWindow();
-      const width = getTargetWindowWidth();
-      await appWindow.setSize(new tauriDpi.LogicalSize(width, targetHeight)).catch(console.error);
-      await positionWindowForCurrentLayout(appWindow).catch(console.error);
+      await appWindow.setSize(new tauriDpi.LogicalSize(geometry.width + geometry.gutterWidth, geometry.height)).catch(console.error);
+      await positionWindowForCurrentLayout(appWindow, geometry).catch(console.error);
     }
     return;
   }
 
   if (!tauriWindow?.getCurrentWindow || !tauriDpi?.LogicalSize) {
-    currentWindowHeight = targetHeight;
+    currentWindowHeight = geometry.height;
     return;
   }
 
   const appWindow = tauriWindow.getCurrentWindow();
-  const width = getTargetWindowWidth();
-  const startHeight = currentWindowHeight ?? Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT);
+  const width = geometry.width + geometry.gutterWidth;
+  const startHeight = clamp(
+    currentWindowHeight ?? Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT),
+    MIN_HEIGHT,
+    geometry.maxHeight
+  );
 
-  if (startHeight === targetHeight) {
-    currentWindowHeight = targetHeight;
+  if (startHeight === geometry.height) {
+    currentWindowHeight = geometry.height;
     return;
   }
 
@@ -2171,13 +2224,13 @@ async function animateWindowHeight(targetHeight) {
 
       const progress = Math.min((now - startedAt) / COLLAPSE_DURATION, 1);
       const eased = easeInOutCubic(progress);
-      const nextHeight = Math.round(startHeight + (targetHeight - startHeight) * eased);
+      const nextHeight = Math.round(startHeight + (geometry.height - startHeight) * eased);
 
       if (nextHeight !== lastAppliedHeight) {
         lastAppliedHeight = nextHeight;
         currentWindowHeight = nextHeight;
         appWindow.setSize(new tauriDpi.LogicalSize(width, nextHeight)).catch(console.error);
-        positionWindowForCurrentLayout(appWindow).catch(console.error);
+        positionWindowForCurrentLayout(appWindow, { ...geometry, height: nextHeight }).catch(console.error);
       }
 
       if (progress < 1) {
@@ -2185,9 +2238,9 @@ async function animateWindowHeight(targetHeight) {
         return;
       }
 
-      currentWindowHeight = targetHeight;
-      appWindow.setSize(new tauriDpi.LogicalSize(width, targetHeight)).catch(console.error);
-      positionWindowForCurrentLayout(appWindow).catch(console.error).finally(resolve);
+      currentWindowHeight = geometry.height;
+      appWindow.setSize(new tauriDpi.LogicalSize(width, geometry.height)).catch(console.error);
+      positionWindowForCurrentLayout(appWindow, geometry).catch(console.error).finally(resolve);
     };
 
     requestAnimationFrame((timestamp) => step(timestamp, timestamp));
@@ -6861,19 +6914,41 @@ async function applyStoredWindowSettings() {
   if (!tauriWindow?.getCurrentWindow || !tauriDpi?.LogicalSize) return;
 
   const appWindow = tauriWindow.getCurrentWindow();
-  state.window.width = getBaseWindowWidth();
-  state.window.height = Math.max(state.window.height || defaultState.window.height, MIN_HEIGHT);
+  const geometry = await getSafeWindowGeometry();
+  state.window.width = geometry.width;
+  state.window.height = geometry.height;
 
-  setSpeedRailGutter(getSpeedRailWindowGutter());
+  setSpeedRailGutter(geometry.gutterWidth);
 
   if (isCollapsed) {
     return;
   }
 
-  await appWindow.setSize(new tauriDpi.LogicalSize(getTargetWindowWidth(), state.window.height));
+  await appWindow.setSize(new tauriDpi.LogicalSize(geometry.width + geometry.gutterWidth, geometry.height));
   currentWindowHeight = state.window.height;
 
-  await positionWindowForCurrentLayout(appWindow);
+  const positioned = await positionWindowForCurrentLayout(appWindow, geometry);
+  if (positioned) {
+    windowPositionRetryCount = 0;
+    if (pendingWindowPositionRetryTimer) {
+      window.clearTimeout(pendingWindowPositionRetryTimer);
+      pendingWindowPositionRetryTimer = 0;
+    }
+    return;
+  }
+
+  if (!usesMonitorRelativeWindowPreset() || windowPositionRetryCount >= MAX_WINDOW_POSITION_RETRIES) {
+    return;
+  }
+
+  windowPositionRetryCount += 1;
+  if (pendingWindowPositionRetryTimer) {
+    window.clearTimeout(pendingWindowPositionRetryTimer);
+  }
+  pendingWindowPositionRetryTimer = window.setTimeout(() => {
+    pendingWindowPositionRetryTimer = 0;
+    applyStoredWindowSettings().catch(console.error);
+  }, WINDOW_POSITION_RETRY_DELAY_MS);
 }
 
 async function bootFlowApp() {

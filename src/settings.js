@@ -758,6 +758,10 @@ function getSpeedRailWindowGutter() {
     : SPEED_RAIL_WINDOW_GUTTER;
 }
 
+function getWindowPositionOffset(gutterWidth = getSpeedRailWindowGutter()) {
+  return state.window?.preset === "top-center" ? TOP_CENTER_X_OFFSET - gutterWidth : -gutterWidth;
+}
+
 function getVoiceLanguageLabel(language) {
   const normalizedLanguage = normalizeVoiceLanguage(language);
   const option = VOICE_LANGUAGE_OPTIONS.find((entry) => entry.value === normalizedLanguage) || VOICE_LANGUAGE_OPTIONS[0];
@@ -2159,7 +2163,7 @@ async function configureSliderRanges() {
   ui.yInput.min = String(originY - monitorHeight - POSITION_PADDING);
   ui.yInput.max = String(originY + monitorHeight + POSITION_PADDING);
   const gutterWidth = getSpeedRailWindowGutter();
-  ui.widthInput.max = String(Math.max(monitorWidth - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth));
+  ui.widthInput.max = String(Math.max(Math.min(monitorWidth - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH));
   ui.heightInput.max = String(Math.max(monitorHeight, MAX_HEIGHT_FALLBACK));
 }
 
@@ -2230,19 +2234,21 @@ async function readCurrentWindow() {
   const appWindow = await getMainWindow();
   if (!appWindow) return;
 
-  await configureSliderRanges();
-
   const size = await appWindow.outerSize();
   const pos = await appWindow.outerPosition();
   const windowIsCollapsed = Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
 
   const gutterWidth = getSpeedRailWindowGutter();
-  state.window.width = Math.max(size.width - gutterWidth, MIN_WIDTH);
+  const monitor = await getRelevantMonitor();
+  const maxContentWidth = Math.max(Math.min((monitor?.size?.width ?? size.width) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
+  const maxHeight = Math.max(Math.min(monitor?.size?.height ?? size.height, MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
+  state.window.width = Math.max(Math.min(size.width - gutterWidth, maxContentWidth), MIN_WIDTH);
   if (!windowIsCollapsed) {
-    state.window.height = size.height;
+    state.window.height = Math.max(Math.min(size.height, maxHeight), MIN_HEIGHT);
   }
-  state.window.x = pos.x + gutterWidth;
+  state.window.x = pos.x - getWindowPositionOffset(gutterWidth);
   state.window.y = pos.y;
+  await configureSliderRanges();
   saveState({
     window: {
       width: state.window.width,
@@ -2337,6 +2343,10 @@ async function applyWindowSettings() {
     await configureSliderRanges();
     const windowIsCollapsed = await isMainWindowCollapsed(appWindow);
     const gutterWidth = getSpeedRailWindowGutter();
+    const monitor = await getRelevantMonitor();
+    const maxContentWidth = Math.max(Math.min((monitor?.size?.width ?? state.window.width + gutterWidth) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
+    state.window.width = Math.max(Math.min(state.window.width, maxContentWidth), MIN_WIDTH);
+    state.window.height = Math.max(Math.min(state.window.height, monitor?.size?.height ?? MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
 
     if (!windowIsCollapsed) {
       await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width + gutterWidth, state.window.height));
@@ -2344,23 +2354,23 @@ async function applyWindowSettings() {
       if (state.window.preset === "center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
         const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
         if (monitor) {
-          const x = monitor.position.x + Math.round((monitor.size.width - state.window.width) / 2) - gutterWidth;
+          const x = monitor.position.x + Math.round((monitor.size.width - (state.window.width + gutterWidth)) / 2);
           const y = monitor.position.y + Math.round((monitor.size.height - state.window.height) / 2);
           await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
-          state.window.x = x + gutterWidth;
+          state.window.x = x - getWindowPositionOffset(gutterWidth);
           state.window.y = y;
         }
       } else if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
         const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
         if (monitor) {
-          const x = monitor.position.x + Math.round((monitor.size.width - state.window.width) / 2) + TOP_CENTER_X_OFFSET - gutterWidth;
+          const x = monitor.position.x + Math.round((monitor.size.width - (state.window.width + gutterWidth)) / 2) + TOP_CENTER_X_OFFSET;
           const y = monitor.position.y;
           await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
-          state.window.x = x + gutterWidth;
+          state.window.x = x - getWindowPositionOffset(gutterWidth);
           state.window.y = y;
         }
       } else {
-        await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x - gutterWidth, state.window.y));
+        await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x + getWindowPositionOffset(gutterWidth), state.window.y));
       }
     }
 

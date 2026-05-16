@@ -44,7 +44,7 @@ export const defaultState = {
   window: {
     x: null,
     y: null,
-    width: 1280,
+    width: 550,
     height: 260,
     preset: "top-center",
     isPinned: true
@@ -3003,8 +3003,26 @@ function normalizeWindowSettings(value, fallback) {
     ...(value || {})
   };
 
+  const width = Number(merged.width);
+  const height = Number(merged.height);
+  const x = Number(merged.x);
+  const y = Number(merged.y);
+
+  merged.width = Number.isFinite(width) && width > 0 && width <= 10_000
+    ? Math.round(width)
+    : fallback.width;
+  merged.height = Number.isFinite(height) && height > 0 && height <= 10_000
+    ? Math.round(height)
+    : fallback.height;
+  merged.x = Number.isFinite(x) ? Math.round(x) : fallback.x;
+  merged.y = Number.isFinite(y) ? Math.round(y) : fallback.y;
+  merged.preset = ["top-center", "center", "custom", "drag"].includes(merged.preset)
+    ? merged.preset
+    : fallback.preset;
+  merged.isPinned = merged.isPinned !== false;
+
   if (
-    [960, 1040, 1120].includes(Number(merged.width))
+    [960, 1040, 1120, 1280, 1354].includes(Number(merged.width))
     && Number(merged.height) === fallback.height
     && (merged.preset === fallback.preset || !merged.preset)
   ) {

@@ -40,6 +40,28 @@
 Please consider starring this repo if it helps you! ⭐
 </p>
 
+## Flow is available on
+<div align="center">
+  <a href="https://sourceforge.net/p/flowteleprompter/">
+    <img alt="Download Flow Teleprompter" src="https://sourceforge.net/sflogo.php?type=17&amp;group_id=4087698" width="200">
+  </a>
+  <a href="https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct">
+    <img alt="Get it from Microsoft" src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+  </a>
+
+  <br>
+
+  <p>
+    <i>
+      Flow is an open-source project. By purchasing the Microsoft Store version, you are directly supporting the independent developer and ensuring the continued growth of this tool.
+    </i>
+  </p>
+  
+</div>
+
+> [!IMPORTANT]
+> Distribution note: the Microsoft Store edition is planned to become a Pro version. Its price is expected to increase to **5 USD** to help compensate for server rental, and hosted services will be turned on once the Pro release reaches the required user threshold. The GitHub version will remain the free open-source build and will continue receiving major features and updates.
+
 ## Overview
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.

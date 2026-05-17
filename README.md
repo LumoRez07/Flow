@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.8.2</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.8.3</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.8.2-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.8.3-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -69,7 +69,7 @@ Please consider starring this repo if it helps you! ⭐
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.8.2
+## What's New in 1.8.3
 
 - Improved packaged playback stability, including pause and continue behavior in the teleprompter.
 - Fixed packaged-settings issues around microphone device labels, bright-theme contrast, and free-drag collapse/minimize glitches.
@@ -152,7 +152,7 @@ npm run tauri build
 
 Publish these files from `src-tauri/target/release/bundle` to the GitHub release:
 
-- `msi/flow_1.8.2_x64_en-US.msi`
+- `msi/flow_1.8.3_x64_en-US.msi`
 - `latest.json`
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.
@@ -185,7 +185,7 @@ This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
 
 Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
 
-### 1.8.2 Sürümündeki Yenilikler
+### 1.8.3 Sürümündeki Yenilikler
 
 - Artık Groq'a bir dosya verip sağladığınız talimata göre o dosyayı düzenletmek veya onunla etkileşime girmesini sağlamak mümkün.
 - Güncelleme bölümü düzeltildi; artık sürüm verilerini daha doğru şekilde alıyor.
@@ -252,7 +252,7 @@ Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderic
 
 Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
 
-### الجديد في 1.8.2
+### الجديد في 1.8.3
 
 - أصبح بإمكانك الآن تزويد Groq بملف وطلب تعديله أو التفاعل معه وفقاً للتعليمات التي تكتبها.
 - تم إصلاح قسم التحديثات بحيث يجلب بيانات الإصدارات بشكل صحيح.
@@ -319,7 +319,7 @@ npm run tauri build
 
 Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
 
-### Nouveautes de la version 1.8.2
+### Nouveautes de la version 1.8.3
 
 - Il est maintenant possible de donner un fichier a Groq pour qu'il le modifie ou interagisse avec lui selon l'instruction que vous fournissez.
 - La section de mise a jour a ete corrigee et recupere maintenant correctement les donnees de release.
@@ -386,7 +386,7 @@ Flow inclut un emetteur distant et une boite de reception pour envoyer du texte 
 
 Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
 
-### Neu in 1.8.2
+### Neu in 1.8.3
 
 - Du kannst Groq jetzt eine Datei geben, damit es sie gemaess deiner Anweisung bearbeitet oder mit ihr interagiert.
 - Der Update-Bereich wurde behoben und ruft Release-Daten nun korrekt ab.
@@ -453,7 +453,7 @@ Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufend
 
 Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
 
-### Novedades en 1.8.2
+### Novedades en 1.8.3
 
 - Ahora puedes darle un archivo a Groq para que lo edite o interactue con el segun la instruccion que le indiques.
 - Se corrigio la seccion de actualizaciones para que recupere correctamente los datos de las releases.

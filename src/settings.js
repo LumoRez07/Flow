@@ -2135,7 +2135,8 @@ async function isMainWindowCollapsed(appWindow) {
   }
 
   try {
-    const size = await appWindow.outerSize();
+    const scaleFactor = normalizeScaleFactor(await appWindow.scaleFactor?.().catch(() => 1));
+    const size = physicalSizeToLogical(await appWindow.outerSize(), scaleFactor);
     return Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
   } catch (error) {
     console.error(error);
@@ -2151,10 +2152,39 @@ async function getRelevantMonitor() {
   return (await tauriWindow.currentMonitor?.()) ?? (await tauriWindow.primaryMonitor?.()) ?? null;
 }
 
+function normalizeScaleFactor(scaleFactor) {
+  const numericScaleFactor = Number(scaleFactor);
+  return Number.isFinite(numericScaleFactor) && numericScaleFactor > 0 ? numericScaleFactor : 1;
+}
+
+function physicalSizeToLogical(size, scaleFactor) {
+  if (!size) {
+    return { width: 0, height: 0 };
+  }
+
+  if (typeof size.toLogical === "function") {
+    return size.toLogical(scaleFactor);
+  }
+
+  return {
+    width: Number(size.width || 0) / scaleFactor,
+    height: Number(size.height || 0) / scaleFactor
+  };
+}
+
+function logicalValueToPhysical(value, scaleFactor) {
+  return Math.round((Number(value) || 0) * scaleFactor);
+}
+
+function getMonitorLogicalSize(monitor) {
+  return physicalSizeToLogical(monitor?.size, normalizeScaleFactor(monitor?.scaleFactor));
+}
+
 async function configureSliderRanges() {
   const monitor = await getRelevantMonitor();
   const monitorWidth = monitor?.size?.width ?? 1920;
   const monitorHeight = monitor?.size?.height ?? 1080;
+  const logicalMonitorSize = getMonitorLogicalSize(monitor);
   const originX = monitor?.position?.x ?? 0;
   const originY = monitor?.position?.y ?? 0;
 
@@ -2163,8 +2193,8 @@ async function configureSliderRanges() {
   ui.yInput.min = String(originY - monitorHeight - POSITION_PADDING);
   ui.yInput.max = String(originY + monitorHeight + POSITION_PADDING);
   const gutterWidth = getSpeedRailWindowGutter();
-  ui.widthInput.max = String(Math.max(Math.min(monitorWidth - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH));
-  ui.heightInput.max = String(Math.max(monitorHeight, MAX_HEIGHT_FALLBACK));
+  ui.widthInput.max = String(Math.max(Math.min(logicalMonitorSize.width - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH));
+  ui.heightInput.max = String(Math.max(logicalMonitorSize.height, MAX_HEIGHT_FALLBACK));
 }
 
 function fillForm() {
@@ -2234,19 +2264,26 @@ async function readCurrentWindow() {
   const appWindow = await getMainWindow();
   if (!appWindow) return;
 
-  const size = await appWindow.outerSize();
+  const scaleFactor = normalizeScaleFactor(await appWindow.scaleFactor?.().catch(() => 1));
+  const size = physicalSizeToLogical(await appWindow.outerSize(), scaleFactor);
   const pos = await appWindow.outerPosition();
   const windowIsCollapsed = Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
 
   const gutterWidth = getSpeedRailWindowGutter();
+  const gutterWidthPhysical = logicalValueToPhysical(gutterWidth, scaleFactor);
+  const topCenterOffsetPhysical = logicalValueToPhysical(TOP_CENTER_X_OFFSET, scaleFactor);
+  const positionOffset = state.window?.preset === "top-center"
+    ? topCenterOffsetPhysical - gutterWidthPhysical
+    : -gutterWidthPhysical;
   const monitor = await getRelevantMonitor();
-  const maxContentWidth = Math.max(Math.min((monitor?.size?.width ?? size.width) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
-  const maxHeight = Math.max(Math.min(monitor?.size?.height ?? size.height, MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
+  const logicalMonitorSize = getMonitorLogicalSize(monitor);
+  const maxContentWidth = Math.max(Math.min((logicalMonitorSize.width || size.width) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
+  const maxHeight = Math.max(Math.min(logicalMonitorSize.height || size.height, MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
   state.window.width = Math.max(Math.min(size.width - gutterWidth, maxContentWidth), MIN_WIDTH);
   if (!windowIsCollapsed) {
     state.window.height = Math.max(Math.min(size.height, maxHeight), MIN_HEIGHT);
   }
-  state.window.x = pos.x - getWindowPositionOffset(gutterWidth);
+  state.window.x = pos.x - positionOffset;
   state.window.y = pos.y;
   await configureSliderRanges();
   saveState({
@@ -2344,33 +2381,42 @@ async function applyWindowSettings() {
     const windowIsCollapsed = await isMainWindowCollapsed(appWindow);
     const gutterWidth = getSpeedRailWindowGutter();
     const monitor = await getRelevantMonitor();
-    const maxContentWidth = Math.max(Math.min((monitor?.size?.width ?? state.window.width + gutterWidth) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
+    const scaleFactor = normalizeScaleFactor(await appWindow.scaleFactor?.().catch(() => monitor?.scaleFactor ?? 1));
+    const gutterWidthPhysical = logicalValueToPhysical(gutterWidth, scaleFactor);
+    const topCenterOffsetPhysical = logicalValueToPhysical(TOP_CENTER_X_OFFSET, scaleFactor);
+    const positionOffset = state.window?.preset === "top-center"
+      ? topCenterOffsetPhysical - gutterWidthPhysical
+      : -gutterWidthPhysical;
+    const logicalMonitorSize = getMonitorLogicalSize(monitor);
+    const maxContentWidth = Math.max(Math.min((logicalMonitorSize.width || (state.window.width + gutterWidth)) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
     state.window.width = Math.max(Math.min(state.window.width, maxContentWidth), MIN_WIDTH);
-    state.window.height = Math.max(Math.min(state.window.height, monitor?.size?.height ?? MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
+    state.window.height = Math.max(Math.min(state.window.height, logicalMonitorSize.height || MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
 
     if (!windowIsCollapsed) {
-      await appWindow.setSize(new tauriDpi.LogicalSize(state.window.width + gutterWidth, state.window.height));
+      const targetLogicalSize = new tauriDpi.LogicalSize(state.window.width + gutterWidth, state.window.height);
+      const targetPhysicalSize = targetLogicalSize.toPhysical(scaleFactor);
+      await appWindow.setSize(targetLogicalSize);
 
       if (state.window.preset === "center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
         const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
         if (monitor) {
-          const x = monitor.position.x + Math.round((monitor.size.width - (state.window.width + gutterWidth)) / 2);
-          const y = monitor.position.y + Math.round((monitor.size.height - state.window.height) / 2);
+          const x = monitor.position.x + Math.round((monitor.size.width - targetPhysicalSize.width) / 2);
+          const y = monitor.position.y + Math.round((monitor.size.height - targetPhysicalSize.height) / 2);
           await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
-          state.window.x = x - getWindowPositionOffset(gutterWidth);
+          state.window.x = x - positionOffset;
           state.window.y = y;
         }
       } else if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
         const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
         if (monitor) {
-          const x = monitor.position.x + Math.round((monitor.size.width - (state.window.width + gutterWidth)) / 2) + TOP_CENTER_X_OFFSET;
+          const x = monitor.position.x + Math.round((monitor.size.width - targetPhysicalSize.width) / 2) + topCenterOffsetPhysical;
           const y = monitor.position.y;
           await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
-          state.window.x = x - getWindowPositionOffset(gutterWidth);
+          state.window.x = x - positionOffset;
           state.window.y = y;
         }
       } else {
-        await appWindow.setPosition(new tauriDpi.LogicalPosition(state.window.x + getWindowPositionOffset(gutterWidth), state.window.y));
+        await appWindow.setPosition(new tauriDpi.PhysicalPosition(state.window.x + positionOffset, state.window.y));
       }
     }
 

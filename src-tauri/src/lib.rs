@@ -32,7 +32,7 @@ use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, WebviewUrl, WebviewWindowBuilder,
+    Emitter, LogicalSize, Manager, Size, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_prevent_default::Flags;
@@ -1080,6 +1080,23 @@ fn load_dev_tray_icon() -> tauri::Result<Image<'static>> {
     Err(tauri::Error::AssetNotFound("dev tray icon missing".into()))
 }
 
+fn install_dpi_scale_guard(window: &WebviewWindow) {
+    let guarded_window = window.clone();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::ScaleFactorChanged { scale_factor, .. } = event {
+            let Ok(current_physical_size) = guarded_window.inner_size() else {
+                return;
+            };
+
+            let logical_size = current_physical_size.to_logical::<f64>(*scale_factor);
+            let _ = guarded_window.set_size(Size::Logical(LogicalSize::new(
+                logical_size.width,
+                logical_size.height,
+            )));
+        }
+    });
+}
+
 fn ensure_window(
     app: &tauri::AppHandle,
     label: &str,
@@ -1111,6 +1128,7 @@ fn ensure_window(
     }
 
     let window = builder.build()?;
+    install_dpi_scale_guard(&window);
 
     let capture_enabled = app
         .try_state::<DesktopState>()
@@ -2508,6 +2526,7 @@ pub fn run() {
             }
 
             if let Some(main_window) = app.get_webview_window("main") {
+                install_dpi_scale_guard(&main_window);
                 if let Some(desktop) = app.try_state::<DesktopState>() {
                     let preferences = current_desktop_preferences(&desktop);
                     apply_capture_protection(&main_window, preferences.hide_from_capture);

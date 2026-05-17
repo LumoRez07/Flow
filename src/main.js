@@ -1249,21 +1249,29 @@ async function captureCurrentWindowState() {
   }
 
   const appWindow = tauriWindow.getCurrentWindow();
-  const [position, size] = await Promise.all([
+  const [position, size, scaleFactorValue] = await Promise.all([
     appWindow.outerPosition?.().catch?.(() => null) ?? null,
-    appWindow.outerSize?.().catch?.(() => null) ?? null
+    appWindow.outerSize?.().catch?.(() => null) ?? null,
+    appWindow.scaleFactor?.().catch?.(() => 1) ?? 1
   ]);
 
+  const scaleFactor = normalizeScaleFactor(scaleFactorValue);
+  const logicalSize = physicalSizeToLogical(size, scaleFactor);
   const gutterWidth = getSpeedRailWindowGutter();
-  const windowIsCollapsed = Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
+  const gutterWidthPhysical = logicalValueToPhysical(gutterWidth, scaleFactor);
+  const topCenterOffsetPhysical = logicalValueToPhysical(TOP_CENTER_X_OFFSET, scaleFactor);
+  const positionOffset = state.window?.preset === "top-center"
+    ? topCenterOffsetPhysical - gutterWidthPhysical
+    : -gutterWidthPhysical;
+  const windowIsCollapsed = Number(logicalSize?.height) > 0 && Number(logicalSize.height) <= COLLAPSED_HEIGHT + 8;
 
   return {
-    x: position ? position.x - getWindowPositionOffset(gutterWidth) : state.window?.x ?? null,
+    x: position ? position.x - positionOffset : state.window?.x ?? null,
     y: position?.y ?? state.window?.y ?? null,
-    width: size ? Math.max(size.width - gutterWidth, MIN_WIDTH) : state.window?.width ?? defaultState.window.width,
+    width: size ? Math.max(logicalSize.width - gutterWidth, MIN_WIDTH) : state.window?.width ?? defaultState.window.width,
     height: windowIsCollapsed
       ? state.window?.height ?? defaultState.window.height
-      : (size?.height ?? state.window?.height ?? defaultState.window.height)
+      : (logicalSize?.height ?? state.window?.height ?? defaultState.window.height)
   };
 }
 
@@ -1384,6 +1392,48 @@ async function getPreferredMonitor() {
   return (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
 }
 
+function normalizeScaleFactor(scaleFactor) {
+  const numericScaleFactor = Number(scaleFactor);
+  return Number.isFinite(numericScaleFactor) && numericScaleFactor > 0 ? numericScaleFactor : 1;
+}
+
+function physicalSizeToLogical(size, scaleFactor) {
+  if (!size) {
+    return { width: 0, height: 0 };
+  }
+
+  if (typeof size.toLogical === "function") {
+    return size.toLogical(scaleFactor);
+  }
+
+  return {
+    width: Number(size.width || 0) / scaleFactor,
+    height: Number(size.height || 0) / scaleFactor
+  };
+}
+
+function logicalSizeToPhysical(size, scaleFactor) {
+  const width = Number(size?.width || 0);
+  const height = Number(size?.height || 0);
+
+  if (tauriDpi?.LogicalSize) {
+    return new tauriDpi.LogicalSize(width, height).toPhysical(scaleFactor);
+  }
+
+  return {
+    width: Math.round(width * scaleFactor),
+    height: Math.round(height * scaleFactor)
+  };
+}
+
+function logicalValueToPhysical(value, scaleFactor) {
+  return Math.round((Number(value) || 0) * scaleFactor);
+}
+
+function getMonitorLogicalSize(monitor) {
+  return physicalSizeToLogical(monitor?.size, normalizeScaleFactor(monitor?.scaleFactor));
+}
+
 function clampWindowPositionToMonitor(x, y, monitor, width, height) {
   if (!monitor) {
     return { x, y };
@@ -1406,15 +1456,16 @@ function usesMonitorRelativeWindowPreset() {
 
 async function getSafeWindowGeometry(requestedHeight = state.window.height, requestedGutter = getSpeedRailWindowGutter()) {
   const monitor = await getPreferredMonitor();
+  const logicalMonitorSize = getMonitorLogicalSize(monitor);
   const gutterWidth = Math.max(0, Math.min(SPEED_RAIL_WINDOW_GUTTER, Number(requestedGutter) || 0));
   const requestedWindowHeight = Number(requestedHeight) || defaultState.window.height;
   const minAllowedHeight = requestedWindowHeight <= COLLAPSED_HEIGHT ? COLLAPSED_HEIGHT : MIN_HEIGHT;
   const maxContentWidth = Math.max(
-    Math.min((monitor?.size?.width ?? MAX_WIDTH_FALLBACK) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth),
+    Math.min((logicalMonitorSize.width || MAX_WIDTH_FALLBACK) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth),
     MIN_WIDTH
   );
   const maxHeight = Math.max(
-    Math.min(monitor?.size?.height ?? MAX_HEIGHT_FALLBACK, MAX_HEIGHT_FALLBACK),
+    Math.min(logicalMonitorSize.height || MAX_HEIGHT_FALLBACK, MAX_HEIGHT_FALLBACK),
     minAllowedHeight
   );
 
@@ -1431,12 +1482,16 @@ async function positionWindowForCurrentLayout(appWindow, options = {}) {
   const gutterWidth = options.gutterWidth ?? getSpeedRailWindowGutter();
   const targetWidth = Math.max(options.width ?? getBaseWindowWidth(), MIN_WIDTH) + gutterWidth;
   const targetHeight = Math.max(options.height ?? state.window.height ?? defaultState.window.height, MIN_HEIGHT);
+  const monitor = options.monitor ?? await getPreferredMonitor();
+  const scaleFactor = normalizeScaleFactor(await appWindow?.scaleFactor?.().catch(() => monitor?.scaleFactor ?? 1));
+  const targetPhysicalSize = logicalSizeToPhysical({ width: targetWidth, height: targetHeight }, scaleFactor);
+  const gutterWidthPhysical = logicalValueToPhysical(gutterWidth, scaleFactor);
+  const topCenterOffsetPhysical = logicalValueToPhysical(TOP_CENTER_X_OFFSET, scaleFactor);
 
   if (state.window.preset === "center") {
-    const monitor = options.monitor ?? await getPreferredMonitor();
     if (monitor) {
-      const x = monitor.position.x + Math.round((monitor.size.width - targetWidth) / 2);
-      const y = monitor.position.y + Math.round((monitor.size.height - targetHeight) / 2);
+      const x = monitor.position.x + Math.round((monitor.size.width - targetPhysicalSize.width) / 2);
+      const y = monitor.position.y + Math.round((monitor.size.height - targetPhysicalSize.height) / 2);
       await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
       return true;
     }
@@ -1445,9 +1500,8 @@ async function positionWindowForCurrentLayout(appWindow, options = {}) {
   }
 
   if (state.window.preset === "top-center") {
-    const monitor = options.monitor ?? await getPreferredMonitor();
     if (monitor) {
-      const x = monitor.position.x + Math.round((monitor.size.width - targetWidth) / 2) + TOP_CENTER_X_OFFSET;
+      const x = monitor.position.x + Math.round((monitor.size.width - targetPhysicalSize.width) / 2) + topCenterOffsetPhysical;
       await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, monitor.position.y));
       return true;
     }
@@ -1456,13 +1510,12 @@ async function positionWindowForCurrentLayout(appWindow, options = {}) {
   }
 
   if (state.window.x !== null && state.window.y !== null && tauriDpi.PhysicalPosition) {
-    const monitor = options.monitor ?? await getPreferredMonitor();
     const clampedPosition = clampWindowPositionToMonitor(
-      state.window.x + getWindowPositionOffset(gutterWidth),
+      state.window.x + (state.window?.preset === "top-center" ? topCenterOffsetPhysical - gutterWidthPhysical : -gutterWidthPhysical),
       state.window.y,
       monitor,
-      targetWidth,
-      targetHeight
+      targetPhysicalSize.width,
+      targetPhysicalSize.height
     );
 
     await appWindow.setPosition(new tauriDpi.PhysicalPosition(clampedPosition.x, clampedPosition.y));

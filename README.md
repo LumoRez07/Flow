@@ -40,6 +40,9 @@
 Please consider starring this repo if it helps you! ⭐
 </p>
 
+> [!CAUTION]
+> The app doesn't behave correctly when the user's display is scaled. Anything other than 100% scaling will cause the app to break and behave in a very unexpected way. I am working on the fix and will be published as soon as possible.
+
 ## Flow is available on
 <div align="center">
   <a href="https://sourceforge.net/p/flowteleprompter/">

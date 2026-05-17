@@ -41,7 +41,7 @@ Please consider starring this repo if it helps you! ⭐
 </p>
 
 > [!CAUTION]
-> The app doesn't behave correctly when the user's display is scaled. Anything other than 100% scaling will cause the app to break and behave in a very unexpected way. I am working on the fix and will be published as soon as possible.
+> If you ar encountering scaling issues please download the latest version (1.8.3)
 
 ## Flow is available on
 <div align="center">

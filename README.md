@@ -41,7 +41,7 @@ Please consider starring this repo if it helps you! ⭐
 </p>
 
 > [!CAUTION]
-> If you ar encountering scaling issues please download the latest version (1.8.3)
+> If you are encountering scaling issues please download the latest version (1.8.3)
 
 ## Flow is available on
 <div align="center">

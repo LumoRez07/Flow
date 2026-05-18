@@ -204,7 +204,7 @@ const ui = {
   remoteAccessPasswordInput: document.querySelector("#remoteAccessPasswordInput"),
   remoteSenderUrl: document.querySelector("#remoteSenderUrl"),
   remoteSenderQrCard: document.querySelector("#remoteSenderQrCard"),
-  remoteSenderQrCanvas: document.querySelector("#remoteSenderQrCanvas"),
+  remoteSenderQrImage: document.querySelector("#remoteSenderQrImage"),
   remoteSenderQrStatus: document.querySelector("#remoteSenderQrStatus"),
   remoteLiveBadge: document.querySelector("#remoteLiveBadge"),
   remoteSessionStatus: document.querySelector("#remoteSessionStatus"),
@@ -232,7 +232,7 @@ let soundInputPreviewBuffer = null;
 let soundInputPreviewSession = 0;
 let soundInputPreviewDeviceId = null;
 let soundInputStatusKey = ui.soundInputStatus?.dataset.i18n || "settings.soundInputPreviewIdle";
-let remoteSenderQr = null;
+let remoteSenderQrDataUrl = "";
 const customSettingsSelectControllers = [];
 const RTL_TEXT_PATTERN = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
 const SETTINGS_SECTION_CHOICE_METADATA = {
@@ -2072,40 +2072,43 @@ function getRemoteSenderQrStatusKey(authUrl) {
   return "settings.remoteSenderQrHelp";
 }
 
-function getRemoteSenderQrInstance() {
-  if (!ui.remoteSenderQrCanvas || typeof window.QRious !== "function") {
-    return null;
+async function getRemoteSenderQrDataUrl(authUrl) {
+  if (!authUrl || typeof window.QRCode?.toDataURL !== "function") {
+    return "";
   }
 
-  if (!remoteSenderQr) {
-    remoteSenderQr = new window.QRious({
-      element: ui.remoteSenderQrCanvas,
-      size: 220,
-      level: "M",
-      padding: 12,
-      background: "#ffffff",
-      foreground: "#0f172a",
-      value: "about:blank"
+  try {
+    return await window.QRCode.toDataURL(authUrl, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 220,
+      color: {
+        dark: "#0f172a",
+        light: "#ffffff"
+      }
     });
+  } catch (error) {
+    console.error("Failed to render remote sender QR code", error);
+    return "";
   }
-
-  return remoteSenderQr;
 }
 
-function renderRemoteSenderQr() {
+async function renderRemoteSenderQr() {
   const authUrl = buildCloudSenderAuthUrl();
   const statusKey = getRemoteSenderQrStatusKey(authUrl);
-  const qrious = getRemoteSenderQrInstance();
-  const canRender = Boolean(authUrl && qrious);
+  remoteSenderQrDataUrl = authUrl ? await getRemoteSenderQrDataUrl(authUrl) : "";
+  const canRender = Boolean(authUrl && remoteSenderQrDataUrl);
 
   if (ui.remoteSenderQrStatus) {
     ui.remoteSenderQrStatus.dataset.i18n = statusKey;
     ui.remoteSenderQrStatus.textContent = t(statusKey);
   }
 
-  if (ui.remoteSenderQrCanvas) {
-    ui.remoteSenderQrCanvas.classList.toggle("hidden", !canRender);
-    ui.remoteSenderQrCanvas.setAttribute("aria-label", t("settings.remoteSenderQrHelp"));
+  if (ui.remoteSenderQrImage) {
+    ui.remoteSenderQrImage.classList.toggle("hidden", !canRender);
+    ui.remoteSenderQrImage.setAttribute("aria-label", t("settings.remoteSenderQrHelp"));
+    ui.remoteSenderQrImage.alt = t("settings.remoteSenderQrHelp");
+    ui.remoteSenderQrImage.src = canRender ? remoteSenderQrDataUrl : "";
   }
 
   if (ui.copySenderAuthUrlButton) {
@@ -2115,12 +2118,6 @@ function renderRemoteSenderQr() {
   if (ui.remoteSenderQrCard) {
     ui.remoteSenderQrCard.dataset.copyValue = authUrl;
   }
-
-  if (!qrious) {
-    return;
-  }
-
-  qrious.set({ value: canRender ? authUrl : "about:blank" });
 }
 
 async function getMainWindow() {

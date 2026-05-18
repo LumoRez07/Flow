@@ -14,7 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="doc.settingsTitle">Flow · Settings</title>
     <link rel="stylesheet" href="styles.css" />
-    <script src="/assets/vendor/qrious.min.js" defer></script>
+    <script src="/assets/vendor/qrcode.min.js" defer></script>
     <script type="module" src="/settings.js" defer></script>
   </head>
   <body data-page="settings">
@@ -97,7 +97,7 @@
               <span class="remote-session-label" data-i18n="settings.remoteSenderQr">Quick connect QR</span>
               <div class="remote-qr-layout">
                 <div class="remote-qr-canvas-wrap">
-                  <canvas id="remoteSenderQrCanvas" class="remote-qr-canvas hidden" width="220" height="220"></canvas>
+                  <img id="remoteSenderQrImage" class="remote-qr-canvas hidden" width="220" height="220" alt="" />
                 </div>
                 <div class="remote-qr-copy">
                   <p class="helper-text remote-qr-status" id="remoteSenderQrStatus" data-i18n="settings.remoteSenderQrHelp">Scan to open the sender page with the UUID and access password already filled in.</p>

@@ -19,11 +19,11 @@
 </p>
 
 <p align="center">
-  <strong>v1.8.3</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
+  <strong>v1.9.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
 </p>
 
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.8.3-2563eb?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-1.9.0-2563eb?style=for-the-badge" />
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
   <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
   <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
@@ -41,7 +41,8 @@ Please consider starring this repo if it helps you! ⭐
 </p>
 
 > [!CAUTION]
-> If you are encountering scaling issues please download the latest version (1.8.3)
+> If you are encountering scaling issues please download the latest version (1.9.0)
+> If flow doesn't start scrolling on voice tracking mode, please check the microphone permission settings for the app and make sure the correct input device is selected in settings.
 
 ## Flow is available on
 <div align="center">
@@ -69,10 +70,12 @@ Please consider starring this repo if it helps you! ⭐
 
 Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
 
-## What's New in 1.8.3
+## What's New in 1.9.0
 
-- Improved packaged playback stability, including pause and continue behavior in the teleprompter.
-- Fixed packaged-settings issues around microphone device labels, bright-theme contrast, and free-drag collapse/minimize glitches.
+- Introduced a new Realtime Editing feature using WebRTC (PeerJS), allowing live cross-device script editing through a secure, private browser room.
+- Upgraded the QR code generator to a more performant library (QRCode).
+- Improve stability, performance, and scaling across the app with various under-the-hood optimizations and fixes.
+- Decreased RAM usage while maintaining/improving performance.
 
 ## Preview
 
@@ -152,7 +155,7 @@ npm run tauri build
 
 Publish these files from `src-tauri/target/release/bundle` to the GitHub release:
 
-- `msi/flow_1.8.3_x64_en-US.msi`
+- `msi/flow_1.9.0_x64_en-US.msi`
 - `latest.json`
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.
@@ -185,10 +188,12 @@ This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
 
 Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
 
-### 1.8.3 Sürümündeki Yenilikler
+### 1.9.0 Sürümündeki Yenilikler
 
-- Artık Groq'a bir dosya verip sağladığınız talimata göre o dosyayı düzenletmek veya onunla etkileşime girmesini sağlamak mümkün.
-- Güncelleme bölümü düzeltildi; artık sürüm verilerini daha doğru şekilde alıyor.
+- WebRTC (PeerJS) kullanan yeni bir Canlı Düzenleme (Realtime Editing) özelliği eklendi. Bu, güvenli ve özel bir tarayıcı odası üzerinden cihazlar arası canlı metin düzenlemesine olanak tanır.
+- QR kodu oluşturucu daha performanslı bir kütüphaneyle (QRCode) güncellendi.
+- Çeşitli altyapı optimizasyonları ve düzeltmeleriyle uygulama genelinde kararlılık, performans ve ölçeklendirme iyileştirildi.
+- Performans korunurken/iyileştirilirken RAM kullanımı azaltıldı.
 
 ### Öne Çıkanlar
 
@@ -252,10 +257,12 @@ Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderic
 
 Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
 
-### الجديد في 1.8.3
+### الجديد في 1.9.0
 
-- أصبح بإمكانك الآن تزويد Groq بملف وطلب تعديله أو التفاعل معه وفقاً للتعليمات التي تكتبها.
-- تم إصلاح قسم التحديثات بحيث يجلب بيانات الإصدارات بشكل صحيح.
+- تم تقديم ميزة التحرير المباشر (Realtime Editing) الجديدة باستخدام WebRTC (PeerJS)، والتي تتيح تعديل النصوص المباشر عبر الأجهزة من خلال غرفة متصفح خاصة وآمنة.
+- تم تحديث أداة إنشاء رمز الاستجابة السريعة إلى مكتبة أكثر كفاءة (QRCode).
+- تحسين الاستقرار والأداء والتحجيم عبر التطبيق من خلال تحسينات وإصلاحات خلف الكواليس.
+- تقليل استهلاك ذاكرة الوصول العشوائي (RAM) مع الحفاظ على الأداء أو تحسينه.
 
 ### أبرز الميزات
 
@@ -319,10 +326,12 @@ npm run tauri build
 
 Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
 
-### Nouveautes de la version 1.8.3
+### Nouveautes de la version 1.9.0
 
-- Il est maintenant possible de donner un fichier a Groq pour qu'il le modifie ou interagisse avec lui selon l'instruction que vous fournissez.
-- La section de mise a jour a ete corrigee et recupere maintenant correctement les donnees de release.
+- Introduction d'une nouvelle fonctionnalite d'edition en temps reel (Realtime Editing) utilisant WebRTC (PeerJS), permettant l'edition de scripts en direct sur plusieurs appareils via une salle de navigateur privee et securisee.
+- Mise a jour du generateur de code QR vers une bibliotheque plus performante (QRCode).
+- Amelioration de la stabilite, des performances et de la mise a l'echelle dans toute l'application grace a diverses optimisations et corrections sous le capot.
+- Diminution de l'utilisation de la RAM tout en maintenant/ameliorant les performances.
 
 ### Points forts
 
@@ -386,10 +395,12 @@ Flow inclut un emetteur distant et une boite de reception pour envoyer du texte 
 
 Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
 
-### Neu in 1.8.3
+### Neu in 1.9.0
 
-- Du kannst Groq jetzt eine Datei geben, damit es sie gemaess deiner Anweisung bearbeitet oder mit ihr interagiert.
-- Der Update-Bereich wurde behoben und ruft Release-Daten nun korrekt ab.
+- Einführung einer neuen Echtzeit-Bearbeitungsfunktion (Realtime Editing) über WebRTC (PeerJS), die eine geräteübergreifende Live-Teleprompter-Bearbeitung über einen privaten Browserraum ermöglicht.
+- Aktualisierung des QR-Code-Generators auf eine leistungsfähigere Bibliothek (QRCode).
+- Verbesserung von Stabilitaet, Leistung und Skalierung in der gesamten App durch verschiedene Optimierungen und Fehlerbehebungen unter der Haube.
+- Verringerung der RAM-Nutzung bei gleichzeitiger Beibehaltung/Verbesserung der Leistung.
 
 ### Highlights
 
@@ -453,10 +464,12 @@ Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufend
 
 Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
 
-### Novedades en 1.8.3
+### Novedades en 1.9.0
 
-- Ahora puedes darle un archivo a Groq para que lo edite o interactue con el segun la instruccion que le indiques.
-- Se corrigio la seccion de actualizaciones para que recupere correctamente los datos de las releases.
+- Introduccion de una nueva funcion de edicion en tiempo real (Realtime Editing) utilizando WebRTC (PeerJS), lo que permite la edicion de scripts en vivo a traves de multiples dispositivos en una sala de navegador privada y segura.
+- Actualizacion del generador de codigos QR a una biblioteca con mejor rendimiento (QRCode).
+- Mejora de la estabilidad, el rendimiento y el escalado en toda la aplicacion con varias optimizaciones y correcciones internas.
+- Disminucion del uso de RAM manteniendo/mejorando el rendimiento.
 
 ### Puntos destacados
 

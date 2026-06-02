@@ -8,7 +8,9 @@
  * (at your option) any later version.
  */
 
-import { CLOUD_RELAY_URL } from "./remote-config.js";
+import { REALTIME_RELAY_URL, REMOTE_RELAY_URL } from "./remote-config.js";
+import { createRealtimeHostController } from "./realtime-host.js";
+import { clearRealtimeEditingConfig, clearStaleRealtimeEditingConfig, getRealtimeEditingUpdatedEventName } from "./realtime-editing.js";
 import {
   applyAppearanceToDocument,
   applyTextDirection,
@@ -25,6 +27,7 @@ import {
   invokeAfterDesktopFadeOut,
   loadState,
   normalizeVoiceLanguage,
+  parseLocaleNumber,
   parseFormattedScript,
   resolveFontStack,
   saveState,
@@ -182,6 +185,7 @@ let lastStatusUpdateAt = 0;
 let speedPersistTimer = null;
 let remoteHeartbeatTimer = null;
 let remoteInboxTimer = null;
+let realtimeHostController = null;
 let remoteMessages = [];
 const remotePendingActions = new Set();
 let remoteCloudPollDelayMs = CLOUD_POLL_MIN_INTERVAL_MS;
@@ -258,6 +262,8 @@ let promptWaitAnimationCleanupTimer = null;
 let lastResponsiveFontSize = 0;
 let lastResponsiveViewportWidth = 0;
 let lastResponsiveViewportHeight = 0;
+let lastRenderedScriptSnapshot = "";
+let pendingScriptRerenderTimer = 0;
 let frozenReadingViewportWidth = 0;
 let frozenReadingViewportHeight = 0;
 let autoUpdateCheckTimer = null;
@@ -495,7 +501,7 @@ function isVoiceCommandListenerArmed() {
 }
 
 function clampSoundInputNumber(value, min, max, fallback) {
-  const numericValue = Number(value);
+  const numericValue = parseLocaleNumber(value);
   if (!Number.isFinite(numericValue)) {
     return fallback;
   }
@@ -759,8 +765,13 @@ function handleNativeVoiceEvent(payload) {
     if (payload.stage === "error") {
       console.error("Native voice tracking failed", payload.error || payload);
       if (isPlaying && getActiveMode() === "voice") {
+        const trackingError = new Error(payload.error || "Voice tracking unavailable");
+        const feedbackKey = getVoiceTrackingFeedbackKey(trackingError);
+        if (feedbackKey) {
+          setPromptFeedback(feedbackKey);
+        }
         if (ui.statusLabel) {
-          ui.statusLabel.textContent = getVoiceTrackingFailureStatus(new Error(payload.error || "Voice tracking unavailable"));
+          ui.statusLabel.textContent = getVoiceTrackingFailureStatus(trackingError);
         }
         stopPlayback();
       } else if (voiceRecognition?.engine === "native") {
@@ -968,7 +979,8 @@ function normalizeRemoteCloudUrl(value) {
   return String(value || "").trim().replace(/\/$/, "");
 }
 
-const CONFIGURED_CLOUD_RELAY_URL = normalizeRemoteCloudUrl(CLOUD_RELAY_URL);
+const CONFIGURED_CLOUD_RELAY_URL = normalizeRemoteCloudUrl(REMOTE_RELAY_URL);
+const CONFIGURED_REALTIME_RELAY_URL = normalizeRemoteCloudUrl(REALTIME_RELAY_URL);
 
 function isCloudRemoteEnabled() {
   return Boolean(CONFIGURED_CLOUD_RELAY_URL);
@@ -976,6 +988,15 @@ function isCloudRemoteEnabled() {
 
 function buildCloudApiUrl(path) {
   const base = CONFIGURED_CLOUD_RELAY_URL;
+  if (!base) {
+    return "";
+  }
+
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function buildRealtimeApiUrl(path) {
+  const base = CONFIGURED_REALTIME_RELAY_URL;
   if (!base) {
     return "";
   }
@@ -1369,10 +1390,6 @@ function getSpeedRailWindowGutter() {
   return state.appearance?.speedRailEnabled === false || ["voice", "arrow"].includes(getActiveMode())
     ? 0
     : SPEED_RAIL_WINDOW_GUTTER;
-}
-
-function getTargetWindowWidth() {
-  return getBaseWindowWidth() + getSpeedRailWindowGutter();
 }
 
 function getWindowPositionOffset(gutterWidth = getSpeedRailWindowGutter()) {
@@ -1803,10 +1820,30 @@ function refreshPromptViewportMetrics() {
   }
 
   updatePromptSafeArea();
-  cachedPromptViewportWidth = ui.promptViewport.clientWidth;
+  cachedPromptViewportWidth = Math.round(ui.promptViewport.getBoundingClientRect().width || ui.promptViewport.clientWidth || 0);
   cachedPromptViewportHeight = ui.promptViewport.clientHeight;
   cachedPromptScrollableHeight = Math.max(ui.promptViewport.scrollHeight - cachedPromptViewportHeight, 0);
   return cachedPromptScrollableHeight;
+}
+
+function clearPendingScriptRerender() {
+  if (!pendingScriptRerenderTimer) {
+    return;
+  }
+
+  clearTimeout(pendingScriptRerenderTimer);
+  pendingScriptRerenderTimer = 0;
+}
+
+function scheduleScriptRerender() {
+  if (pendingScriptRerenderTimer) {
+    clearTimeout(pendingScriptRerenderTimer);
+  }
+
+  pendingScriptRerenderTimer = window.setTimeout(() => {
+    pendingScriptRerenderTimer = 0;
+    rerenderScriptPreservingPosition(lastRenderedScriptSnapshot, { allowResponsiveResize: false });
+  }, 80);
 }
 
 function syncPromptLayout() {
@@ -1820,6 +1857,10 @@ function getCachedPromptScrollableHeight() {
   }
 
   return cachedPromptScrollableHeight;
+}
+
+function setRealtimeRerenderActive(enabled) {
+  document.body?.toggleAttribute("data-realtime-rerender", Boolean(enabled));
 }
 
 function updateCollapseButton() {
@@ -1941,6 +1982,18 @@ function getPromptWaitCardTargetTop(card) {
   return Math.max(card.element.offsetTop + card.element.offsetHeight * 0.5 - viewportHeight * WAIT_CARD_TRIGGER_VIEWPORT_OFFSET, 0);
 }
 
+function getCurrentPromptViewportTop() {
+  if (getActiveMode() === "scroll") {
+    if (typeof lastAppliedViewportTop === "number") {
+      return Math.max(lastAppliedViewportTop, 0);
+    }
+
+    return Math.max(getCachedPromptScrollableHeight() * scrollProgress, 0);
+  }
+
+  return Math.max(ui.promptViewport?.scrollTop || 0, 0);
+}
+
 function resetPromptWaitCards(scrollTop = 0, wordIndex = 0) {
   const normalizedTop = Math.max(Number(scrollTop) || 0, 0);
   const normalizedWordIndex = Math.max(Number(wordIndex) || 0, 0);
@@ -2020,18 +2073,19 @@ async function runPromptWaitPause(card) {
   }
 
   const runToken = ++promptWaitRunToken;
+  const activeMode = getActiveMode();
   card.consumed = true;
   activePromptWaitCardId = card.id;
 
-  const targetTop = getPromptWaitCardTargetTop(card);
-  if (getActiveMode() === "scroll") {
+  const pauseTop = getCurrentPromptViewportTop();
+  stopViewportScrollAnimation();
+
+  if (activeMode === "scroll") {
     const totalScrollable = getCachedPromptScrollableHeight();
-    scrollProgress = totalScrollable > 0 ? clamp(targetTop / totalScrollable, 0, 1) : scrollProgress;
-    setViewportPosition(targetTop, "auto");
-  } else if (ui.promptViewport) {
-    clearPromptScrollTransform();
-    ui.promptViewport.scrollTo({ top: targetTop, behavior: "auto" });
+    scrollProgress = totalScrollable > 0 ? clamp(pauseTop / totalScrollable, 0, 1) : scrollProgress;
   }
+
+  setViewportPosition(pauseTop, "auto");
 
   card.element.classList.add("is-waiting");
   setPromptWaitCardNumber(card.element, card.seconds, { animate: false });
@@ -2606,6 +2660,7 @@ function renderScript() {
   const tokens = parseFormattedScript(state.script);
   const allWords = tokens.filter((token) => token.type === "word");
   const fragment = document.createDocumentFragment();
+  lastRenderedScriptSnapshot = state.script;
 
   ui.promptText.innerHTML = "";
   const promptDirection = applyTextDirection(ui.promptText, state.script);
@@ -2821,27 +2876,62 @@ function findPreservedWordIndex(previousScript, nextScript, previousIndex) {
   return fallbackIndex;
 }
 
-function rerenderScriptPreservingPosition(previousScript) {
+function captureScrollViewportAnchor(viewportTop) {
+  if (!lineGroups.length) {
+    return null;
+  }
+
+  const anchorLineIndex = getLineIndexForScrollTop(viewportTop);
+  const anchorWordIndex = lineGroups[anchorLineIndex]?.firstIndex ?? 0;
+  const anchorLineTop = getLineTargetTop(anchorLineIndex);
+
+  return {
+    previousWordIndex: anchorWordIndex,
+    offsetWithinLine: Math.max(viewportTop - anchorLineTop, 0)
+  };
+}
+
+function resolvePreservedScrollTop(previousScript, viewportAnchor, fallbackScrollProgress, totalScrollable) {
+  if (!viewportAnchor) {
+    return clamp(totalScrollable * fallbackScrollProgress, 0, totalScrollable);
+  }
+
+  const nextAnchorWordIndex = findPreservedWordIndex(previousScript, state.script, viewportAnchor.previousWordIndex);
+  const nextAnchorLineIndex = lineIndexByWord[nextAnchorWordIndex] ?? 0;
+  const nextAnchorTop = getLineTargetTop(nextAnchorLineIndex) + viewportAnchor.offsetWithinLine;
+  return clamp(nextAnchorTop, 0, totalScrollable);
+}
+
+function rerenderScriptPreservingPosition(previousScript, options = {}) {
+  const { allowResponsiveResize = true } = options;
+  const playbackMode = getActiveMode();
+  const preserveVoiceTracking = playbackMode === "voice" && isPlaying;
   const currentScrollable = refreshPromptViewportMetrics();
+  const previousScrollTop = getActiveMode() === "scroll"
+    ? currentScrollable * scrollProgress
+    : (ui.promptViewport?.scrollTop || 0);
   const playbackSnapshot = {
     wasPlaying: isPlaying,
     wasPaused: isPaused,
     previousIndex: currentIndex,
     previousScrollProgress: scrollProgress,
-    previousScrollTop: getActiveMode() === "scroll"
-      ? currentScrollable * scrollProgress
-      : (ui.promptViewport?.scrollTop || 0),
+    previousScrollTop,
+    viewportAnchor: captureScrollViewportAnchor(previousScrollTop),
     previousScrollHeight: ui.promptViewport?.scrollHeight || 0,
     previousClientHeight: ui.promptViewport?.clientHeight || 0
   };
 
-  clearPlayback();
+  clearPlayback({ preserveVoiceTracking });
+  setRealtimeRerenderActive(true);
   renderScript();
-  applyResponsiveText();
+  if (allowResponsiveResize) {
+    applyResponsiveText();
+  }
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       if (wordNodes.length === 0) {
+        setRealtimeRerenderActive(false);
         stopPlayback(true);
         return;
       }
@@ -2853,21 +2943,36 @@ function rerenderScriptPreservingPosition(previousScript) {
       const previousScrollRatio = previousScrollable > 0
         ? clamp(playbackSnapshot.previousScrollTop / previousScrollable, 0, 1)
         : playbackSnapshot.previousScrollProgress;
+      const preservedTop = resolvePreservedScrollTop(
+        previousScript,
+        playbackSnapshot.viewportAnchor,
+        playbackSnapshot.previousScrollProgress,
+        totalScrollable
+      );
 
       if (getActiveMode() === "scroll") {
-        scrollProgress = clamp(playbackSnapshot.previousScrollProgress, 0, 1);
-        setViewportPosition(totalScrollable * scrollProgress, "auto");
+        scrollProgress = totalScrollable > 0 ? clamp(preservedTop / totalScrollable, 0, 1) : 0;
+        setViewportPosition(preservedTop, "auto");
       } else {
-        scrollProgress = totalScrollable > 0 ? previousScrollRatio : 0;
-        setViewportPosition(totalScrollable * previousScrollRatio, "auto");
+        scrollProgress = totalScrollable > 0 ? clamp(preservedTop / totalScrollable, 0, 1) : previousScrollRatio;
+        setViewportPosition(preservedTop, "auto");
       }
 
       updateWordState(false);
+      setRealtimeRerenderActive(false);
       isPlaying = playbackSnapshot.wasPlaying;
       isPaused = playbackSnapshot.wasPaused;
       setReadingMode(playbackSnapshot.wasPlaying);
 
       if (playbackSnapshot.wasPlaying && !playbackSnapshot.wasPaused) {
+        if (playbackMode === "voice" && preserveVoiceTracking) {
+          scheduleVoiceHealthCheck(0);
+          updatePlaybackIndicators(true);
+          updatePlayButtons();
+          syncVoiceCommandListener();
+          return;
+        }
+
         restartPlaybackLoopForCurrentMode();
         return;
       }
@@ -3200,7 +3305,18 @@ function getPlaybackIndexForScrollTop(scrollTop) {
 function updateWordState(shouldScroll = true) {
   const activeMode = getActiveMode();
 
+  const syncRealtimePlaybackState = () => {
+    realtimeHostController?.syncPlaybackState({
+      active: isPlaying,
+      paused: isPaused,
+      wordIndex: currentIndex,
+      totalWords: wordNodes.length,
+      wordText: wordNodes[currentIndex]?.textContent || ""
+    });
+  };
+
   if (state.appearance?.performanceMode && activeMode === "scroll") {
+    syncRealtimePlaybackState();
     updatePlaybackIndicators(false);
     return;
   }
@@ -3248,10 +3364,14 @@ function updateWordState(shouldScroll = true) {
     }
   }
 
+  syncRealtimePlaybackState();
+
   updatePlaybackIndicators(false);
 }
 
-function clearPlayback() {
+function clearPlayback(options = {}) {
+  const { preserveVoiceTracking = false } = options;
+
   if (tickTimer) {
     clearTimeout(tickTimer);
     tickTimer = null;
@@ -3267,12 +3387,15 @@ function clearPlayback() {
   activePromptWaitCardId = "";
   promptWaitCards.forEach((card) => clearPromptWaitCardState(card));
   setPlaybackCountdownVisible(false);
-  voiceTranscript = "";
   pendingForwardVoiceSkip = null;
-  resetVoiceCommandTranscript();
   stopViewportScrollAnimation();
 
-  if (voiceRecognition?.engine === "native" || voiceRecognition?.remove || voiceTrackingMediaStream || voiceTrackingAudioContext) {
+  if (!preserveVoiceTracking) {
+    voiceTranscript = "";
+    resetVoiceCommandTranscript();
+  }
+
+  if (!preserveVoiceTracking && (voiceRecognition?.engine === "native" || voiceRecognition?.remove || voiceTrackingMediaStream || voiceTrackingAudioContext)) {
     stopVoiceTracking().catch(console.error);
   }
 }
@@ -4220,16 +4343,6 @@ function releaseOfflineVoiceModel(languageTag = getVoiceLanguageTag()) {
 
   voiceModels.delete(normalizedLanguage);
   voiceModelPromises.delete(normalizedLanguage);
-}
-
-function releaseUnusedVoiceModels(keepLanguages = []) {
-  const keepSet = new Set(Array.from(keepLanguages, (language) => normalizeVoiceLanguage(language)).filter(Boolean));
-
-  for (const language of voiceModels.keys()) {
-    if (!keepSet.has(language)) {
-      releaseOfflineVoiceModel(language);
-    }
-  }
 }
 
 async function resumeOfflineVoiceCommandAudioContext() {
@@ -6707,6 +6820,8 @@ function refreshFromStorage() {
 
   syncStateFromStorage();
   state.desktop = state.desktop || structuredClone(defaultState.desktop);
+  realtimeHostController?.refreshConfig().catch(console.error);
+  realtimeHostController?.syncLocalScript(state.script);
   const nextVoiceLanguage = getVoiceLanguageTag();
   const nextVoiceModelId = getSelectedVoiceModelId(nextVoiceLanguage);
   const voiceLanguageChanged = previousVoiceLanguage !== nextVoiceLanguage;
@@ -6757,7 +6872,13 @@ function refreshFromStorage() {
   }
 
   if (previousState.script !== state.script || previousState.appearance !== JSON.stringify(state.appearance)) {
-    rerenderScriptPreservingPosition(previousState.script);
+    if (previousState.appearance !== JSON.stringify(state.appearance)) {
+      clearPendingScriptRerender();
+      rerenderScriptPreservingPosition(lastRenderedScriptSnapshot);
+      return;
+    }
+
+    scheduleScriptRerender();
     return;
   }
 
@@ -6955,6 +7076,9 @@ function wireEvents() {
       clearInterval(autoUpdateCheckTimer);
       autoUpdateCheckTimer = null;
     }
+
+    realtimeHostController?.dispose();
+    realtimeHostController = null;
   });
 
   resizeObserver = new ResizeObserver(() => {
@@ -7008,6 +7132,7 @@ async function bootFlowApp() {
   try {
     syncStateFromStorage();
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
+    clearStaleRealtimeEditingConfig();
 
     ensureNativeVoiceEventListener().catch(console.error);
 
@@ -7034,6 +7159,31 @@ async function bootFlowApp() {
     updateSpeedInputMode();
 
     renderScript();
+
+    realtimeHostController = createRealtimeHostController({
+      buildCloudApiUrl: buildRealtimeApiUrl,
+      getCurrentRoomId: () => state.remote?.receiverId || "",
+      getCurrentScript: () => state.script || "",
+      getCurrentPlaybackState: () => ({
+        active: isPlaying,
+        paused: isPaused,
+        wordIndex: currentIndex,
+        totalWords: wordNodes.length,
+        wordText: wordNodes[currentIndex]?.textContent || ""
+      }),
+      applyRemoteScript: async (nextText) => {
+        const mergedState = saveState({ script: nextText });
+        Object.assign(state, mergedState);
+      },
+      closeRealtimeRoom: async () => {
+        clearRealtimeEditingConfig();
+      },
+      isHostEditingActive: () => false
+    });
+    realtimeHostController.refreshConfig().catch(console.error);
+    window.addEventListener(getRealtimeEditingUpdatedEventName(), () => {
+      realtimeHostController?.refreshConfig().catch(console.error);
+    });
 
     applyResponsiveText();
 

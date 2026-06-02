@@ -497,7 +497,7 @@ const UI_STRINGS = {
     "about.summary": "A modern desktop teleprompter for smooth reading, quick editing, voice controls, and remote message injection.",
     "about.p1": "Flow is a teleprompter app built with web technologies and Tauri. It's designed to be simple, lightweight, and customizable.",
     "about.p2": "This project is open source and available on my <a href=\"https://github.com/LumoRez07\">GitHub account</a>. If you have any questions, suggestions, or want to contribute, feel free to reach out or open an issue.",
-    "about.p3": "This project was made by <a href=\"https://lumorez.vercel.app/\">LumoRez</a> with ❤️ in 2026.",
+    "about.p3": "This project was made by <a href=\"https://flowremote.app/\">LumoRez</a> with ❤️ in 2026.",
     "about.p4": "Flow includes script editing, multiple playback modes, voice tracking, AI-assisted drafting, remote notifications, tray controls, and Windows-first privacy options like capture protection."
   },
   tr: {
@@ -683,7 +683,7 @@ const UI_STRINGS = {
     "about.summary": "Akıcı okuma, hızlı düzenleme, sesli kontroller ve uzak mesaj ekleme için modern bir masaüstü teleprompter.",
     "about.p1": "Flow, web teknolojileri ve Tauri ile oluşturulmuş bir teleprompter uygulamasıdır. Basit, hafif ve özelleştirilebilir olacak şekilde tasarlanmıştır.",
     "about.p2": "Bu proje açık kaynaklıdır ve <a href=\"https://github.com/LumoRez07\">GitHub hesabımda</a> yer almaktadır. Sorularınız, önerileriniz varsa veya katkı sağlamak istiyorsanız iletişime geçebilir ya da bir issue açabilirsiniz.",
-    "about.p3": "Bu proje 2026 yılında <a href=\"https://lumorez.vercel.app/\">LumoRez</a> tarafından ❤️ ile yapıldı.",
+    "about.p3": "Bu proje 2026 yılında <a href=\"https://flowremote.app/\">LumoRez</a> tarafından ❤️ ile yapıldı.",
     "about.p4": "Flow; metin düzenleme, birden fazla oynatma modu, ses takibi, yapay zekâ destekli taslak oluşturma, uzak bildirimler, sistem tepsisi kontrolleri ve ekran yakalama koruması gibi Windows odaklı gizlilik seçenekleri içerir."
   },
   ar: {
@@ -869,7 +869,7 @@ const UI_STRINGS = {
     "about.summary": "ملقن مكتبي حديث لقراءة سلسة وتحرير سريع وتحكم صوتي وإدخال الرسائل عن بُعد.",
     "about.p1": "Flow هو تطبيق ملقن نصوص مبني بتقنيات الويب وTauri. صُمم ليكون بسيطًا وخفيفًا وقابلًا للتخصيص.",
     "about.p2": "هذا المشروع مفتوح المصدر ومتوفر على <a href=\"https://github.com/LumoRez07\">حسابي على GitHub</a>. إذا كانت لديك أسئلة أو اقتراحات أو ترغب في المساهمة، فلا تتردد في التواصل أو فتح issue.",
-    "about.p3": "تم إنشاء هذا المشروع بواسطة <a href=\"https://lumorez.vercel.app/\">LumoRez</a> مع ❤️ في عام 2026.",
+    "about.p3": "تم إنشاء هذا المشروع بواسطة <a href=\"https://flowremote.app/\">LumoRez</a> مع ❤️ في عام 2026.",
     "about.p4": "يتضمن Flow تحرير النصوص وأنماط تشغيل متعددة وتتبعًا صوتيًا وصياغة مدعومة بالذكاء الاصطناعي وإشعارات عن بُعد وعناصر تحكم من شريط النظام وخيارات خصوصية موجهة لويندوز مثل الحماية من الالتقاط."
   },
   de: {
@@ -1055,7 +1055,7 @@ const UI_STRINGS = {
     "about.summary": "Ein moderner Desktop-Teleprompter für flüssiges Lesen, schnelles Bearbeiten, Sprachsteuerung und Remote-Nachrichten.",
     "about.p1": "Flow ist eine Teleprompter-App, die mit Web-Technologien und Tauri entwickelt wurde. Sie wurde so gestaltet, dass sie einfach, leichtgewichtig und anpassbar ist.",
     "about.p2": "Dieses Projekt ist Open Source und auf meinem <a href=\"https://github.com/LumoRez07\">GitHub-Konto</a> verfügbar. Wenn du Fragen oder Vorschläge hast oder beitragen möchtest, melde dich gern oder eröffne ein Issue.",
-    "about.p3": "Dieses Projekt wurde 2026 von <a href=\"https://lumorez.vercel.app/\">LumoRez</a> mit ❤️ erstellt.",
+    "about.p3": "Dieses Projekt wurde 2026 von <a href=\"https://flowremote.app/\">LumoRez</a> mit ❤️ erstellt.",
     "about.p4": "Flow bietet Skriptbearbeitung, mehrere Wiedergabemodi, Sprachverfolgung, KI-gestützte Entwürfe, Remote-Benachrichtigungen, Tray-Steuerung und Windows-orientierte Datenschutzoptionen wie Aufnahmeschutz."
   }
 };
@@ -1083,6 +1083,27 @@ Object.assign(UI_STRINGS.en, {
   "settings.remoteSenderQrHelp": "Scan to open the sender page with the UUID and access password already filled in.",
   "settings.remoteSenderQrPending": "Open the teleprompter so Flow can publish an active UUID and access password before scanning.",
   "settings.remoteSenderQrUnavailable": "QR code is unavailable until the cloud sender page is configured.",
+  "settings.remoteRealtimeSection": "Realtime editing",
+  "settings.remoteRealtimeHelp": "Create a private browser room for live script editing. The teleprompter stays authoritative and the cloud relay only carries the handshake.",
+  "settings.remoteRealtimeUnavailable": "Realtime editing is unavailable until the cloud relay URL is configured.",
+  "settings.remoteRealtimePending": "Open the teleprompter first so Flow can publish an active UUID before initializing realtime editing.",
+  "settings.remoteRealtimeReady": "Realtime editing is ready. Open or copy the room link to connect a browser editor.",
+  "settings.remoteRealtimePassword": "Realtime password",
+  "settings.remoteRealtimeLinkLabel": "Realtime room link",
+  "settings.remoteRealtimeRoomLink": "Open realtime room",
+  "settings.remoteRealtimeQrHelp": "Scan to open the realtime room directly in the browser editor.",
+  "settings.remoteRealtimeQrPending": "Initialize realtime editing to generate the room QR code.",
+  "settings.remoteRealtimePublishing": "Realtime editing is initializing. Keep the teleprompter open while Flow publishes the room.",
+  "settings.remoteRealtimeOnline": "A browser editor is connected to realtime editing. Open or scan the room to keep collaborating.",
+  "settings.remoteRealtimeRelayUnavailable": "The configured realtime relay website is unreachable right now. Deploy or fix the cloud relay URL before opening the room.",
+  "settings.remoteRealtimeBadgeIdle": "Idle",
+  "settings.remoteRealtimeBadgeWaiting": "Waiting",
+  "settings.remoteRealtimeBadgeAvailable": "Available",
+  "settings.remoteRealtimeBadgeOnline": "Connected",
+  "settings.remoteRealtimeBadgeUnavailable": "Unavailable",
+  "settings.remoteRealtimeInit": "Create room",
+  "settings.remoteRealtimeClose": "Close room",
+  "settings.remoteRealtimeInitializing": "Creating room…",
   "settings.remoteStatusWaiting": "Waiting for relay status.",
   "settings.remotePublicHost": "Public host / domain",
   "settings.remotePublicHostPlaceholder": "Example: flow.example.com or 82.14.25.90",
@@ -1092,6 +1113,8 @@ Object.assign(UI_STRINGS.en, {
   "settings.copiedUuid": "UUID copied.",
   "settings.copiedAccessPassword": "Access password copied.",
   "settings.copiedSenderLink": "Sender link copied.",
+  "settings.copiedRealtimePassword": "Realtime password copied.",
+  "settings.copiedRealtimeLink": "Realtime room link copied.",
   "settings.remoteStatusUnavailable": "The relay status is unavailable right now.",
   "settings.remoteStatusListeningPublic": "Relay is listening on port {port}. The copied sender link uses your configured public host.",
   "settings.remoteStatusListeningLocal": "Relay is listening on port {port}. Add a public host or domain below if you want the copied link to work outside your local network.",
@@ -2230,7 +2253,7 @@ UI_STRINGS.es = {
   "about.summary": "Un teleprónter de escritorio moderno para leer con fluidez, editar rápido, usar controles por voz e inyectar mensajes remotos.",
   "about.p1": "Flow es una aplicación de teleprónter creada con tecnologías web y Tauri. Está diseñada para ser simple, ligera y personalizable.",
   "about.p2": "Este proyecto es de código abierto y está disponible en mi <a href=\"https://github.com/LumoRez07\">cuenta de GitHub</a>. Si tienes preguntas, sugerencias o quieres contribuir, no dudes en escribirme o abrir un issue.",
-  "about.p3": "Este proyecto fue creado por <a href=\"https://lumorez.vercel.app/\">LumoRez</a> con ❤️ en 2026.",
+  "about.p3": "Este proyecto fue creado por <a href=\"https://flowremote.app/\">LumoRez</a> con ❤️ en 2026.",
   "about.p4": "Flow incluye edición de guiones, varios modos de reproducción, seguimiento por voz, redacción asistida por IA, notificaciones remotas, controles de bandeja y opciones de privacidad centradas en Windows como la protección frente a capturas.",
   "tele.updaterChecking": "Comprobando actualizaciones de Flow...",
   "tele.updaterInstalling": "Instalando Flow {version}...",
@@ -2702,6 +2725,220 @@ Object.assign(UI_STRINGS.es, {
   "input.toolbar.highlightRed": "Rojo"
 });
 
+Object.assign(UI_STRINGS.fr, {
+  "doc.remoteInboxTitle": "Notifications Flow",
+  "settings.remoteInjection": "Injection à distance",
+  "settings.remoteSession": "Session du récepteur en direct",
+  "settings.remoteTransport": "Transport à distance",
+  "settings.remoteTransport.local": "Relais local",
+  "settings.remoteTransport.cloud": "Relais cloud",
+  "settings.remoteCloudHelp": "Le relais cloud utilise l'UUID actif et le mot de passe d'accès généré. Les expéditeurs ouvrent la page d'envoi cloud, et le relais vérifie que l'UUID est actif et que le mot de passe d'accès correspond.",
+  "settings.remoteUuid": "UUID actif",
+  "settings.remoteAccessPassword": "Mot de passe d'accès",
+  "settings.remoteSenderPage": "Page d'envoi",
+  "settings.remoteSenderQr": "QR de connexion rapide",
+  "settings.remoteSenderQrHelp": "Scannez pour ouvrir la page d'envoi avec l'UUID et le mot de passe d'accès déjà remplis.",
+  "settings.remoteSenderQrPending": "Ouvrez d'abord le téléprompteur pour que Flow publie un UUID actif et un mot de passe d'accès avant le scan.",
+  "settings.remoteSenderQrUnavailable": "Le code QR n'est pas disponible tant que la page d'envoi cloud n'est pas configurée.",
+  "settings.remoteStatusWaiting": "En attente de l'état du relais.",
+  "settings.remotePublicHost": "Hôte public / domaine",
+  "settings.remotePublicHostPlaceholder": "Exemple : flow.example.com ou 82.14.25.90",
+  "settings.remoteLocalHelp": "Pour le relais local, l'expéditeur a besoin de votre adresse publique, de l'UUID et du mot de passe d'accès généré ci-dessus.",
+  "settings.copyNothing": "Rien n'est encore disponible à copier.",
+  "settings.copyFailed": "La copie a échoué. Vous pouvez quand même sélectionner la valeur manuellement.",
+  "settings.copiedUuid": "UUID copié.",
+  "settings.copiedAccessPassword": "Mot de passe d'accès copié.",
+  "settings.copiedSenderLink": "Lien d'envoi copié.",
+  "settings.copiedRealtimePassword": "Mot de passe temps réel copié.",
+  "settings.copiedRealtimeLink": "Lien de la salle temps réel copié.",
+  "settings.remoteStatusUnavailable": "L'état du relais n'est pas disponible pour le moment.",
+  "settings.remoteStatusListeningPublic": "Le relais écoute sur le port {port}. Le lien d'envoi copié utilise l'hôte public que vous avez configuré.",
+  "settings.remoteStatusListeningLocal": "Le relais écoute sur le port {port}. Ajoutez ci-dessous un hôte public ou un domaine si vous voulez que le lien copié fonctionne en dehors de votre réseau local.",
+  "settings.remoteStatusPasswordMissing": "Le mot de passe d'accès est manquant. Redémarrez Flow pour en générer un nouveau.",
+  "settings.remoteStatusHeartbeatStale": "Le heartbeat du récepteur est périmé. Ouvrez la fenêtre du téléprompteur pour rétablir la session en direct.",
+  "settings.remoteSenderUnavailable": "Expéditeur cloud indisponible",
+  "settings.remoteStatusCloudNeedsBuild": "Le relais cloud n'est pas encore configuré dans la version de l'application. Définissez l'URL une fois dans src/remote-config.js.",
+  "settings.remoteStatusCloudRegister": "Le relais cloud est configuré. Ouvrez la fenêtre du téléprompteur pour démarrer les heartbeats et enregistrer ce récepteur.",
+  "settings.remoteStatusCloudActive": "Le relais cloud est actif. Les expéditeurs ont besoin de l'UUID et du mot de passe d'accès généré.",
+  "settings.remoteStatusCloudOffline": "Le relais cloud connaît ce récepteur, mais il est actuellement hors ligne. Laissez Flow ouvert pour recevoir les messages.",
+  "remote.importance.normal": "NORMAL",
+  "remote.importance.important": "IMPORTANT",
+  "remote.cardHint": "Double-cliquez pour injecter · utilisez × pour refuser",
+  "remote.rejectAria": "Refuser le message distant",
+  "remote.fetchFailed": "Impossible de récupérer les messages cloud.",
+  "remote.resolveFailed": "Impossible de traiter le message cloud.",
+  "remote.acceptedAppending": "Message distant accepté. Ajout du texte…",
+  "remote.denied": "Message distant refusé.",
+  "remote.heartbeatFailed": "Le heartbeat cloud a échoué avec le statut {status}."
+});
+
+Object.assign(UI_STRINGS.es, {
+  "doc.remoteInboxTitle": "Notificaciones de Flow",
+  "settings.remoteInjection": "Inyección remota",
+  "settings.remoteSession": "Sesión del receptor en vivo",
+  "settings.remoteTransport": "Transporte remoto",
+  "settings.remoteTransport.local": "Relé local",
+  "settings.remoteTransport.cloud": "Relé en la nube",
+  "settings.remoteCloudHelp": "El relé en la nube usa el UUID activo y la contraseña de acceso generada. Los remitentes abren la página del remitente en la nube y el relé comprueba que el UUID siga activo y que la contraseña de acceso coincida.",
+  "settings.remoteUuid": "UUID activo",
+  "settings.remoteAccessPassword": "Contraseña de acceso",
+  "settings.remoteSenderPage": "Página del remitente",
+  "settings.remoteSenderQr": "QR de conexión rápida",
+  "settings.remoteSenderQrHelp": "Escanea para abrir la página del remitente con el UUID y la contraseña de acceso ya rellenados.",
+  "settings.remoteSenderQrPending": "Abre primero el teleprónter para que Flow publique un UUID activo y una contraseña de acceso antes de escanear.",
+  "settings.remoteSenderQrUnavailable": "El código QR no está disponible hasta que se configure la página del remitente en la nube.",
+  "settings.remoteStatusWaiting": "Esperando el estado del relé.",
+  "settings.remotePublicHost": "Host público / dominio",
+  "settings.remotePublicHostPlaceholder": "Ejemplo: flow.example.com o 82.14.25.90",
+  "settings.remoteLocalHelp": "Para el relé local, el remitente necesita tu dirección pública, el UUID y la contraseña de acceso generada arriba.",
+  "settings.copyNothing": "Todavía no hay nada disponible para copiar.",
+  "settings.copyFailed": "La copia falló. Aun así puedes seleccionar el valor manualmente.",
+  "settings.copiedUuid": "UUID copiado.",
+  "settings.copiedAccessPassword": "Contraseña de acceso copiada.",
+  "settings.copiedSenderLink": "Enlace del remitente copiado.",
+  "settings.copiedRealtimePassword": "Contraseña de tiempo real copiada.",
+  "settings.copiedRealtimeLink": "Enlace de la sala en tiempo real copiado.",
+  "settings.remoteStatusUnavailable": "El estado del relé no está disponible en este momento.",
+  "settings.remoteStatusListeningPublic": "El relé está escuchando en el puerto {port}. El enlace del remitente copiado usa el host público que configuraste.",
+  "settings.remoteStatusListeningLocal": "El relé está escuchando en el puerto {port}. Añade abajo un host público o un dominio si quieres que el enlace copiado funcione fuera de tu red local.",
+  "settings.remoteStatusPasswordMissing": "Falta la contraseña de acceso. Reinicia Flow para generar una nueva.",
+  "settings.remoteStatusHeartbeatStale": "El latido del receptor está obsoleto. Abre la ventana del teleprónter para restaurar la sesión en vivo.",
+  "settings.remoteSenderUnavailable": "Remitente en la nube no disponible",
+  "settings.remoteStatusCloudNeedsBuild": "El relé en la nube todavía no está configurado en la compilación de la aplicación. Define la URL una vez en src/remote-config.js.",
+  "settings.remoteStatusCloudRegister": "El relé en la nube está configurado. Abre la ventana del teleprónter para iniciar los latidos y registrar este receptor.",
+  "settings.remoteStatusCloudActive": "El relé en la nube está activo. Los remitentes necesitan el UUID y la contraseña de acceso generada.",
+  "settings.remoteStatusCloudOffline": "El relé en la nube conoce este receptor, pero ahora mismo está desconectado. Mantén Flow abierto para recibir mensajes.",
+  "remote.importance.normal": "NORMAL",
+  "remote.importance.important": "IMPORTANTE",
+  "remote.cardHint": "Haz doble clic para inyectar · usa × para rechazar",
+  "remote.rejectAria": "Rechazar mensaje remoto",
+  "remote.fetchFailed": "No se pudieron obtener los mensajes en la nube.",
+  "remote.resolveFailed": "No se pudo resolver el mensaje en la nube.",
+  "remote.acceptedAppending": "Mensaje remoto aceptado. Añadiendo texto…",
+  "remote.denied": "Mensaje remoto rechazado.",
+  "remote.heartbeatFailed": "El latido del relé en la nube falló con el estado {status}."
+});
+
+Object.assign(UI_STRINGS.tr, {
+  "settings.remoteRealtimeSection": "Gerçek zamanlı düzenleme",
+  "settings.remoteRealtimeHelp": "Canlı metin düzenleme için özel bir tarayıcı odası oluşturun. Teleprompter yetkili kalır ve bulut rölesi yalnızca el sıkışmasını taşır.",
+  "settings.remoteRealtimeUnavailable": "Bulut rölesi adresi yapılandırılana kadar gerçek zamanlı düzenleme kullanılamaz.",
+  "settings.remoteRealtimePending": "Gerçek zamanlı düzenlemeyi başlatmadan önce Flow'un etkin UUID yayımlayabilmesi için teleprompteri açın.",
+  "settings.remoteRealtimeReady": "Gerçek zamanlı düzenleme hazır. Tarayıcı düzenleyicisini bağlamak için oda bağlantısını açın veya kopyalayın.",
+  "settings.remoteRealtimePassword": "Gerçek zamanlı parola",
+  "settings.remoteRealtimeLinkLabel": "Gerçek zamanlı oda bağlantısı",
+  "settings.remoteRealtimeRoomLink": "Gerçek zamanlı odayı aç",
+  "settings.remoteRealtimeQrHelp": "Gerçek zamanlı odayı tarayıcı düzenleyicisinde doğrudan açmak için tarayın.",
+  "settings.remoteRealtimeQrPending": "Oda QR kodunu oluşturmak için gerçek zamanlı düzenlemeyi başlatın.",
+  "settings.remoteRealtimePublishing": "Gerçek zamanlı düzenleme başlatılıyor. Flow odayı yayımlarken teleprompteri açık tutun.",
+  "settings.remoteRealtimeOnline": "Bir tarayıcı düzenleyicisi gerçek zamanlı düzenlemeye bağlandı. İş birliğine devam etmek için odayı açın veya tarayın.",
+  "settings.remoteRealtimeRelayUnavailable": "Yapılandırılmış gerçek zamanlı röle sitesine şu an ulaşılamıyor. Odayı açmadan önce dağıtımı veya bulut rölesi adresini düzeltin.",
+  "settings.remoteRealtimeBadgeIdle": "Boşta",
+  "settings.remoteRealtimeBadgeWaiting": "Bekleniyor",
+  "settings.remoteRealtimeBadgeAvailable": "Hazır",
+  "settings.remoteRealtimeBadgeOnline": "Bağlı",
+  "settings.remoteRealtimeBadgeUnavailable": "Kullanılamıyor",
+  "settings.remoteRealtimeInit": "Oda oluştur",
+  "settings.remoteRealtimeClose": "Odayı kapat",
+  "settings.remoteRealtimeInitializing": "Oda oluşturuluyor…"
+});
+
+Object.assign(UI_STRINGS.ar, {
+  "settings.remoteRealtimeSection": "التحرير الفوري",
+  "settings.remoteRealtimeHelp": "أنشئ غرفة متصفح خاصة لتحرير النص مباشرة. يبقى الملقن هو المصدر المعتمد بينما ينقل المرحل السحابي المصافحة فقط.",
+  "settings.remoteRealtimeUnavailable": "التحرير الفوري غير متاح حتى يتم إعداد رابط المرحل السحابي.",
+  "settings.remoteRealtimePending": "افتح الملقن أولاً حتى يتمكن Flow من نشر UUID نشط قبل تهيئة التحرير الفوري.",
+  "settings.remoteRealtimeReady": "التحرير الفوري جاهز. افتح رابط الغرفة أو انسخه لتوصيل محرر المتصفح.",
+  "settings.remoteRealtimePassword": "كلمة مرور التحرير الفوري",
+  "settings.remoteRealtimeLinkLabel": "رابط غرفة التحرير الفوري",
+  "settings.remoteRealtimeRoomLink": "افتح غرفة التحرير الفوري",
+  "settings.remoteRealtimeQrHelp": "امسح لفتح غرفة التحرير الفوري مباشرة في محرر المتصفح.",
+  "settings.remoteRealtimeQrPending": "هيئ التحرير الفوري لإنشاء رمز QR للغرفة.",
+  "settings.remoteRealtimePublishing": "يتم تهيئة التحرير الفوري. اترك الملقن مفتوحاً بينما ينشر Flow الغرفة.",
+  "settings.remoteRealtimeOnline": "اتصل محرر متصفح بالتحرير الفوري. افتح الغرفة أو امسحها لمتابعة التعاون.",
+  "settings.remoteRealtimeRelayUnavailable": "يتعذر الوصول حالياً إلى موقع المرحل الفوري المُعد. أصلح النشر أو رابط المرحل السحابي قبل فتح الغرفة.",
+  "settings.remoteRealtimeBadgeIdle": "خامل",
+  "settings.remoteRealtimeBadgeWaiting": "بانتظار",
+  "settings.remoteRealtimeBadgeAvailable": "متاح",
+  "settings.remoteRealtimeBadgeOnline": "متصل",
+  "settings.remoteRealtimeBadgeUnavailable": "غير متاح",
+  "settings.remoteRealtimeInit": "أنشئ الغرفة",
+  "settings.remoteRealtimeClose": "أغلق الغرفة",
+  "settings.remoteRealtimeInitializing": "يتم إنشاء الغرفة..."
+});
+
+Object.assign(UI_STRINGS.de, {
+  "settings.remoteRealtimeSection": "Echtzeitbearbeitung",
+  "settings.remoteRealtimeHelp": "Erstelle einen privaten Browserraum fur die Live-Bearbeitung des Skripts. Der Teleprompter bleibt autoritativ, und das Cloud-Relay ubertragt nur den Verbindungsaufbau.",
+  "settings.remoteRealtimeUnavailable": "Die Echtzeitbearbeitung ist erst verfugbar, wenn die Cloud-Relay-URL konfiguriert ist.",
+  "settings.remoteRealtimePending": "Offne zuerst den Teleprompter, damit Flow vor der Initialisierung der Echtzeitbearbeitung eine aktive UUID veroffentlichen kann.",
+  "settings.remoteRealtimeReady": "Die Echtzeitbearbeitung ist bereit. Offne oder kopiere den Raumlink, um einen Browser-Editor zu verbinden.",
+  "settings.remoteRealtimePassword": "Echtzeitpasswort",
+  "settings.remoteRealtimeLinkLabel": "Echtzeit-Raumlink",
+  "settings.remoteRealtimeRoomLink": "Echtzeitraum offnen",
+  "settings.remoteRealtimeQrHelp": "Scanne, um den Echtzeitraum direkt im Browser-Editor zu offnen.",
+  "settings.remoteRealtimeQrPending": "Initialisiere die Echtzeitbearbeitung, um den QR-Code fur den Raum zu erzeugen.",
+  "settings.remoteRealtimePublishing": "Die Echtzeitbearbeitung wird initialisiert. Lass den Teleprompter geoffnet, wahrend Flow den Raum veroffentlicht.",
+  "settings.remoteRealtimeOnline": "Ein Browser-Editor ist mit der Echtzeitbearbeitung verbunden. Offne oder scanne den Raum, um weiter zusammenzuarbeiten.",
+  "settings.remoteRealtimeRelayUnavailable": "Die konfigurierte Echtzeit-Relay-Website ist derzeit nicht erreichbar. Behebe das Deployment oder die Cloud-Relay-URL, bevor du den Raum offnest.",
+  "settings.remoteRealtimeBadgeIdle": "Leerlauf",
+  "settings.remoteRealtimeBadgeWaiting": "Warten",
+  "settings.remoteRealtimeBadgeAvailable": "Verfugbar",
+  "settings.remoteRealtimeBadgeOnline": "Verbunden",
+  "settings.remoteRealtimeBadgeUnavailable": "Nicht verfugbar",
+  "settings.remoteRealtimeInit": "Raum erstellen",
+  "settings.remoteRealtimeClose": "Raum schliessen",
+  "settings.remoteRealtimeInitializing": "Raum wird erstellt..."
+});
+
+Object.assign(UI_STRINGS.fr, {
+  "settings.remoteRealtimeSection": "Edition en temps reel",
+  "settings.remoteRealtimeHelp": "Creez une salle de navigateur privee pour modifier le script en direct. Le teleprompteur reste la source d'autorite et le relais cloud ne transporte que l'etablissement de la connexion.",
+  "settings.remoteRealtimeUnavailable": "L'edition en temps reel n'est pas disponible tant que l'URL du relais cloud n'est pas configuree.",
+  "settings.remoteRealtimePending": "Ouvrez d'abord le teleprompteur pour que Flow puisse publier un UUID actif avant d'initialiser l'edition en temps reel.",
+  "settings.remoteRealtimeReady": "L'edition en temps reel est prete. Ouvrez ou copiez le lien de la salle pour connecter un editeur dans le navigateur.",
+  "settings.remoteRealtimePassword": "Mot de passe temps reel",
+  "settings.remoteRealtimeLinkLabel": "Lien de la salle temps reel",
+  "settings.remoteRealtimeRoomLink": "Ouvrir la salle temps reel",
+  "settings.remoteRealtimeQrHelp": "Scannez pour ouvrir directement la salle temps reel dans l'editeur du navigateur.",
+  "settings.remoteRealtimeQrPending": "Initialisez l'edition en temps reel pour generer le QR code de la salle.",
+  "settings.remoteRealtimePublishing": "L'edition en temps reel s'initialise. Laissez le teleprompteur ouvert pendant que Flow publie la salle.",
+  "settings.remoteRealtimeOnline": "Un editeur de navigateur est connecte a l'edition en temps reel. Ouvrez ou scannez la salle pour continuer a collaborer.",
+  "settings.remoteRealtimeRelayUnavailable": "Le site du relais temps reel configure est actuellement inaccessible. Corrigez le deploiement ou l'URL du relais cloud avant d'ouvrir la salle.",
+  "settings.remoteRealtimeBadgeIdle": "Inactif",
+  "settings.remoteRealtimeBadgeWaiting": "Attente",
+  "settings.remoteRealtimeBadgeAvailable": "Disponible",
+  "settings.remoteRealtimeBadgeOnline": "Connecte",
+  "settings.remoteRealtimeBadgeUnavailable": "Indisponible",
+  "settings.remoteRealtimeInit": "Creer la salle",
+  "settings.remoteRealtimeClose": "Fermer la salle",
+  "settings.remoteRealtimeInitializing": "Creation de la salle..."
+});
+
+Object.assign(UI_STRINGS.es, {
+  "settings.remoteRealtimeSection": "Edicion en tiempo real",
+  "settings.remoteRealtimeHelp": "Crea una sala privada del navegador para editar el guion en vivo. El teleprompter sigue siendo la fuente autoritativa y el relay en la nube solo lleva el enlace inicial.",
+  "settings.remoteRealtimeUnavailable": "La edicion en tiempo real no esta disponible hasta que se configure la URL del relay en la nube.",
+  "settings.remoteRealtimePending": "Abre primero el teleprompter para que Flow pueda publicar un UUID activo antes de iniciar la edicion en tiempo real.",
+  "settings.remoteRealtimeReady": "La edicion en tiempo real esta lista. Abre o copia el enlace de la sala para conectar un editor del navegador.",
+  "settings.remoteRealtimePassword": "Contrasena de tiempo real",
+  "settings.remoteRealtimeLinkLabel": "Enlace de la sala en tiempo real",
+  "settings.remoteRealtimeRoomLink": "Abrir sala en tiempo real",
+  "settings.remoteRealtimeQrHelp": "Escanea para abrir directamente la sala en tiempo real en el editor del navegador.",
+  "settings.remoteRealtimeQrPending": "Inicia la edicion en tiempo real para generar el codigo QR de la sala.",
+  "settings.remoteRealtimePublishing": "La edicion en tiempo real se esta iniciando. Mantén el teleprompter abierto mientras Flow publica la sala.",
+  "settings.remoteRealtimeOnline": "Un editor del navegador esta conectado a la edicion en tiempo real. Abre o escanea la sala para seguir colaborando.",
+  "settings.remoteRealtimeRelayUnavailable": "El sitio configurado del relay en tiempo real no es accesible ahora mismo. Corrige el despliegue o la URL del relay en la nube antes de abrir la sala.",
+  "settings.remoteRealtimeBadgeIdle": "Inactivo",
+  "settings.remoteRealtimeBadgeWaiting": "En espera",
+  "settings.remoteRealtimeBadgeAvailable": "Disponible",
+  "settings.remoteRealtimeBadgeOnline": "Conectado",
+  "settings.remoteRealtimeBadgeUnavailable": "No disponible",
+  "settings.remoteRealtimeInit": "Crear sala",
+  "settings.remoteRealtimeClose": "Cerrar sala",
+  "settings.remoteRealtimeInitializing": "Creando sala..."
+});
+
 const FONT_STACKS = {
   inter: 'Inter, "Segoe UI", Arial, sans-serif',
   "space-grotesk": '"Space Grotesk", "Segoe UI", Arial, sans-serif',
@@ -2761,6 +2998,42 @@ function createDefaults() {
   return structuredClone(defaultState);
 }
 
+function normalizeLocaleDigits(value) {
+  return String(value || "")
+    .replace(/[\u0660-\u0669]/g, (digit) => String(digit.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (digit) => String(digit.charCodeAt(0) - 0x06F0))
+    .replace(/[\uFF10-\uFF19]/g, (digit) => String(digit.charCodeAt(0) - 0xFF10))
+    .replace(/\u066B/g, ".")
+    .replace(/\u066C/g, ",");
+}
+
+export function parseLocaleNumber(value) {
+  if (typeof value === "number") {
+    return value;
+  }
+
+  let source = normalizeLocaleDigits(value).trim();
+  if (!source) {
+    return Number.NaN;
+  }
+
+  source = source.replace(/[\s\u00A0\u202F']/g, "");
+
+  const commaCount = (source.match(/,/g) || []).length;
+  const dotCount = (source.match(/\./g) || []).length;
+
+  if (commaCount && dotCount) {
+    source = source.lastIndexOf(",") > source.lastIndexOf(".")
+      ? source.replace(/\./g, "").replace(/,/g, ".")
+      : source.replace(/,/g, "");
+  } else if (commaCount) {
+    const looksGrouped = /^[-+]?\d{1,3}(?:,\d{3})+$/.test(source);
+    source = looksGrouped ? source.replace(/,/g, "") : source.replace(/,/g, ".");
+  }
+
+  return Number(source);
+}
+
 function normalizeColor(value, fallback) {
   if (typeof value !== "string") return fallback;
   const trimmed = value.trim();
@@ -2768,25 +3041,25 @@ function normalizeColor(value, fallback) {
 }
 
 function normalizeOpacity(value, fallback) {
-  const numeric = Number(value);
+  const numeric = parseLocaleNumber(value);
   if (!Number.isFinite(numeric)) return fallback;
   return clamp(Math.round(numeric), 10, 100);
 }
 
 function normalizeAppOpacity(value, fallback) {
-  const numeric = Number(value);
+  const numeric = parseLocaleNumber(value);
   if (!Number.isFinite(numeric)) return fallback;
   return clamp(Math.round(numeric), 15, 100);
 }
 
 function normalizeTextScale(value, fallback) {
-  const numeric = Number(value);
+  const numeric = parseLocaleNumber(value);
   if (!Number.isFinite(numeric)) return fallback;
   return clamp(Math.round(numeric), 30, 180);
 }
 
 function normalizeScrollStartDelaySeconds(value, fallback) {
-  const numeric = Number(value);
+  const numeric = parseLocaleNumber(value);
   if (!Number.isFinite(numeric)) return fallback;
   return clamp(Math.round(numeric), 0, 10);
 }
@@ -2796,7 +3069,7 @@ function normalizeFontFamily(value, fallback) {
 }
 
 function normalizeSpeed(value, fallback) {
-  const numeric = Number(value);
+  const numeric = parseLocaleNumber(value);
   if (!Number.isFinite(numeric)) {
     return fallback;
   }
@@ -3003,10 +3276,10 @@ function normalizeWindowSettings(value, fallback) {
     ...(value || {})
   };
 
-  const width = Number(merged.width);
-  const height = Number(merged.height);
-  const x = Number(merged.x);
-  const y = Number(merged.y);
+  const width = parseLocaleNumber(merged.width);
+  const height = parseLocaleNumber(merged.height);
+  const x = parseLocaleNumber(merged.x);
+  const y = parseLocaleNumber(merged.y);
 
   merged.width = Number.isFinite(width) && width > 0 && width <= 10_000
     ? Math.round(width)
@@ -3022,8 +3295,8 @@ function normalizeWindowSettings(value, fallback) {
   merged.isPinned = merged.isPinned !== false;
 
   if (
-    [960, 1040, 1120, 1280, 1354].includes(Number(merged.width))
-    && Number(merged.height) === fallback.height
+    [960, 1040, 1120, 1280, 1354].includes(parseLocaleNumber(merged.width))
+    && parseLocaleNumber(merged.height) === fallback.height
     && (merged.preset === fallback.preset || !merged.preset)
   ) {
     merged.width = fallback.width;
@@ -3095,16 +3368,16 @@ export function translate(key, language = defaultState.language, params = {}) {
 }
 
 const WAIT_CARD_PATTERNS = [
-  /^(.*?\bwait\s+)(\d+(?:\.\d+)?)(\s*(?:seconds?|secs?|s)?[\s\S]*)$/iu,
-  /^(.*?)(\d+(?:\.\d+)?)(\s*(?:san[iıİI]ye|sn|s)\s*bekle[\s\S]*)$/iu,
-  /^(.*?\bbekle\s+)(\d+(?:\.\d+)?)(\s*(?:san[iıİI]ye|sn|s)?[\s\S]*)$/iu,
-  /^(.*?انتظر\s+)(\d+(?:\.\d+)?)(\s*(?:ثوان(?:ٍ|ي)?|ثانية)?[\s\S]*)$/u,
-  /^(.*?\bwarte\s+)(\d+(?:\.\d+)?)(\s*(?:sekunden?|sek|s)?[\s\S]*)$/iu,
-  /^(.*?\battends\s+)(\d+(?:\.\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
-  /^(.*?\battendez\s+)(\d+(?:\.\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
-  /^(.*?\battendre\s+)(\d+(?:\.\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
-  /^(.*?\bespera\s+)(\d+(?:\.\d+)?)(\s*(?:segundos?|seg|s)?[\s\S]*)$/iu,
-  /^(.*?\besperar\s+)(\d+(?:\.\d+)?)(\s*(?:segundos?|seg|s)?[\s\S]*)$/iu
+  /^(.*?\bwait\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:seconds?|secs?|s)?[\s\S]*)$/iu,
+  /^(.*?)(\d+(?:[.,\u066B]\d+)?)(\s*(?:san[iıİI]ye|sn|s)\s*bekle[\s\S]*)$/iu,
+  /^(.*?\bbekle\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:san[iıİI]ye|sn|s)?[\s\S]*)$/iu,
+  /^(.*?انتظر\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:ثوان(?:ٍ|ي)?|ثانية)?[\s\S]*)$/u,
+  /^(.*?\bwarte\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:sekunden?|sek|s)?[\s\S]*)$/iu,
+  /^(.*?\battends\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
+  /^(.*?\battendez\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
+  /^(.*?\battendre\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:secondes?|sec|s)?[\s\S]*)$/iu,
+  /^(.*?\bespera\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:segundos?|seg|s)?[\s\S]*)$/iu,
+  /^(.*?\besperar\s+)(\d+(?:[.,\u066B]\d+)?)(\s*(?:segundos?|seg|s)?[\s\S]*)$/iu
 ];
 
 export function parseWaitCardText(text) {
@@ -3119,7 +3392,7 @@ export function parseWaitCardText(text) {
       continue;
     }
 
-    const seconds = Number(match[2]);
+    const seconds = parseLocaleNumber(match[2]);
     if (!Number.isFinite(seconds) || seconds <= 0) {
       return null;
     }
@@ -3869,6 +4142,7 @@ export function applyAppearanceToDocument(appearance = {}, target = document) {
     ...defaultState.appearance,
     ...appearance
   };
+  const appOpacity = normalizeAppOpacity(merged.appOpacity, defaultState.appearance.appOpacity);
 
   applyThemeToDocument(merged.theme, target);
   target.body.dataset.style = merged.style || defaultState.appearance.style;
@@ -3876,7 +4150,8 @@ export function applyAppearanceToDocument(appearance = {}, target = document) {
   target.body.dataset.mirrorVertical = merged.mirrorVertical ? "true" : "false";
   target.body.dataset.toolbarAutoHide = merged.autoHideToolbar ? "true" : "false";
   target.body.dataset.performanceMode = merged.performanceMode ? "true" : "false";
-  target.documentElement?.style?.setProperty("--flow-app-opacity", String(clamp(merged.appOpacity / 100, 0.15, 1)));
+  target.documentElement?.style?.setProperty("--flow-app-opacity", String(appOpacity / 100));
+  target.documentElement?.style?.setProperty("--flow-app-opacity-percent", `${appOpacity}%`);
 }
 
 const DESKTOP_WINDOW_FADE_MS = 230;

@@ -10,24 +10,26 @@
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    fs,
+    env, fs,
     io::Cursor,
     net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
     path::{Path as FsPath, PathBuf},
+    process::Command,
     sync::{Arc, Mutex},
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use axum::{
     extract::{ConnectInfo, Path, State},
-    http::{header, HeaderMap, HeaderValue, StatusCode},
-    response::{Html, IntoResponse, Redirect, Response},
+    http::{HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
     routing::{get, post},
     Json, Router,
 };
 use flate2::read::GzDecoder;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
+use tar::Archive;
 use tauri::{
     image::Image,
     menu::{MenuBuilder, MenuItemBuilder},
@@ -36,7 +38,6 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use tauri_plugin_prevent_default::Flags;
-use tar::Archive;
 use tokio::io::AsyncWriteExt;
 use uuid::Uuid;
 use vosk::{set_log_level, LogLevel};
@@ -45,13 +46,22 @@ use zip::ZipArchive;
 mod voice_engine;
 
 #[cfg(windows)]
+use windows::core::{HSTRING, PCWSTR};
+
+#[cfg(windows)]
+use winreg::{
+    enums::{HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE},
+    RegKey,
+};
+
+#[cfg(windows)]
 use windows::Win32::System::Power::{
     SetThreadExecutionState, ES_CONTINUOUS, ES_DISPLAY_REQUIRED, ES_SYSTEM_REQUIRED,
 };
 
 #[cfg(windows)]
 use windows::Win32::UI::WindowsAndMessaging::{
-    SetWindowDisplayAffinity, WDA_EXCLUDEFROMCAPTURE, WDA_NONE,
+    MessageBoxW, SetWindowDisplayAffinity, MB_ICONERROR, MB_OK, WDA_EXCLUDEFROMCAPTURE, WDA_NONE,
 };
 
 #[allow(dead_code)]
@@ -71,7 +81,12 @@ const APP_STATE_FILE_NAME: &str = "state.json";
 const VOICE_MODEL_REGISTRY_FILE_NAME: &str = "voice-model-registry.json";
 const SETTINGS_WINDOW_WIDTH: f64 = 620.0;
 const SETTINGS_WINDOW_HEIGHT: f64 = 700.0;
-const UPDATER_FEED_URL: &str = "https://github.com/LumoRez07/Flow/releases/latest/download/latest.json";
+const UPDATER_FEED_URL: &str =
+    "https://github.com/LumoRez07/Flow/releases/latest/download/latest.json";
+const WEBVIEW2_CONSUMER_DOWNLOAD_URL: &str =
+    "https://developer.microsoft.com/microsoft-edge/webview2/consumer/";
+#[cfg(windows)]
+const WEBVIEW2_RUNTIME_CLIENT_ID: &str = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}";
 const BUNDLED_ENGLISH_VOSK_MODEL: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../src/assets/vosk-model-small-en-us-0.15.tar.gz"
@@ -200,7 +215,8 @@ const VOICE_MODEL_SPECS: [VoiceModelSpec; 23] = [
         family: "Dictation LGraph",
         archive_name: "vosk-model-en-us-daanzu-20200905-lgraph.zip",
         install_dir_name: "vosk-model-en-us-daanzu-20200905-lgraph",
-        download_url: "https://alphacephei.com/vosk/models/vosk-model-en-us-daanzu-20200905-lgraph.zip",
+        download_url:
+            "https://alphacephei.com/vosk/models/vosk-model-en-us-daanzu-20200905-lgraph.zip",
         download_size_mb: 129,
         runtime_memory_mb: 900,
         license: "AGPL",
@@ -717,7 +733,9 @@ impl RemoteRelay {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        sessions.entry(session_id).or_insert_with(ReceiverSession::new);
+        sessions
+            .entry(session_id)
+            .or_insert_with(ReceiverSession::new);
     }
 
     fn current_status(&self) -> RemoteReceiverStatus {
@@ -775,7 +793,10 @@ impl RemoteRelay {
             return self.inner.sender_url.clone();
         }
 
-        format!("http://{}:{}/sender", credentials.public_host, REMOTE_RELAY_PORT)
+        format!(
+            "http://{}:{}/sender",
+            credentials.public_host, REMOTE_RELAY_PORT
+        )
     }
 
     fn update_access(&self, public_host: String, access_password: String) -> RemoteReceiverStatus {
@@ -785,8 +806,8 @@ impl RemoteRelay {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-        credentials.public_host = truncate(&strip_protocol(&public_host), 255).trim().to_string();
-        credentials.access_password = truncate(&access_password, 1024).trim().to_string();
+        credentials.public_host = truncate(strip_protocol(&public_host), 255);
+        credentials.access_password = truncate(&access_password, 1024);
         drop(credentials);
 
         self.current_status()
@@ -872,7 +893,11 @@ impl RemoteRelay {
 
         let session = sessions.get(session_id)?;
 
-        if let Some(message) = session.pending_messages.iter().find(|message| message.id == message_id) {
+        if let Some(message) = session
+            .pending_messages
+            .iter()
+            .find(|message| message.id == message_id)
+        {
             return Some(build_remote_message_reply_status(message, "queued", None));
         }
 
@@ -1071,13 +1096,194 @@ fn set_sleep_prevention(_enabled: bool) {}
 fn load_dev_tray_icon() -> tauri::Result<Image<'static>> {
     #[cfg(debug_assertions)]
     {
-        let icon_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons").join("icon.ico");
+        let icon_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("icons")
+            .join("icon.ico");
         if icon_path.exists() {
             return Image::from_path(icon_path).map(|image| image.to_owned());
         }
     }
 
     Err(tauri::Error::AssetNotFound("dev tray icon missing".into()))
+}
+
+#[cfg(windows)]
+fn show_startup_error_dialog(message: &str) {
+    let text = HSTRING::from(message);
+    let title = HSTRING::from("Flow startup error");
+
+    let _ = unsafe {
+        MessageBoxW(
+            None,
+            PCWSTR(text.as_ptr()),
+            PCWSTR(title.as_ptr()),
+            MB_OK | MB_ICONERROR,
+        )
+    };
+}
+
+#[cfg(not(windows))]
+fn show_startup_error_dialog(_message: &str) {}
+
+#[cfg(windows)]
+fn is_valid_webview2_version(version: &str) -> bool {
+    let trimmed = version.trim();
+    !trimmed.is_empty()
+        && trimmed != "0.0.0.0"
+        && trimmed.split('.').all(|segment| {
+            !segment.is_empty() && segment.chars().all(|character| character.is_ascii_digit())
+        })
+}
+
+#[cfg(windows)]
+fn webview2_runtime_binary_exists(version: &str) -> bool {
+    let relative_path = [
+        "Microsoft",
+        "EdgeWebView",
+        "Application",
+        version,
+        "msedgewebview2.exe",
+    ];
+    let candidate_roots = [
+        env::var_os("LOCALAPPDATA"),
+        env::var_os("ProgramFiles(x86)"),
+        env::var_os("ProgramFiles"),
+    ];
+
+    candidate_roots.into_iter().flatten().any(|root| {
+        let mut path = PathBuf::from(root);
+        for segment in relative_path {
+            path.push(segment);
+        }
+        path.is_file()
+    })
+}
+
+#[cfg(windows)]
+fn find_webview2_runtime_version() -> Option<String> {
+    let subkeys = [
+        (
+            HKEY_CURRENT_USER,
+            format!(
+                r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{}",
+                WEBVIEW2_RUNTIME_CLIENT_ID
+            ),
+        ),
+        (
+            HKEY_LOCAL_MACHINE,
+            format!(
+                r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{}",
+                WEBVIEW2_RUNTIME_CLIENT_ID
+            ),
+        ),
+        (
+            HKEY_LOCAL_MACHINE,
+            format!(
+                r"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{}",
+                WEBVIEW2_RUNTIME_CLIENT_ID
+            ),
+        ),
+    ];
+
+    subkeys.iter().find_map(|(hive, path)| {
+        let key = RegKey::predef(*hive).open_subkey(path).ok()?;
+        let version: String = key.get_value("pv").ok()?;
+        (is_valid_webview2_version(&version) && webview2_runtime_binary_exists(&version))
+            .then_some(version)
+    })
+}
+
+#[cfg(windows)]
+fn open_webview2_download_page() {
+    let _ = Command::new("explorer.exe")
+        .arg(WEBVIEW2_CONSUMER_DOWNLOAD_URL)
+        .spawn();
+}
+
+#[cfg(not(windows))]
+fn open_webview2_download_page() {}
+
+#[cfg(windows)]
+fn ensure_webview2_runtime_available() -> bool {
+    if find_webview2_runtime_version().is_some() {
+        return true;
+    }
+
+    show_startup_error_dialog(
+        "Flow requires the Microsoft Edge WebView2 Runtime to start, but it does not appear to be installed correctly on this PC.\n\nClick OK to open Microsoft's official WebView2 Runtime download page. After installing it, launch Flow again.",
+    );
+    open_webview2_download_page();
+    false
+}
+
+#[cfg(not(windows))]
+fn ensure_webview2_runtime_available() -> bool {
+    true
+}
+
+fn format_startup_error_message(error: &tauri::Error) -> String {
+    format!(
+        concat!(
+            "Flow could not start the desktop runtime.\n\n",
+            "Common causes on Windows:\n",
+            "- Microsoft Edge WebView2 Runtime is missing, outdated, or blocked by Group Policy.\n",
+            "- Security software prevented the embedded webview from starting.\n",
+            "- The user profile or app data location is unavailable.\n\n",
+            "Install or repair the Evergreen WebView2 Runtime, then try again.\n\n",
+            "Technical details:\n{}"
+        ),
+        error
+    )
+}
+
+fn log_backend_error(context: &str, error: &dyn std::fmt::Display) {
+    eprintln!("[flow-backend] {context}: {error}");
+}
+
+fn remove_existing_path(path: &FsPath) -> Result<(), String> {
+    if !path.exists() {
+        return Ok(());
+    }
+
+    if path.is_dir() {
+        fs::remove_dir_all(path).map_err(|error| error.to_string())
+    } else {
+        fs::remove_file(path).map_err(|error| error.to_string())
+    }
+}
+
+fn backup_path_for(target: &FsPath) -> PathBuf {
+    let mut file_name = target
+        .file_name()
+        .map(|name| name.to_os_string())
+        .unwrap_or_else(|| "flow-backup".into());
+    file_name.push(".bak");
+    target.with_file_name(file_name)
+}
+
+fn replace_path_from_temp(temp_path: &FsPath, final_path: &FsPath) -> Result<(), String> {
+    let backup_path = backup_path_for(final_path);
+    remove_existing_path(&backup_path)?;
+
+    let had_original = final_path.exists();
+    if had_original {
+        fs::rename(final_path, &backup_path).map_err(|error| error.to_string())?;
+    }
+
+    match fs::rename(temp_path, final_path) {
+        Ok(()) => {
+            if had_original {
+                remove_existing_path(&backup_path)?;
+            }
+            Ok(())
+        }
+        Err(error) => {
+            if had_original && backup_path.exists() {
+                let _ = fs::rename(&backup_path, final_path);
+            }
+            Err(error.to_string())
+        }
+    }
 }
 
 fn install_dpi_scale_guard(window: &WebviewWindow) {
@@ -1675,7 +1881,9 @@ async fn download_voice_model(
 
         while let Some(chunk) = stream.next().await {
             let bytes = chunk.map_err(|error| error.to_string())?;
-            file.write_all(&bytes).await.map_err(|error| error.to_string())?;
+            file.write_all(&bytes)
+                .await
+                .map_err(|error| error.to_string())?;
             downloaded_bytes += bytes.len() as u64;
 
             if last_emit_at.elapsed() >= Duration::from_millis(150) {
@@ -1690,7 +1898,8 @@ async fn download_voice_model(
                         label: spec.label.to_string(),
                         downloaded_bytes,
                         total_bytes,
-                        remaining_bytes: total_bytes.map(|total| total.saturating_sub(downloaded_bytes)),
+                        remaining_bytes: total_bytes
+                            .map(|total| total.saturating_sub(downloaded_bytes)),
                         speed_bytes_per_second: Some(speed),
                         path: None,
                         message: None,
@@ -1703,10 +1912,7 @@ async fn download_voice_model(
         file.flush().await.map_err(|error| error.to_string())?;
         drop(file);
 
-        if final_path.exists() {
-            fs::remove_file(&final_path).map_err(|error| error.to_string())?;
-        }
-        fs::rename(&temp_path, &final_path).map_err(|error| error.to_string())?;
+        replace_path_from_temp(&temp_path, &final_path)?;
         extract_downloaded_voice_model(&app, spec)?;
         fs::remove_file(&final_path).map_err(|error| error.to_string())?;
 
@@ -1721,7 +1927,9 @@ async fn download_voice_model(
                 downloaded_bytes: status.size_bytes,
                 total_bytes: Some(status.size_bytes),
                 remaining_bytes: Some(0),
-                speed_bytes_per_second: Some(status.size_bytes as f64 / started_at.elapsed().as_secs_f64().max(0.001)),
+                speed_bytes_per_second: Some(
+                    status.size_bytes as f64 / started_at.elapsed().as_secs_f64().max(0.001),
+                ),
                 path: status.path.clone(),
                 message: Some("Voice model download completed".into()),
             },
@@ -1798,53 +2006,43 @@ fn show_window(app: &tauri::AppHandle, label: &str) {
 fn spawn_remote_relay_server(relay: RemoteRelay) {
     tauri::async_runtime::spawn(async move {
         let router = Router::new()
-            .route("/", get(redirect_to_sender))
-            .route("/sender", get(sender_page))
-            .route("/remote.js", get(sender_script))
-            .route("/api/receiver/:session_id/auth", post(authenticate_remote_sender))
+            .route(
+                "/api/receiver/:session_id/auth",
+                post(authenticate_remote_sender),
+            )
             .route("/api/receiver/:session_id/active", get(receiver_active))
-            .route("/api/receiver/:session_id/messages", post(send_remote_message))
+            .route(
+                "/api/receiver/:session_id/messages",
+                post(send_remote_message),
+            )
             .route(
                 "/api/receiver/:session_id/messages/:message_id/status",
                 get(remote_message_status),
             )
             .with_state(relay);
 
-        let listener = match tokio::net::TcpListener::bind(SocketAddr::from(([0, 0, 0, 0], REMOTE_RELAY_PORT))).await {
+        let listener = match tokio::net::TcpListener::bind(SocketAddr::from((
+            [0, 0, 0, 0],
+            REMOTE_RELAY_PORT,
+        )))
+        .await
+        {
             Ok(listener) => listener,
             Err(error) => {
-                eprintln!("remote relay bind error: {error}");
+                log_backend_error("remote relay bind", &error);
                 return;
             }
         };
 
-        if let Err(error) = axum::serve(listener, router.into_make_service_with_connect_info::<SocketAddr>()).await {
-            eprintln!("remote relay server error: {error}");
+        if let Err(error) = axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<SocketAddr>(),
+        )
+        .await
+        {
+            log_backend_error("remote relay server", &error);
         }
     });
-}
-
-#[allow(dead_code)]
-async fn redirect_to_sender() -> Redirect {
-    Redirect::temporary("/sender")
-}
-
-#[allow(dead_code)]
-async fn sender_page() -> impl IntoResponse {
-    let headers = [(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("text/html; charset=utf-8"),
-    )];
-    (headers, Html(include_str!("../../src/remote-sender.html")))
-}
-
-#[allow(dead_code)]
-async fn sender_script() -> impl IntoResponse {
-    let headers = [(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("application/javascript; charset=utf-8"),
-    )];
-    (headers, include_str!("../../src/remote-sender.js"))
 }
 
 #[allow(dead_code)]
@@ -2074,7 +2272,12 @@ fn prune_attempts(entries: &mut VecDeque<Instant>) {
 
 #[allow(dead_code)]
 fn normalize_importance(value: Option<&str>) -> String {
-    match value.unwrap_or_default().trim().to_ascii_lowercase().as_str() {
+    match value
+        .unwrap_or_default()
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "important" => "important".into(),
         _ => "normal".into(),
     }
@@ -2084,22 +2287,21 @@ fn truncate(input: &str, max_chars: usize) -> String {
     input.trim().chars().take(max_chars).collect()
 }
 
-fn strip_protocol(input: &str) -> String {
-    input
-        .trim()
-        .trim_end_matches('/')
+fn strip_protocol(input: &str) -> &str {
+    let trimmed = input.trim().trim_end_matches('/');
+
+    trimmed
         .strip_prefix("http://")
-        .or_else(|| input.trim().trim_end_matches('/').strip_prefix("https://"))
-        .unwrap_or(input.trim().trim_end_matches('/'))
-        .to_string()
+        .or_else(|| trimmed.strip_prefix("https://"))
+        .unwrap_or(trimmed)
 }
 
 #[allow(dead_code)]
 fn create_preview(content: &str) -> String {
-    let words = content.split_whitespace().take(14).collect::<Vec<_>>();
-    let preview = words.join(" ");
+    let mut words = content.split_whitespace();
+    let preview = words.by_ref().take(14).collect::<Vec<_>>().join(" ");
 
-    if content.split_whitespace().count() > words.len() {
+    if words.next().is_some() {
         format!("{preview}…")
     } else {
         preview
@@ -2155,7 +2357,11 @@ pub(crate) fn get_voice_model_spec(
     VOICE_MODEL_SPECS
         .iter()
         .find(|spec| spec.language == normalized && spec.recommended)
-        .or_else(|| VOICE_MODEL_SPECS.iter().find(|spec| spec.language == normalized))
+        .or_else(|| {
+            VOICE_MODEL_SPECS
+                .iter()
+                .find(|spec| spec.language == normalized)
+        })
 }
 
 pub(crate) fn voice_models_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -2204,10 +2410,7 @@ where
     let temp_path = path.with_extension("tmp");
     let bytes = serde_json::to_vec_pretty(value).map_err(|error| error.to_string())?;
     fs::write(&temp_path, bytes).map_err(|error| error.to_string())?;
-    if path.exists() {
-        fs::remove_file(&path).map_err(|error| error.to_string())?;
-    }
-    fs::rename(&temp_path, &path).map_err(|error| error.to_string())?;
+    replace_path_from_temp(&temp_path, &path)?;
     Ok(())
 }
 
@@ -2215,8 +2418,9 @@ where
 fn load_persisted_app_data(app: tauri::AppHandle) -> Result<PersistedAppDataPayload, String> {
     let state = read_json_storage::<serde_json::Value>(&app, APP_STATE_FILE_NAME)?
         .unwrap_or_else(|| serde_json::json!({}));
-    let voice_model_registry = read_json_storage::<serde_json::Value>(&app, VOICE_MODEL_REGISTRY_FILE_NAME)?
-        .unwrap_or_else(|| serde_json::json!({}));
+    let voice_model_registry =
+        read_json_storage::<serde_json::Value>(&app, VOICE_MODEL_REGISTRY_FILE_NAME)?
+            .unwrap_or_else(|| serde_json::json!({}));
 
     Ok(PersistedAppDataPayload {
         state,
@@ -2237,17 +2441,26 @@ fn save_persisted_voice_model_registry(
     write_json_storage(&app, VOICE_MODEL_REGISTRY_FILE_NAME, &registry)
 }
 
-fn voice_model_language_dir(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+fn voice_model_language_dir(
+    app: &tauri::AppHandle,
+    spec: &VoiceModelSpec,
+) -> Result<PathBuf, String> {
     let dir = voice_models_dir(app)?.join(spec.language);
     fs::create_dir_all(&dir).map_err(|error| error.to_string())?;
     Ok(dir)
 }
 
-fn voice_model_archive_path(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+fn voice_model_archive_path(
+    app: &tauri::AppHandle,
+    spec: &VoiceModelSpec,
+) -> Result<PathBuf, String> {
     Ok(voice_model_language_dir(app, spec)?.join(spec.archive_name))
 }
 
-pub(crate) fn voice_model_install_dir(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+pub(crate) fn voice_model_install_dir(
+    app: &tauri::AppHandle,
+    spec: &VoiceModelSpec,
+) -> Result<PathBuf, String> {
     Ok(voice_model_language_dir(app, spec)?.join(spec.install_dir_name))
 }
 
@@ -2288,7 +2501,10 @@ fn compute_dir_size_bytes(path: &FsPath) -> u64 {
         .sum()
 }
 
-fn extract_bundled_voice_model(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+fn extract_bundled_voice_model(
+    app: &tauri::AppHandle,
+    spec: &VoiceModelSpec,
+) -> Result<PathBuf, String> {
     let final_dir = voice_model_install_dir(app, spec)?;
     if is_installed_voice_model_dir(&final_dir) {
         return Ok(final_dir);
@@ -2305,7 +2521,9 @@ fn extract_bundled_voice_model(app: &tauri::AppHandle, spec: &VoiceModelSpec) ->
         Some(BundledVoiceArchiveKind::TarGz) => {
             let decoder = GzDecoder::new(Cursor::new(BUNDLED_ENGLISH_VOSK_MODEL));
             let mut archive = Archive::new(decoder);
-            archive.unpack(&temp_dir).map_err(|error| error.to_string())?;
+            archive
+                .unpack(&temp_dir)
+                .map_err(|error| error.to_string())?;
         }
         None => return Err("This voice model is not bundled".into()),
     }
@@ -2313,7 +2531,10 @@ fn extract_bundled_voice_model(app: &tauri::AppHandle, spec: &VoiceModelSpec) ->
     finalize_extracted_voice_model(&temp_dir, &final_dir)
 }
 
-fn extract_downloaded_voice_model(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<PathBuf, String> {
+fn extract_downloaded_voice_model(
+    app: &tauri::AppHandle,
+    spec: &VoiceModelSpec,
+) -> Result<PathBuf, String> {
     let archive_path = voice_model_archive_path(app, spec)?;
     let extraction_root = voice_model_language_dir(app, spec)?;
     let final_dir = voice_model_install_dir(app, spec)?;
@@ -2350,16 +2571,16 @@ fn extract_downloaded_voice_model(app: &tauri::AppHandle, spec: &VoiceModelSpec)
     finalize_extracted_voice_model(&temp_dir, &final_dir)
 }
 
-fn finalize_extracted_voice_model(temp_dir: &FsPath, final_dir: &FsPath) -> Result<PathBuf, String> {
+fn finalize_extracted_voice_model(
+    temp_dir: &FsPath,
+    final_dir: &FsPath,
+) -> Result<PathBuf, String> {
     let extracted_root = resolve_extracted_voice_model_root(temp_dir)?;
-    if final_dir.exists() {
-        fs::remove_dir_all(final_dir).map_err(|error| error.to_string())?;
-    }
 
     if extracted_root == temp_dir {
-        fs::rename(temp_dir, final_dir).map_err(|error| error.to_string())?;
+        replace_path_from_temp(temp_dir, final_dir)?;
     } else {
-        fs::rename(&extracted_root, final_dir).map_err(|error| error.to_string())?;
+        replace_path_from_temp(&extracted_root, final_dir)?;
         fs::remove_dir_all(temp_dir).map_err(|error| error.to_string())?;
     }
 
@@ -2398,7 +2619,10 @@ pub(crate) fn ensure_voice_model_ready_for_model(
     Err(format!("Missing Vosk model for {}", spec.label))
 }
 
-fn build_voice_model_status(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Result<VoiceModelStatus, String> {
+fn build_voice_model_status(
+    app: &tauri::AppHandle,
+    spec: &VoiceModelSpec,
+) -> Result<VoiceModelStatus, String> {
     let install_dir = voice_model_install_dir(app, spec)?;
     if !is_installed_voice_model_dir(&install_dir) && spec.bundled_archive_kind.is_some() {
         let _ = extract_bundled_voice_model(app, spec);
@@ -2428,12 +2652,19 @@ fn build_voice_model_status(app: &tauri::AppHandle, spec: &VoiceModelSpec) -> Re
     })
 }
 
-fn emit_voice_model_download_event(window: &tauri::WebviewWindow, payload: VoiceModelDownloadEvent) {
+fn emit_voice_model_download_event(
+    window: &tauri::WebviewWindow,
+    payload: VoiceModelDownloadEvent,
+) {
     let _ = window.emit(VOICE_MODEL_DOWNLOAD_EVENT, payload);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if !ensure_webview2_runtime_available() {
+        return;
+    }
+
     set_log_level(LogLevel::Error);
 
     let prevent = tauri_plugin_prevent_default::Builder::new()
@@ -2444,7 +2675,7 @@ pub fn run() {
     let voice_model_downloads = VoiceModelDownloads::default();
     let voice_engine_state = voice_engine::VoiceEngineState::default();
 
-    tauri::Builder::default()
+    let result = tauri::Builder::default()
         .manage(relay.clone())
         .manage(desktop_state)
         .manage(voice_model_downloads)
@@ -2490,10 +2721,9 @@ pub fn run() {
         .setup(move |app| {
             setup_aux_windows(app.handle())?;
 
-            if let Err(error) = app
-                .handle()
-                .global_shortcut()
-                .on_shortcut("Ctrl+Shift+X", |app, _shortcut, event| {
+            if let Err(error) = app.handle().global_shortcut().on_shortcut(
+                "Ctrl+Shift+X",
+                |app, _shortcut, event| {
                     if event.state != ShortcutState::Pressed {
                         return;
                     }
@@ -2513,9 +2743,9 @@ pub fn run() {
                     }
 
                     let _ = toggle_clickthrough_impl(app, &desktop);
-                })
-            {
-                eprintln!("global shortcut registration error: {error}");
+                },
+            ) {
+                log_backend_error("global shortcut registration", &error);
             }
 
             if let Some(desktop) = app.try_state::<DesktopState>() {
@@ -2537,6 +2767,10 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .run(tauri::generate_context!());
+
+    if let Err(error) = result {
+        log_backend_error("tauri runtime", &error);
+        show_startup_error_dialog(&format_startup_error_message(&error));
+    }
 }

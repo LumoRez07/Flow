@@ -8,7 +8,8 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState, parseWaitCardText, saveState, splitWords, translate } from "./shared.js";
+import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState, parseFormattedScript, parseWaitCardText, saveState, splitWords, translate } from "./shared.js";
+import { markHostRealtimeEditActivity } from "./realtime-editing.js";
 
 await initializePersistentStorage();
 
@@ -26,6 +27,10 @@ const ui = {
   inputSectionMenu: document.querySelector("#inputSectionMenu"),
   inputSections: document.querySelectorAll("[data-input-section]"),
   scriptEditorCard: document.querySelector("#scriptEditorCard"),
+  scriptInputShell: document.querySelector("#scriptInputShell"),
+  scriptInputStyledViewButton: document.querySelector("#scriptInputStyledViewButton"),
+  scriptInputTextViewButton: document.querySelector("#scriptInputTextViewButton"),
+  scriptInputStyledPreview: document.querySelector("#scriptInputStyledPreview"),
   scriptInput: document.querySelector("#scriptInput"),
   scriptMeta: document.querySelector("#scriptMeta"),
   scriptCardTemplatePicker: document.querySelector("#scriptCardTemplatePicker"),
@@ -145,6 +150,7 @@ const BUILT_IN_SCRIPT_CARD_TEMPLATES = [
 
 let scriptCardTemplates = [];
 let scriptCardPanelCollapsed = false;
+let scriptInputViewMode = "text";
 
 function detectTextEncoding(bytes) {
   if (!bytes?.length) {
@@ -797,6 +803,329 @@ function createScriptCardPreviewElement(template) {
   return element;
 }
 
+function createScriptInputWordSpan(token, options = {}) {
+  const { includeHighlight = true, includeUnderline = true } = options;
+  const span = document.createElement("span");
+  span.className = "prompt-word";
+  span.textContent = token.text;
+
+  if (token.style.bold) {
+    span.classList.add("is-bold");
+  }
+
+  if (token.style.italic) {
+    span.classList.add("is-italic");
+  }
+
+  if (includeUnderline && token.style.underline) {
+    span.classList.add("is-underlined");
+  }
+
+  if (token.style.textTone) {
+    span.classList.add(`is-tone-${token.style.textTone}`);
+  }
+
+  if (includeHighlight && token.style.highlight) {
+    span.classList.add("is-marked", `is-marked-${token.style.highlight}`);
+  }
+
+  return span;
+}
+
+function createScriptInputDecorationGroup(style) {
+  const span = document.createElement("span");
+  span.className = "prompt-highlight-group";
+
+  if (style.textTone) {
+    span.classList.add(`is-tone-${style.textTone}`);
+  }
+
+  if (style.highlight) {
+    span.classList.add("is-marked", `is-marked-${style.highlight}`);
+  }
+
+  if (style.underline) {
+    span.classList.add("is-underlined");
+  }
+
+  return span;
+}
+
+function createScriptInputCardElement(token) {
+  const element = document.createElement(token.placement === "between" ? "span" : "div");
+  const waitDescriptor = parseWaitCardText(token.text);
+  element.className = "prompt-card";
+  element.classList.add(token.placement === "between" ? "prompt-card-between" : "prompt-card-centered");
+  element.classList.add(`prompt-card-tone-${token.tone || "neutral"}`);
+  applyTextDirection(element, token.text);
+
+  if (waitDescriptor) {
+    element.classList.add("prompt-card-wait");
+    element.dataset.waitSeconds = String(waitDescriptor.seconds);
+
+    const copy = document.createElement("span");
+    copy.className = "prompt-card-wait-copy";
+    applyTextDirection(copy, token.text);
+
+    if (waitDescriptor.prefix) {
+      const prefix = document.createElement("span");
+      prefix.className = "prompt-card-wait-prefix";
+      prefix.textContent = waitDescriptor.prefix;
+      copy.appendChild(prefix);
+    }
+
+    const numberViewport = document.createElement("span");
+    numberViewport.className = "prompt-card-wait-number-viewport";
+    numberViewport.dataset.value = String(waitDescriptor.seconds);
+
+    const numberValue = document.createElement("span");
+    numberValue.className = "prompt-card-wait-number-value";
+    numberValue.textContent = String(waitDescriptor.seconds);
+    numberViewport.appendChild(numberValue);
+    copy.appendChild(numberViewport);
+
+    if (waitDescriptor.suffix) {
+      const suffix = document.createElement("span");
+      suffix.className = "prompt-card-wait-suffix";
+      suffix.textContent = waitDescriptor.suffix;
+      copy.appendChild(suffix);
+    }
+
+    element.appendChild(copy);
+    return element;
+  }
+
+  const copy = document.createElement("span");
+  copy.className = "prompt-card-copy";
+  applyTextDirection(copy, token.text);
+  copy.textContent = token.text;
+  element.appendChild(copy);
+  return element;
+}
+
+function createScriptInputListItem(token) {
+  const element = document.createElement("div");
+  element.className = "prompt-list-item";
+  element.dataset.listOrdered = token.ordered ? "true" : "false";
+
+  const marker = document.createElement("span");
+  marker.className = "prompt-list-marker";
+  marker.dataset.markerValue = token.marker || (token.ordered ? "1." : "•");
+  marker.textContent = marker.dataset.markerValue;
+  if (token.ordered) {
+    marker.setAttribute("dir", "ltr");
+    marker.dataset.textDirection = "ltr";
+  }
+
+  const content = document.createElement("span");
+  content.className = "prompt-list-content";
+
+  element.append(marker, content);
+  return { element, content };
+}
+
+function createScriptInputBlockquote() {
+  const element = document.createElement("div");
+  element.className = "prompt-blockquote";
+
+  const content = document.createElement("span");
+  content.className = "prompt-blockquote-content";
+
+  element.append(content);
+  return { element, content };
+}
+
+function syncScriptInputBlockDirection(content) {
+  if (!content) {
+    return;
+  }
+
+  const direction = applyTextDirection(content, content.textContent || "");
+  const block = content.parentElement;
+  if (!block) {
+    return;
+  }
+
+  block.setAttribute("dir", direction);
+  block.dataset.textDirection = direction;
+
+  const marker = block.querySelector(".prompt-list-marker");
+  if (!marker || block.dataset.listOrdered !== "true") {
+    return;
+  }
+
+  const sourceMarker = marker.dataset.markerValue || marker.textContent || "1.";
+  const numericPart = sourceMarker.replace(/[^\p{N}]+/gu, "") || "1";
+  marker.textContent = direction === "rtl" ? `.${numericPart}` : `${numericPart}.`;
+}
+
+function getScriptInputDecorationSignature(style = {}) {
+  if (!style.highlight && !style.underline) {
+    return "";
+  }
+
+  return JSON.stringify({
+    highlight: style.highlight || null,
+    underline: Boolean(style.underline),
+    textTone: style.textTone || null
+  });
+}
+
+function renderStyledScriptInput() {
+  if (!ui.scriptInputStyledPreview) {
+    return;
+  }
+
+  const preview = ui.scriptInputStyledPreview;
+  const scriptText = ui.scriptInput?.value || "";
+  const tokens = parseFormattedScript(scriptText);
+  preview.textContent = "";
+  applyTextDirection(preview, scriptText);
+
+  if (tokens.length === 0) {
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+  let currentDecorationGroup = null;
+  let currentDecorationSignature = "";
+  let currentBlockContent = null;
+
+  const closeDecorationGroup = () => {
+    currentDecorationGroup = null;
+    currentDecorationSignature = "";
+  };
+
+  const closeBlock = () => {
+    closeDecorationGroup();
+    currentBlockContent = null;
+  };
+
+  const getInlineTarget = () => currentBlockContent || fragment;
+
+  tokens.forEach((token, tokenIndex) => {
+    if (token.type === "blockquote-start") {
+      closeBlock();
+      const blockquote = createScriptInputBlockquote();
+      fragment.appendChild(blockquote.element);
+      currentBlockContent = blockquote.content;
+      return;
+    }
+
+    if (token.type === "list-item-start") {
+      closeBlock();
+      const listItem = createScriptInputListItem(token);
+      fragment.appendChild(listItem.element);
+      currentBlockContent = listItem.content;
+      return;
+    }
+
+    if (token.type === "block-end") {
+      closeBlock();
+      return;
+    }
+
+    if (token.type === "card") {
+      closeDecorationGroup();
+      getInlineTarget().appendChild(createScriptInputCardElement(token));
+
+      if (currentBlockContent) {
+        syncScriptInputBlockDirection(currentBlockContent);
+      }
+      return;
+    }
+
+    if (token.type === "word") {
+      const decorationSignature = getScriptInputDecorationSignature(token.style);
+      const target = decorationSignature
+        ? (() => {
+            if (!currentDecorationGroup || currentDecorationSignature !== decorationSignature) {
+              currentDecorationGroup = createScriptInputDecorationGroup(token.style);
+              currentDecorationSignature = decorationSignature;
+              getInlineTarget().appendChild(currentDecorationGroup);
+            }
+
+            return currentDecorationGroup;
+          })()
+        : (() => {
+            closeDecorationGroup();
+            return getInlineTarget();
+          })();
+
+      target.appendChild(createScriptInputWordSpan(token, {
+        includeHighlight: !token.style.highlight || !decorationSignature,
+        includeUnderline: !token.style.underline || !decorationSignature
+      }));
+
+      if (currentBlockContent) {
+        syncScriptInputBlockDirection(currentBlockContent);
+      }
+      return;
+    }
+
+    if (token.type === "space") {
+      const previousToken = tokens[tokenIndex - 1];
+      const nextToken = tokens[tokenIndex + 1];
+      const previousSignature = previousToken?.type === "word" ? getScriptInputDecorationSignature(previousToken.style) : "";
+      const nextSignature = nextToken?.type === "word" ? getScriptInputDecorationSignature(nextToken.style) : "";
+      const sharedDecoration = previousToken?.type === "word"
+        && nextToken?.type === "word"
+        && previousSignature
+        && previousSignature === nextSignature;
+
+      if (sharedDecoration && currentDecorationGroup) {
+        currentDecorationGroup.appendChild(document.createTextNode(" "));
+      } else {
+        closeDecorationGroup();
+        getInlineTarget().appendChild(document.createTextNode(" "));
+      }
+
+      if (currentBlockContent) {
+        syncScriptInputBlockDirection(currentBlockContent);
+      }
+      return;
+    }
+
+    closeDecorationGroup();
+    fragment.appendChild(document.createElement("br"));
+  });
+
+  preview.appendChild(fragment);
+}
+
+function setScriptInputViewMode(mode = scriptInputViewMode, options = {}) {
+  const nextMode = mode === "styled" ? "styled" : "text";
+  const { focusTextInput = false } = options;
+  scriptInputViewMode = nextMode;
+
+  if (ui.scriptInputShell) {
+    ui.scriptInputShell.dataset.viewMode = nextMode;
+  }
+
+  const textModeActive = nextMode === "text";
+  ui.scriptInputStyledViewButton?.setAttribute("aria-pressed", textModeActive ? "false" : "true");
+  ui.scriptInputTextViewButton?.setAttribute("aria-pressed", textModeActive ? "true" : "false");
+
+  if (ui.scriptInput) {
+    ui.scriptInput.hidden = !textModeActive;
+    ui.scriptInput.setAttribute("aria-hidden", textModeActive ? "false" : "true");
+  }
+
+  if (ui.scriptInputStyledPreview) {
+    ui.scriptInputStyledPreview.hidden = textModeActive;
+    ui.scriptInputStyledPreview.setAttribute("aria-hidden", textModeActive ? "true" : "false");
+  }
+
+  if (!textModeActive) {
+    renderStyledScriptInput();
+    return;
+  }
+
+  if (focusTextInput) {
+    ui.scriptInput?.focus({ preventScroll: true });
+  }
+}
+
 function renderScriptCardPreview() {
   if (!ui.scriptCardPreview) {
     return;
@@ -1014,6 +1343,7 @@ function syncFromStorage() {
   ui.groqPointOfViewSelect.value = state.groq.pointOfView;
   ui.groqOutputLanguageSelect.value = state.groq.outputLanguage;
   ui.groqUserContextInput.value = state.groq.userContext;
+  renderStyledScriptInput();
   syncTextDirections();
   applyAppearanceToDocument(state.appearance);
   applyTranslationsToDocument(state.language);
@@ -1076,6 +1406,8 @@ function persist() {
   state.groqKey = ui.groqKeyInput.value;
   state.groqPrompt = ui.groqPromptInput.value;
   state.groq = getGroqSettingsFromForm();
+  markHostRealtimeEditActivity();
+  renderStyledScriptInput();
   syncTextDirections();
   saveState({
     script: state.script,
@@ -1493,6 +1825,7 @@ async function useGroq() {
 function bootInputPage() {
   initializeCustomInputSelects();
   syncFromStorage();
+  setScriptInputViewMode(scriptInputViewMode);
   setActiveInputSection(ui.inputSectionSelect?.value || "editor");
   registerNativeFileDrop().catch(console.error);
 
@@ -1564,6 +1897,12 @@ function bootInputPage() {
   ui.saveScriptCardTemplateButton?.addEventListener("click", saveCurrentScriptCardTemplate);
 
   ui.scriptInput.addEventListener("input", persist);
+  ui.scriptInputStyledViewButton?.addEventListener("click", () => {
+    setScriptInputViewMode("styled");
+  });
+  ui.scriptInputTextViewButton?.addEventListener("click", () => {
+    setScriptInputViewMode("text", { focusTextInput: true });
+  });
   ui.uploadFileButton.addEventListener("click", () => {
     ui.uploadFileInput.click();
   });

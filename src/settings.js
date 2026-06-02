@@ -8,7 +8,16 @@
  * (at your option) any later version.
  */
 
-import { CLOUD_RELAY_URL } from "./remote-config.js";
+import { REALTIME_RELAY_URL, REMOTE_PUBLIC_URL, REMOTE_RELAY_URL } from "./remote-config.js";
+import {
+  buildRealtimeRoomUrl,
+  clearRealtimeEditingConfig,
+  clearStaleRealtimeEditingConfig,
+  createRealtimePasswordHash,
+  getRealtimeEditingUpdatedEventName,
+  loadRealtimeEditingConfig,
+  saveRealtimeEditingConfig
+} from "./realtime-editing.js";
 import {
   applyAppearanceToDocument,
   applyTranslationsToDocument,
@@ -22,6 +31,7 @@ import {
   invokeAfterDesktopFadeOut,
   loadVoiceModelRegistry,
   loadState,
+  parseLocaleNumber,
   normalizeVoiceLanguage,
   resolveFontStack,
   saveState,
@@ -43,6 +53,9 @@ const POSITION_PADDING = 600;
 const APPLY_DELAY = 70;
 const TOP_CENTER_X_OFFSET = 32;
 const REMOTE_STATUS_REFRESH_MS = 20_000;
+const WINDOW_SIZE_PREVIEW_CLASS = "window-size-preview-active";
+const WINDOW_SIZE_PREVIEW_RELEASE_DELAY = 140;
+const WINDOW_LOCATION_PREVIEW_RELEASE_DELAY = 500;
 const SOUND_INPUT_DEFAULT_DEVICE_ID = defaultState.appearance.soundInputDeviceId || "default";
 const SOUND_INPUT_DEFAULT_NOISE_GATE = Number(defaultState.appearance.soundInputNoiseGate) || 0.01;
 const SOUND_INPUT_DEFAULT_GAIN = Number(defaultState.appearance.soundInputGain) || 2;
@@ -206,6 +219,17 @@ const ui = {
   remoteSenderQrCard: document.querySelector("#remoteSenderQrCard"),
   remoteSenderQrImage: document.querySelector("#remoteSenderQrImage"),
   remoteSenderQrStatus: document.querySelector("#remoteSenderQrStatus"),
+  remoteRealtimeCard: document.querySelector("#remoteRealtimeCard"),
+  remoteRealtimeStatus: document.querySelector("#remoteRealtimeStatus"),
+  remoteRealtimeBadge: document.querySelector("#remoteRealtimeBadge"),
+  remoteRealtimePasswordInput: document.querySelector("#remoteRealtimePasswordInput"),
+  remoteRealtimeLink: document.querySelector("#remoteRealtimeLink"),
+  remoteRealtimeQrImage: document.querySelector("#remoteRealtimeQrImage"),
+  remoteRealtimeQrStatus: document.querySelector("#remoteRealtimeQrStatus"),
+  initializeRealtimeEditingButton: document.querySelector("#initializeRealtimeEditingButton"),
+  closeRealtimeEditingButton: document.querySelector("#closeRealtimeEditingButton"),
+  copyRealtimePasswordButton: document.querySelector("#copyRealtimePasswordButton"),
+  copyRealtimeLinkButton: document.querySelector("#copyRealtimeLinkButton"),
   remoteLiveBadge: document.querySelector("#remoteLiveBadge"),
   remoteSessionStatus: document.querySelector("#remoteSessionStatus"),
   copySessionIdButton: document.querySelector("#copySessionIdButton"),
@@ -233,6 +257,14 @@ let soundInputPreviewSession = 0;
 let soundInputPreviewDeviceId = null;
 let soundInputStatusKey = ui.soundInputStatus?.dataset.i18n || "settings.soundInputPreviewIdle";
 let remoteSenderQrDataUrl = "";
+let remoteSenderQrSource = "";
+let remoteRealtimeQrDataUrl = "";
+let remoteRealtimeQrSource = "";
+let realtimeEditingInitBusy = false;
+let realtimeRelayProbeState = "idle";
+let windowSizePreviewReleaseTimer = 0;
+let realtimeRelayProbeUrl = "";
+let realtimeRelayProbePromise = null;
 const customSettingsSelectControllers = [];
 const RTL_TEXT_PATTERN = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
 const SETTINGS_SECTION_CHOICE_METADATA = {
@@ -278,7 +310,7 @@ let updaterState = {
 };
 
 function clampNumber(value, min, max, fallback) {
-  const numericValue = Number(value);
+  const numericValue = parseLocaleNumber(value);
   if (!Number.isFinite(numericValue)) {
     return fallback;
   }
@@ -451,8 +483,8 @@ function formatSoundInputGain(value) {
 }
 
 function normalizeVoiceConfidenceThreshold(value) {
-  const fallback = Number(defaultState.voiceTracking?.confidenceThreshold) || 0.35;
-  const numericValue = Number(value);
+  const fallback = parseLocaleNumber(defaultState.voiceTracking?.confidenceThreshold) || 0.35;
+  const numericValue = parseLocaleNumber(value);
   if (!Number.isFinite(numericValue)) {
     return fallback;
   }
@@ -1947,13 +1979,80 @@ function setSliderValue(input, value) {
   syncSliderProgress(input);
 }
 
+function setWindowSizePreviewActive(active) {
+  if (windowSizePreviewReleaseTimer) {
+    window.clearTimeout(windowSizePreviewReleaseTimer);
+    windowSizePreviewReleaseTimer = 0;
+  }
+
+  document.body?.classList.toggle(WINDOW_SIZE_PREVIEW_CLASS, Boolean(active));
+}
+
+function scheduleWindowSizePreviewClear(delay = WINDOW_SIZE_PREVIEW_RELEASE_DELAY) {
+  if (windowSizePreviewReleaseTimer) {
+    window.clearTimeout(windowSizePreviewReleaseTimer);
+  }
+
+  windowSizePreviewReleaseTimer = window.setTimeout(() => {
+    windowSizePreviewReleaseTimer = 0;
+    setWindowSizePreviewActive(false);
+  }, delay);
+}
+
+function initializeWindowSizePreview(inputs) {
+  const sliderInputs = inputs.filter(Boolean);
+  if (!sliderInputs.length) {
+    return;
+  }
+
+  const armPreview = () => {
+    setWindowSizePreviewActive(true);
+  };
+
+  const clearPreview = () => {
+    setWindowSizePreviewActive(false);
+  };
+
+  const scheduleClearPreview = () => {
+    scheduleWindowSizePreviewClear();
+  };
+
+  sliderInputs.forEach((input) => {
+    input.addEventListener("pointerdown", armPreview);
+    input.addEventListener("focus", armPreview);
+    input.addEventListener("input", armPreview);
+    input.addEventListener("pointerup", scheduleClearPreview);
+    input.addEventListener("pointercancel", scheduleClearPreview);
+    input.addEventListener("change", scheduleClearPreview);
+    input.addEventListener("blur", scheduleClearPreview);
+  });
+
+  window.addEventListener("pointerup", scheduleClearPreview);
+  window.addEventListener("pointercancel", scheduleClearPreview);
+  window.addEventListener("blur", clearPreview);
+}
+
+function initializeWindowLocationPreview(input) {
+  if (!input) {
+    return;
+  }
+
+  const previewLocationChange = () => {
+    setWindowSizePreviewActive(true);
+    scheduleWindowSizePreviewClear(WINDOW_LOCATION_PREVIEW_RELEASE_DELAY);
+  };
+
+  input.addEventListener("input", previewLocationChange);
+  input.addEventListener("change", previewLocationChange);
+}
+
 function updateValueLabels() {
   ui.xValue.textContent = `${ui.xInput.value} px`;
   ui.yValue.textContent = `${ui.yInput.value} px`;
   ui.widthValue.textContent = `${ui.widthInput.value} px`;
   ui.heightValue.textContent = `${ui.heightInput.value} px`;
   ui.scrollStartDelayValue.textContent = `${ui.scrollStartDelayInput.value} s`;
-  ui.voiceConfidenceValue.textContent = formatVoiceConfidenceThreshold(Number(ui.voiceConfidenceInput.value) / 100);
+  ui.voiceConfidenceValue.textContent = formatVoiceConfidenceThreshold(parseLocaleNumber(ui.voiceConfidenceInput.value) / 100);
   ui.appOpacityValue.textContent = `${ui.appOpacityInput.value}%`;
   ui.textSizeValue.textContent = `${ui.textSizeInput.value}%`;
   ui.textOpacityValue.textContent = `${ui.textOpacityInput.value}%`;
@@ -2020,7 +2119,9 @@ function normalizeRemoteCloudUrl(value) {
   return String(value || "").trim().replace(/\/$/, "");
 }
 
-const CONFIGURED_CLOUD_RELAY_URL = normalizeRemoteCloudUrl(CLOUD_RELAY_URL);
+const CONFIGURED_REMOTE_PUBLIC_URL = normalizeRemoteCloudUrl(REMOTE_PUBLIC_URL) || normalizeRemoteCloudUrl(REMOTE_RELAY_URL);
+const CONFIGURED_CLOUD_RELAY_URL = normalizeRemoteCloudUrl(REMOTE_RELAY_URL);
+const CONFIGURED_REALTIME_RELAY_URL = normalizeRemoteCloudUrl(REALTIME_RELAY_URL);
 
 function isCloudRemoteSelected() {
   return true;
@@ -2039,8 +2140,17 @@ function buildCloudApiUrl(path) {
   return `${base}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+function buildRealtimeApiUrl(path) {
+  const base = CONFIGURED_REALTIME_RELAY_URL;
+  if (!base) {
+    return "";
+  }
+
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 function buildCloudSenderUrl(receiverId = state.remote?.receiverId || "") {
-  const base = CONFIGURED_CLOUD_RELAY_URL;
+  const base = CONFIGURED_REMOTE_PUBLIC_URL;
   if (!base || !receiverId) {
     return "";
   }
@@ -2049,7 +2159,7 @@ function buildCloudSenderUrl(receiverId = state.remote?.receiverId || "") {
 }
 
 function buildCloudSenderAuthUrl(receiverId = state.remote?.receiverId || "", accessPassword = state.remote?.accessPassword || "") {
-  const base = CONFIGURED_CLOUD_RELAY_URL;
+  const base = CONFIGURED_REMOTE_PUBLIC_URL;
   if (!base || !receiverId || !accessPassword) {
     return "";
   }
@@ -2061,7 +2171,7 @@ function buildCloudSenderAuthUrl(receiverId = state.remote?.receiverId || "", ac
 }
 
 function getRemoteSenderQrStatusKey(authUrl) {
-  if (!CONFIGURED_CLOUD_RELAY_URL) {
+  if (!CONFIGURED_REMOTE_PUBLIC_URL) {
     return "settings.remoteSenderQrUnavailable";
   }
 
@@ -2072,13 +2182,300 @@ function getRemoteSenderQrStatusKey(authUrl) {
   return "settings.remoteSenderQrHelp";
 }
 
-async function getRemoteSenderQrDataUrl(authUrl) {
-  if (!authUrl || typeof window.QRCode?.toDataURL !== "function") {
+function getRealtimeEditingView(config = loadRealtimeEditingConfig()) {
+  const hasRelayUrl = Boolean(CONFIGURED_REALTIME_RELAY_URL);
+  const hasReceiverIdentity = Boolean(state.remote?.receiverId && state.remote?.accessPassword);
+  const hasRoomLink = config.enabled && config.roomId === (state.remote?.receiverId || "") && Boolean(config.roomUrl);
+  const shouldProbeRelay = realtimeEditingInitBusy || hasRoomLink;
+
+  if (!hasRelayUrl) {
+    return {
+      hasRoomLink,
+      cardState: "error",
+      badgeKey: "settings.remoteRealtimeBadgeUnavailable",
+      statusKey: "settings.remoteRealtimeUnavailable"
+    };
+  }
+
+  if (shouldProbeRelay && realtimeRelayProbeState === "error") {
+    return {
+      hasRoomLink,
+      cardState: "error",
+      badgeKey: "settings.remoteRealtimeBadgeUnavailable",
+      statusKey: "settings.remoteRealtimeRelayUnavailable"
+    };
+  }
+
+  if (!hasReceiverIdentity) {
+    return {
+      hasRoomLink: false,
+      cardState: "idle",
+      badgeKey: "settings.remoteRealtimeBadgeIdle",
+      statusKey: "settings.remoteRealtimePending"
+    };
+  }
+
+  if (realtimeEditingInitBusy) {
+    return {
+      hasRoomLink,
+      cardState: "waiting",
+      badgeKey: "settings.remoteRealtimeBadgeWaiting",
+      statusKey: "settings.remoteRealtimeInitializing"
+    };
+  }
+
+  if (hasRoomLink && config.lastReadyAtMs >= config.initializedAtMs && config.initializedAtMs > 0) {
+    return {
+      hasRoomLink,
+      cardState: "online",
+      badgeKey: "settings.remoteRealtimeBadgeOnline",
+      statusKey: "settings.remoteRealtimeOnline"
+    };
+  }
+
+  if (hasRoomLink && config.lastPublishedAtMs >= config.initializedAtMs && config.initializedAtMs > 0) {
+    return {
+      hasRoomLink,
+      cardState: "idle",
+      badgeKey: "settings.remoteRealtimeBadgeAvailable",
+      statusKey: "settings.remoteRealtimeReady"
+    };
+  }
+
+  if (hasRoomLink) {
+    return {
+      hasRoomLink,
+      cardState: "waiting",
+      badgeKey: "settings.remoteRealtimeBadgeWaiting",
+      statusKey: "settings.remoteRealtimePublishing"
+    };
+  }
+
+  return {
+    hasRoomLink: false,
+    cardState: "idle",
+    badgeKey: "settings.remoteRealtimeBadgeIdle",
+    statusKey: "settings.remoteRealtimeHelp"
+  };
+}
+
+function getRealtimeEditingStatusKey(config = loadRealtimeEditingConfig()) {
+  return getRealtimeEditingView(config).statusKey;
+}
+
+function getRealtimeQrStatusKey(hasRoomLink) {
+  if (!CONFIGURED_REALTIME_RELAY_URL) {
+    return "settings.remoteRealtimeUnavailable";
+  }
+
+  if (hasRoomLink && realtimeRelayProbeState === "error") {
+    return "settings.remoteRealtimeRelayUnavailable";
+  }
+
+  if (!hasRoomLink) {
+    return "settings.remoteRealtimeQrPending";
+  }
+
+  return "settings.remoteRealtimeQrHelp";
+}
+
+async function probeRealtimeRelayAvailability(options = {}) {
+  const { force = false } = options;
+  const config = loadRealtimeEditingConfig();
+  const hasRoomLink = config.enabled && config.roomId === (state.remote?.receiverId || "") && Boolean(config.roomUrl);
+  const probeUrl = buildRealtimeApiUrl("/api/realtime/lookup");
+  if (!probeUrl) {
+    realtimeRelayProbeState = "idle";
+    realtimeRelayProbeUrl = "";
+    realtimeRelayProbePromise = null;
+    renderRealtimeEditingState();
+    return false;
+  }
+
+  if (!force && !hasRoomLink) {
+    realtimeRelayProbeState = "idle";
+    realtimeRelayProbeUrl = "";
+    realtimeRelayProbePromise = null;
+    renderRealtimeEditingState();
+    return false;
+  }
+
+  if (!force && realtimeRelayProbePromise) {
+    return realtimeRelayProbePromise;
+  }
+
+  if (!force && realtimeRelayProbeUrl === probeUrl && (realtimeRelayProbeState === "online" || realtimeRelayProbeState === "error")) {
+    return realtimeRelayProbeState === "online";
+  }
+
+  realtimeRelayProbeUrl = probeUrl;
+  realtimeRelayProbeState = "checking";
+  renderRealtimeEditingState();
+
+  realtimeRelayProbePromise = fetch(probeUrl, { method: "OPTIONS" })
+    .then((response) => {
+      realtimeRelayProbeState = response.ok ? "online" : "error";
+      return response.ok;
+    })
+    .catch((error) => {
+      console.error("Realtime relay probe failed", error);
+      realtimeRelayProbeState = "error";
+      return false;
+    })
+    .finally(() => {
+      realtimeRelayProbePromise = null;
+      renderRealtimeEditingState();
+    });
+
+  return realtimeRelayProbePromise;
+}
+
+function renderRealtimeEditingState() {
+  renderRealtimeEditingStateAsync().catch(console.error);
+}
+
+function resetRealtimeRelayProbe() {
+  realtimeRelayProbeState = "idle";
+  realtimeRelayProbeUrl = "";
+}
+
+function updateRealtimeActionButtons(hasRoomLink) {
+  if (ui.initializeRealtimeEditingButton) {
+    ui.initializeRealtimeEditingButton.disabled = realtimeEditingInitBusy || !CONFIGURED_REALTIME_RELAY_URL || !state.remote?.receiverId || !state.remote?.accessPassword;
+    const label = realtimeEditingInitBusy ? t("settings.remoteRealtimeInitializing") : t("settings.remoteRealtimeInit");
+    const labelNode = ui.initializeRealtimeEditingButton.querySelector("[data-i18n]");
+    if (labelNode) {
+      labelNode.textContent = label;
+    }
+  }
+
+  if (ui.closeRealtimeEditingButton) {
+    ui.closeRealtimeEditingButton.disabled = realtimeEditingInitBusy || !hasRoomLink;
+  }
+}
+
+async function renderRealtimeEditingStateAsync() {
+  let config = loadRealtimeEditingConfig();
+  if (config.enabled && CONFIGURED_REALTIME_RELAY_URL && config.roomId === (state.remote?.receiverId || "") && config.passwordHash) {
+    const syncedRoomUrl = buildRealtimeRoomUrl(CONFIGURED_REMOTE_PUBLIC_URL, config.roomId, config.passwordHash);
+    if (syncedRoomUrl && syncedRoomUrl !== config.roomUrl) {
+      config = {
+        ...config,
+        roomUrl: syncedRoomUrl
+      };
+      saveRealtimeEditingConfig(config);
+    }
+  }
+
+  const view = getRealtimeEditingView(config);
+  const hasRoomLink = view.hasRoomLink;
+  const statusKey = view.statusKey;
+  const qrStatusKey = getRealtimeQrStatusKey(hasRoomLink);
+  const nextRoomUrl = hasRoomLink ? config.roomUrl : "";
+  if (nextRoomUrl !== remoteRealtimeQrSource || (nextRoomUrl && !remoteRealtimeQrDataUrl)) {
+    remoteRealtimeQrSource = nextRoomUrl;
+    remoteRealtimeQrDataUrl = nextRoomUrl ? await getRemoteQrDataUrl(nextRoomUrl, "realtime room") : "";
+  }
+  const canRenderQr = Boolean(hasRoomLink && remoteRealtimeQrDataUrl);
+
+  if (ui.remoteRealtimeStatus) {
+    ui.remoteRealtimeStatus.dataset.i18n = statusKey;
+    ui.remoteRealtimeStatus.textContent = t(statusKey);
+  }
+
+  if (ui.remoteRealtimeBadge) {
+    ui.remoteRealtimeBadge.dataset.i18n = view.badgeKey;
+    ui.remoteRealtimeBadge.textContent = t(view.badgeKey);
+    ui.remoteRealtimeBadge.classList.toggle("is-offline", view.cardState === "error");
+    ui.remoteRealtimeBadge.classList.toggle("is-waiting", view.cardState === "waiting");
+    ui.remoteRealtimeBadge.classList.toggle("is-neutral", false);
+  }
+
+  if (ui.remoteRealtimeCard) {
+    ui.remoteRealtimeCard.dataset.state = view.cardState;
+    ui.remoteRealtimeCard.dataset.hasRoom = hasRoomLink ? "true" : "false";
+  }
+
+  if (ui.remoteRealtimePasswordInput) {
+    ui.remoteRealtimePasswordInput.value = hasRoomLink ? config.passwordHash : "";
+  }
+
+  if (ui.remoteRealtimeLink) {
+    ui.remoteRealtimeLink.href = hasRoomLink ? config.roomUrl : "#";
+    ui.remoteRealtimeLink.textContent = hasRoomLink ? config.roomUrl : t("common.unavailable");
+  }
+
+  if (ui.remoteRealtimeQrStatus) {
+    ui.remoteRealtimeQrStatus.dataset.i18n = qrStatusKey;
+    ui.remoteRealtimeQrStatus.textContent = t(qrStatusKey);
+  }
+
+  if (ui.remoteRealtimeQrImage) {
+    ui.remoteRealtimeQrImage.classList.toggle("hidden", !canRenderQr);
+    ui.remoteRealtimeQrImage.setAttribute("aria-label", t("settings.remoteRealtimeQrHelp"));
+    ui.remoteRealtimeQrImage.alt = t("settings.remoteRealtimeQrHelp");
+    ui.remoteRealtimeQrImage.src = canRenderQr ? remoteRealtimeQrDataUrl : "";
+  }
+
+  if (ui.copyRealtimePasswordButton) {
+    ui.copyRealtimePasswordButton.disabled = !hasRoomLink;
+  }
+
+  if (ui.copyRealtimeLinkButton) {
+    ui.copyRealtimeLinkButton.disabled = !hasRoomLink;
+  }
+
+  updateRealtimeActionButtons(hasRoomLink);
+}
+
+async function initializeRealtimeEditing() {
+  if (realtimeEditingInitBusy) {
+    return;
+  }
+
+  if (!CONFIGURED_REALTIME_RELAY_URL || !state.remote?.receiverId || !state.remote?.accessPassword) {
+    renderRealtimeEditingState();
+    return;
+  }
+
+  realtimeEditingInitBusy = true;
+  renderRealtimeEditingState();
+
+  try {
+    resetRealtimeRelayProbe();
+    const passwordHash = await createRealtimePasswordHash(state.remote.receiverId, state.remote.accessPassword);
+    const roomUrl = buildRealtimeRoomUrl(CONFIGURED_REMOTE_PUBLIC_URL, state.remote.receiverId, passwordHash);
+    saveRealtimeEditingConfig({
+      enabled: true,
+      roomId: state.remote.receiverId,
+      passwordHash,
+      roomUrl,
+      initializedAtMs: Date.now(),
+      lastPublishedAtMs: Date.now(),
+      lastReadyAtMs: 0
+    });
+    probeRealtimeRelayAvailability({ force: true }).catch(console.error);
+  } catch (error) {
+    console.error("Failed to initialize realtime editing", error);
+  } finally {
+    realtimeEditingInitBusy = false;
+    renderRealtimeEditingState();
+  }
+}
+
+function closeRealtimeEditing() {
+  resetRealtimeRelayProbe();
+  clearRealtimeEditingConfig();
+  renderRealtimeEditingState();
+}
+
+async function getRemoteQrDataUrl(value, label = "QR code") {
+  if (!value || typeof window.QRCode?.toDataURL !== "function") {
     return "";
   }
 
   try {
-    return await window.QRCode.toDataURL(authUrl, {
+    return await window.QRCode.toDataURL(value, {
       errorCorrectionLevel: "M",
       margin: 1,
       width: 220,
@@ -2088,7 +2485,7 @@ async function getRemoteSenderQrDataUrl(authUrl) {
       }
     });
   } catch (error) {
-    console.error("Failed to render remote sender QR code", error);
+    console.error(`Failed to render ${label}`, error);
     return "";
   }
 }
@@ -2096,7 +2493,10 @@ async function getRemoteSenderQrDataUrl(authUrl) {
 async function renderRemoteSenderQr() {
   const authUrl = buildCloudSenderAuthUrl();
   const statusKey = getRemoteSenderQrStatusKey(authUrl);
-  remoteSenderQrDataUrl = authUrl ? await getRemoteSenderQrDataUrl(authUrl) : "";
+  if (authUrl !== remoteSenderQrSource || (authUrl && !remoteSenderQrDataUrl)) {
+    remoteSenderQrSource = authUrl;
+    remoteSenderQrDataUrl = authUrl ? await getRemoteQrDataUrl(authUrl, "remote sender QR code") : "";
+  }
   const canRender = Boolean(authUrl && remoteSenderQrDataUrl);
 
   if (ui.remoteSenderQrStatus) {
@@ -2206,7 +2606,7 @@ function fillForm() {
   setSliderValue(ui.voiceConfidenceInput, normalizeVoiceConfidenceThreshold(state.voiceTracking?.confidenceThreshold) * 100);
   ui.fontSelect.value = state.appearance?.fontFamily || defaultState.appearance.fontFamily;
   ui.languageSelect.value = state.language || defaultState.language;
-  ui.remoteAccessPasswordInput.value = state.remote?.accessPassword || "";
+  syncRemoteSessionFields();
   setSliderValue(ui.appOpacityInput, state.appearance?.appOpacity ?? defaultState.appearance.appOpacity);
   ui.textSizeInput.value = String(state.appearance?.textScale || defaultState.appearance.textScale);
   ui.styleSelect.value = state.appearance?.style || defaultState.appearance.style;
@@ -2241,7 +2641,7 @@ function fillForm() {
     mirrorVertical: ui.mirrorVerticalInput.checked,
     autoHideToolbar: ui.autoHideToolbarInput.checked,
     performanceMode: ui.performanceModeInput.checked,
-    appOpacity: Number(ui.appOpacityInput.value)
+    appOpacity: parseLocaleNumber(ui.appOpacityInput.value)
   });
   applyTranslationsToDocument(ui.languageSelect.value);
   setSoundInputStatus(soundInputStatusKey);
@@ -2255,6 +2655,26 @@ function fillForm() {
   }
   renderUpdaterCard();
   isSyncingForm = false;
+}
+
+function syncRemoteSessionFields() {
+  const receiverId = state.remote?.receiverId || "";
+  const cloudSenderUrl = buildCloudSenderUrl(receiverId);
+  const accessPassword = state.remote?.accessPassword || "";
+
+  if (ui.remoteSessionId) {
+    ui.remoteSessionId.textContent = receiverId || t("common.unavailable");
+  }
+
+  if (ui.remoteAccessPasswordInput) {
+    ui.remoteAccessPasswordInput.value = accessPassword;
+  }
+
+  if (ui.remoteSenderUrl) {
+    ui.remoteSenderUrl.textContent = cloudSenderUrl || t("settings.remoteSenderUnavailable");
+    ui.remoteSenderUrl.href = cloudSenderUrl || "#";
+    ui.remoteSenderUrl.dataset.copyValue = cloudSenderUrl;
+  }
 }
 
 async function readCurrentWindow() {
@@ -2298,10 +2718,10 @@ async function readCurrentWindow() {
 }
 
 function collectFormState() {
-  state.window.width = Math.max(Number(ui.widthInput.value) || defaultState.window.width, MIN_WIDTH);
-  state.window.height = Math.max(Number(ui.heightInput.value) || defaultState.window.height, MIN_HEIGHT);
-  state.window.x = Number(ui.xInput.value || 0);
-  state.window.y = Number(ui.yInput.value || 0);
+  state.window.width = Math.max(parseLocaleNumber(ui.widthInput.value) || defaultState.window.width, MIN_WIDTH);
+  state.window.height = Math.max(parseLocaleNumber(ui.heightInput.value) || defaultState.window.height, MIN_HEIGHT);
+  state.window.x = parseLocaleNumber(ui.xInput.value || 0);
+  state.window.y = parseLocaleNumber(ui.yInput.value || 0);
   state.window.preset = ui.presetSelect.value;
   state.language = ui.languageSelect.value;
   state.desktop = {
@@ -2320,7 +2740,7 @@ function collectFormState() {
   state.voiceTracking = {
     ...(defaultState.voiceTracking || {}),
     ...(state.voiceTracking || {}),
-    confidenceThreshold: normalizeVoiceConfidenceThreshold(Number(ui.voiceConfidenceInput.value) / 100)
+    confidenceThreshold: normalizeVoiceConfidenceThreshold(parseLocaleNumber(ui.voiceConfidenceInput.value) / 100)
   };
   state.appearance = {
     ...defaultState.appearance,
@@ -2334,8 +2754,8 @@ function collectFormState() {
     soundInputNoiseGate: normalizeSoundInputNoiseGate(ui.soundInputNoiseGateInput.value),
     soundInputGain: normalizeSoundInputGain(ui.soundInputGainInput.value),
     fontFamily: ui.fontSelect.value,
-    appOpacity: Number(ui.appOpacityInput.value),
-    textScale: Number(ui.textSizeInput.value),
+    appOpacity: parseLocaleNumber(ui.appOpacityInput.value),
+    textScale: parseLocaleNumber(ui.textSizeInput.value),
     theme: ui.themeSelect.value,
     style: ui.styleSelect.value,
     mirrorMode: ui.mirrorModeInput.checked,
@@ -2343,9 +2763,9 @@ function collectFormState() {
     autoHideToolbar: ui.autoHideToolbarInput.checked,
     speedRailEnabled: ui.speedRailEnabledInput.checked,
     performanceMode: ui.performanceModeInput.checked,
-    scrollStartDelaySeconds: Number(ui.scrollStartDelayInput.value),
+    scrollStartDelaySeconds: parseLocaleNumber(ui.scrollStartDelayInput.value),
     textColor: ui.textColorInput.value || state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value),
-    textOpacity: Number(ui.textOpacityInput.value)
+    textOpacity: parseLocaleNumber(ui.textOpacityInput.value)
   };
 }
 
@@ -2456,53 +2876,53 @@ function scheduleApply() {
   }, APPLY_DELAY);
 }
 
-async function copyText(value, successMessage) {
+async function copyText(value, successMessage, targetElement = ui.remoteSessionStatus) {
   if (!value) {
-    ui.remoteSessionStatus.textContent = t("settings.copyNothing");
+    if (targetElement) {
+      targetElement.textContent = t("settings.copyNothing");
+    }
     return;
   }
 
   try {
     await navigator.clipboard.writeText(value);
-    ui.remoteSessionStatus.textContent = successMessage;
+    if (targetElement) {
+      targetElement.textContent = successMessage;
+    }
   } catch (error) {
     console.error(error);
-    ui.remoteSessionStatus.textContent = t("settings.copyFailed");
+    if (targetElement) {
+      targetElement.textContent = t("settings.copyFailed");
+    }
   }
 }
 
 function renderCloudRemoteStatus(status) {
-  const cloudSenderUrl = buildCloudSenderUrl(state.remote?.receiverId || "");
-
-  ui.remoteSessionId.textContent = state.remote?.receiverId || t("common.unavailable");
-  ui.remoteAccessPasswordInput.value = state.remote?.accessPassword || "";
-  ui.remoteSenderUrl.textContent = cloudSenderUrl || t("settings.remoteSenderUnavailable");
-  ui.remoteSenderUrl.href = cloudSenderUrl || "#";
-  ui.remoteSenderUrl.dataset.copyValue = cloudSenderUrl;
+  syncRemoteSessionFields();
 
   if (!CONFIGURED_CLOUD_RELAY_URL) {
     ui.remoteLiveBadge.textContent = t("common.setup");
-    ui.remoteLiveBadge.classList.add("is-offline");
+    ui.remoteLiveBadge.classList.add("is-neutral");
+    ui.remoteLiveBadge.classList.remove("is-offline", "is-waiting");
     ui.remoteSessionStatus.textContent = t("settings.remoteStatusCloudNeedsBuild");
-    renderRemoteSenderQr();
     return;
   }
 
   const active = Boolean(status?.active);
   const exists = Boolean(status?.exists);
-  ui.remoteLiveBadge.textContent = active ? t("common.live") : t("common.offline");
+  ui.remoteLiveBadge.textContent = active ? t("settings.remoteRealtimeBadgeAvailable") : t("common.offline");
   ui.remoteLiveBadge.classList.toggle("is-offline", !active);
+  ui.remoteLiveBadge.classList.toggle("is-neutral", false);
+  ui.remoteLiveBadge.classList.toggle("is-waiting", exists && !active);
 
   if (!exists) {
     ui.remoteSessionStatus.textContent = t("settings.remoteStatusCloudRegister");
-    renderRemoteSenderQr();
     return;
   }
 
   ui.remoteSessionStatus.textContent = active
     ? t("settings.remoteStatusCloudActive")
     : t("settings.remoteStatusCloudOffline");
-  renderRemoteSenderQr();
 }
 
 async function fetchCloudRemoteStatus() {
@@ -2528,12 +2948,16 @@ async function refreshRemoteStatus() {
 
 async function bootSettingsPage() {
   await resolveMicrosoftStoreBuild();
+  clearStaleRealtimeEditingConfig();
   syncUpdatesSettingsVisibility();
   await configureSliderRanges();
   initializeCustomSettingsSelects();
   fillForm();
   initializeDesktopWindowOpacityFade();
   initializeSmoothScrollbox();
+  initializeWindowSizePreview([ui.xInput, ui.yInput, ui.widthInput, ui.heightInput]);
+  initializeWindowLocationPreview(ui.presetSelect);
+  renderRealtimeEditingState();
   await applyDesktopSettings().catch(console.error);
   await refreshRemoteStatus();
   await refreshVoiceModelStatuses();
@@ -2695,6 +3119,18 @@ async function bootSettingsPage() {
   ui.copySenderAuthUrlButton?.addEventListener("click", () => {
     copyText(ui.remoteSenderQrCard?.dataset.copyValue || "", t("settings.copiedSenderLink"));
   });
+  ui.initializeRealtimeEditingButton?.addEventListener("click", () => {
+    initializeRealtimeEditing().catch(console.error);
+  });
+  ui.closeRealtimeEditingButton?.addEventListener("click", () => {
+    closeRealtimeEditing();
+  });
+  ui.copyRealtimePasswordButton?.addEventListener("click", () => {
+    copyText(ui.remoteRealtimePasswordInput?.value || "", t("settings.copiedRealtimePassword"), ui.remoteRealtimeStatus);
+  });
+  ui.copyRealtimeLinkButton?.addEventListener("click", () => {
+    copyText(ui.remoteRealtimeLink?.href || "", t("settings.copiedRealtimeLink"), ui.remoteRealtimeStatus);
+  });
 
   await readCurrentWindow().catch(console.error);
   setActiveSettingsSection(ui.settingsSectionSelect?.value || "appearance");
@@ -2712,6 +3148,7 @@ async function bootSettingsPage() {
     await applyDesktopSettings().catch(console.error);
     await readCurrentWindow().catch(console.error);
     fillForm();
+    renderRealtimeEditingState();
     await refreshVoiceModelStatuses();
     await refreshSoundInputDevices().catch(console.error);
     await refreshRemoteStatus().catch(console.error);
@@ -2721,6 +3158,7 @@ async function bootSettingsPage() {
     Object.assign(state, loadState());
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
+    renderRealtimeEditingState();
     refreshVoiceModelStatuses().catch(console.error);
     if (previousSoundInputDeviceId !== normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId)) {
       refreshSoundInputDevices().catch(console.error);
@@ -2733,6 +3171,7 @@ async function bootSettingsPage() {
     Object.assign(state, loadState());
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
     fillForm();
+    renderRealtimeEditingState();
     refreshVoiceModelStatuses().catch(console.error);
     if (previousSoundInputDeviceId !== normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId)) {
       refreshSoundInputDevices().catch(console.error);
@@ -2740,6 +3179,7 @@ async function bootSettingsPage() {
     }
     applyDesktopSettings().catch(console.error);
   });
+  window.addEventListener(getRealtimeEditingUpdatedEventName(), renderRealtimeEditingState);
   window.addEventListener("beforeunload", () => {
     if (remoteStatusTimer) {
       clearInterval(remoteStatusTimer);

@@ -10,8 +10,7 @@
 
 use std::{
     any::Any,
-    env,
-    fs,
+    env, fs,
     path::{Path, PathBuf},
     process,
 };
@@ -22,7 +21,8 @@ fn main() {
         return;
     }
 
-    let result = std::panic::catch_unwind(|| tauri_build::try_build(tauri_build::Attributes::default()));
+    let result =
+        std::panic::catch_unwind(|| tauri_build::try_build(tauri_build::Attributes::default()));
 
     match result {
         Ok(Ok(())) => {}
@@ -64,10 +64,11 @@ fn stage_vosk_runtime() -> Result<(), String> {
         return Ok(());
     }
 
-    let runtime_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").map_err(|error| error.to_string())?)
-        .join("resources")
-        .join("vosk")
-        .join("windows-x64");
+    let runtime_dir =
+        PathBuf::from(env::var("CARGO_MANIFEST_DIR").map_err(|error| error.to_string())?)
+            .join("resources")
+            .join("vosk")
+            .join("windows-x64");
 
     println!("cargo:rerun-if-changed={}", runtime_dir.display());
 
@@ -93,14 +94,15 @@ fn stage_vosk_runtime() -> Result<(), String> {
 
     for runtime_file in runtime_files {
         if !runtime_file.is_file() {
-            return Err(format!("Missing Vosk runtime file at {}", runtime_file.display()));
+            return Err(format!(
+                "Missing Vosk runtime file at {}",
+                runtime_file.display()
+            ));
         }
 
-        let destination = profile_dir.join(
-            runtime_file
-                .file_name()
-                .ok_or_else(|| format!("Invalid Vosk runtime file path: {}", runtime_file.display()))?,
-        );
+        let destination = profile_dir.join(runtime_file.file_name().ok_or_else(|| {
+            format!("Invalid Vosk runtime file path: {}", runtime_file.display())
+        })?);
         stage_runtime_file(&runtime_file, &destination)?;
     }
 

@@ -107,7 +107,14 @@
           <input id="uploadFileInput" type="file" class="hidden-file-input" accept=".txt,.text,.md,.markdown,.csv,.tsv,.json,.xml,.html,.htm,.docx,.pdf,text/plain,text/markdown,text/csv,application/json,application/xml,text/xml,text/html,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
           <span class="helper-text import-status" id="importStatus" data-i18n="input.importHelp">Drop a TXT, DOCX, or PDF file into the editor, or choose one from your device.</span>
         </div>
-        <textarea id="scriptInput" class="page-textarea" data-i18n-placeholder="input.scriptPlaceholder" placeholder="Paste or write your script here..."></textarea>
+        <div class="script-input-view-toggle-row" role="group" aria-label="Script editor view">
+          <button class="script-input-view-toggle-button" id="scriptInputStyledViewButton" type="button" aria-pressed="false">Styled</button>
+          <button class="script-input-view-toggle-button" id="scriptInputTextViewButton" type="button" aria-pressed="true">Text</button>
+        </div>
+        <div class="script-input-shell" id="scriptInputShell" data-view-mode="text">
+          <div id="scriptInputStyledPreview" class="page-textarea script-input-styled-preview" tabindex="0" aria-label="Styled script preview" aria-hidden="true" hidden></div>
+          <textarea id="scriptInput" class="page-textarea" data-i18n-placeholder="input.scriptPlaceholder" placeholder="Paste or write your script here..." aria-hidden="false"></textarea>
+        </div>
 
         <section class="settings-subgroup script-card-builder" id="scriptCardBuilder" aria-label="Cue cards" data-collapsed="false">
           <div class="settings-subgroup-header">

@@ -202,7 +202,9 @@ pub(crate) fn start_voice_tracking(
     let recognizer = build_active_recognizer(model, language.clone(), None)?;
 
     if let Some(shared) = &engine.shared {
-        let mut shared = shared.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut shared = shared
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         shared.app = app.clone();
         shared.tracking = Some(recognizer);
     }
@@ -236,7 +238,9 @@ pub(crate) fn start_voice_command_listener(
     let recognizer = build_active_recognizer(model, language.clone(), grammar)?;
 
     if let Some(shared) = &engine.shared {
-        let mut shared = shared.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let mut shared = shared
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
         shared.app = app.clone();
         shared.commands = Some(recognizer);
     }
@@ -285,8 +289,14 @@ impl VoiceEngine {
             .and_then(|shared| shared.lock().ok())
             .map(|shared| {
                 (
-                    shared.tracking.as_ref().map(|recognizer| recognizer.debug_state.clone()),
-                    shared.commands.as_ref().map(|recognizer| recognizer.debug_state.clone()),
+                    shared
+                        .tracking
+                        .as_ref()
+                        .map(|recognizer| recognizer.debug_state.clone()),
+                    shared
+                        .commands
+                        .as_ref()
+                        .map(|recognizer| recognizer.debug_state.clone()),
                 )
             })
             .unwrap_or((None, None));
@@ -343,14 +353,20 @@ impl VoiceEngine {
         Ok(model)
     }
 
-    fn ensure_capture(&mut self, app: &AppHandle, settings: &VoiceInputSettings) -> Result<(), String> {
+    fn ensure_capture(
+        &mut self,
+        app: &AppHandle,
+        settings: &VoiceInputSettings,
+    ) -> Result<(), String> {
         if self.capture.is_some() && self.current_settings.as_ref() != Some(settings) {
             self.stop_all_internal(app)?;
         }
 
         if self.capture.is_some() {
             if let Some(shared) = &self.shared {
-                let mut shared = shared.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                let mut shared = shared
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
                 shared.app = app.clone();
             }
             return Ok(());
@@ -363,7 +379,8 @@ impl VoiceEngine {
             tracking: None,
             commands: None,
         }));
-        let capture = build_capture_session(&device, &supported_config, settings.clone(), shared.clone())?;
+        let capture =
+            build_capture_session(&device, &supported_config, settings.clone(), shared.clone())?;
         capture
             .stream
             .play()
@@ -373,7 +390,9 @@ impl VoiceEngine {
         self.shared = Some(shared);
         self.current_settings = Some(settings.clone());
         self.capture_debug = Some(CaptureDebugInfo {
-            device_name: device.name().unwrap_or_else(|_| "Unknown microphone".to_string()),
+            device_name: device
+                .name()
+                .unwrap_or_else(|_| "Unknown microphone".to_string()),
             channels: supported_config.channels(),
             sample_rate: supported_config.sample_rate().0,
             sample_format: format!("{:?}", supported_config.sample_format()),
@@ -384,7 +403,9 @@ impl VoiceEngine {
 
     fn stop_tracking(&mut self, app: &AppHandle) -> Result<(), String> {
         let language = if let Some(shared) = &self.shared {
-            let mut shared = shared.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let mut shared = shared
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             if let Some(recognizer) = shared.tracking.take() {
                 let language = recognizer.language.clone();
                 flush_recognizer(&shared.app, "tracking", recognizer);
@@ -403,7 +424,9 @@ impl VoiceEngine {
 
     fn stop_commands(&mut self, app: &AppHandle) -> Result<(), String> {
         let language = if let Some(shared) = &self.shared {
-            let mut shared = shared.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let mut shared = shared
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             if let Some(recognizer) = shared.commands.take() {
                 let language = recognizer.language.clone();
                 flush_recognizer(&shared.app, "commands", recognizer);
@@ -422,7 +445,9 @@ impl VoiceEngine {
 
     fn stop_all_internal(&mut self, app: &AppHandle) -> Result<(), String> {
         if let Some(shared) = &self.shared {
-            let mut shared = shared.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+            let mut shared = shared
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
             if let Some(recognizer) = shared.tracking.take() {
                 flush_recognizer(&shared.app, "tracking", recognizer);
             }
@@ -576,13 +601,14 @@ fn build_active_recognizer(
     language: String,
     grammar: Option<Vec<String>>,
 ) -> Result<ActiveRecognizer, String> {
-    let mut recognizer = if let Some(grammar) = grammar.as_ref().filter(|phrases| !phrases.is_empty()) {
-        Recognizer::new_with_grammar(model.as_ref(), TARGET_SAMPLE_RATE, grammar)
-            .ok_or_else(|| format!("Failed to create grammar Vosk recognizer for {language}"))?
-    } else {
-        Recognizer::new(model.as_ref(), TARGET_SAMPLE_RATE)
-            .ok_or_else(|| format!("Failed to create Vosk recognizer for {language}"))?
-    };
+    let mut recognizer =
+        if let Some(grammar) = grammar.as_ref().filter(|phrases| !phrases.is_empty()) {
+            Recognizer::new_with_grammar(model.as_ref(), TARGET_SAMPLE_RATE, grammar)
+                .ok_or_else(|| format!("Failed to create grammar Vosk recognizer for {language}"))?
+        } else {
+            Recognizer::new(model.as_ref(), TARGET_SAMPLE_RATE)
+                .ok_or_else(|| format!("Failed to create Vosk recognizer for {language}"))?
+        };
 
     recognizer.set_words(true);
     recognizer.set_partial_words(true);
@@ -708,7 +734,11 @@ fn build_input_stream(
                 .build_input_stream(
                     &stream_config,
                     move |data: &[i16], _| {
-                        forward_audio_chunk(&audio_tx, processor.process_i16(data, channels), &shared)
+                        forward_audio_chunk(
+                            &audio_tx,
+                            processor.process_i16(data, channels),
+                            &shared,
+                        )
                     },
                     error_callback,
                     None,
@@ -721,7 +751,11 @@ fn build_input_stream(
                 .build_input_stream(
                     &stream_config,
                     move |data: &[u16], _| {
-                        forward_audio_chunk(&audio_tx, processor.process_u16(data, channels), &shared)
+                        forward_audio_chunk(
+                            &audio_tx,
+                            processor.process_u16(data, channels),
+                            &shared,
+                        )
                     },
                     error_callback,
                     None,
@@ -734,14 +768,20 @@ fn build_input_stream(
                 .build_input_stream(
                     &stream_config,
                     move |data: &[f32], _| {
-                        forward_audio_chunk(&audio_tx, processor.process_raw_f32(data, channels), &shared)
+                        forward_audio_chunk(
+                            &audio_tx,
+                            processor.process_raw_f32(data, channels),
+                            &shared,
+                        )
                     },
                     error_callback,
                     None,
                 )
                 .map_err(|error| error.to_string())
         }
-        sample_format => Err(format!("Unsupported microphone sample format: {sample_format:?}")),
+        sample_format => Err(format!(
+            "Unsupported microphone sample format: {sample_format:?}"
+        )),
     }
 }
 
@@ -751,12 +791,18 @@ fn select_input_buffer_size(config: &SupportedStreamConfig) -> BufferSize {
         .min(u32::MAX as u64) as u32;
 
     match config.buffer_size() {
-        SupportedBufferSize::Range { min, max } => BufferSize::Fixed(target_frames.clamp(*min, *max)),
+        SupportedBufferSize::Range { min, max } => {
+            BufferSize::Fixed(target_frames.clamp(*min, *max))
+        }
         SupportedBufferSize::Unknown => BufferSize::Default,
     }
 }
 
-fn forward_audio_chunk(audio_tx: &SyncSender<Vec<i16>>, samples: Vec<i16>, shared: &Arc<Mutex<SharedVoiceState>>) {
+fn forward_audio_chunk(
+    audio_tx: &SyncSender<Vec<i16>>,
+    samples: Vec<i16>,
+    shared: &Arc<Mutex<SharedVoiceState>>,
+) {
     if samples.is_empty() {
         return;
     }
@@ -766,7 +812,10 @@ fn forward_audio_chunk(audio_tx: &SyncSender<Vec<i16>>, samples: Vec<i16>, share
         Err(TrySendError::Full(_)) => {}
         Err(TrySendError::Disconnected(_)) => {
             if let Ok(shared) = shared.lock() {
-                emit_stream_error(&shared.app, "Native voice worker stopped unexpectedly".to_string());
+                emit_stream_error(
+                    &shared.app,
+                    "Native voice worker stopped unexpectedly".to_string(),
+                );
             }
         }
     }
@@ -813,7 +862,12 @@ fn feed_recognizer_in_batches(
     }
 }
 
-fn feed_recognizer(app: &AppHandle, channel: &str, recognizer: &mut ActiveRecognizer, samples: &[i16]) {
+fn feed_recognizer(
+    app: &AppHandle,
+    channel: &str,
+    recognizer: &mut ActiveRecognizer,
+    samples: &[i16],
+) {
     match recognizer.recognizer.accept_waveform(samples) {
         Ok(DecodingState::Running) => {
             let partial = recognizer.recognizer.partial_result();
@@ -829,7 +883,8 @@ fn feed_recognizer(app: &AppHandle, channel: &str, recognizer: &mut ActiveRecogn
             recognizer.debug_state.last_partial_text = Some(text.clone());
             recognizer.debug_state.last_partial_raw_text = raw_text.clone();
             recognizer.debug_state.last_confidence = average_confidence(&partial.partial_result);
-            recognizer.debug_state.last_words = serialize_words(&partial.partial_result).unwrap_or_default();
+            recognizer.debug_state.last_words =
+                serialize_words(&partial.partial_result).unwrap_or_default();
             recognizer.debug_state.last_error = None;
             recognizer.debug_state.last_sample_count = Some(samples.len());
             emit_native_voice_event(
@@ -852,7 +907,9 @@ fn feed_recognizer(app: &AppHandle, channel: &str, recognizer: &mut ActiveRecogn
         }
         Ok(DecodingState::Finalized) => {
             recognizer.last_partial.clear();
-            if let Some(details) = build_complete_event_details(recognizer.recognizer.result(), Some(samples.len())) {
+            if let Some(details) =
+                build_complete_event_details(recognizer.recognizer.result(), Some(samples.len()))
+            {
                 recognizer.debug_state.last_stage = Some("final".into());
                 recognizer.debug_state.last_partial_text = None;
                 recognizer.debug_state.last_partial_raw_text = None;
@@ -943,7 +1000,8 @@ fn extract_partial_text(partial: &PartialResult<'_>) -> String {
 
 fn flush_recognizer(app: &AppHandle, channel: &str, mut recognizer: ActiveRecognizer) {
     recognizer.last_partial.clear();
-    if let Some(details) = build_complete_event_details(recognizer.recognizer.final_result(), None) {
+    if let Some(details) = build_complete_event_details(recognizer.recognizer.final_result(), None)
+    {
         emit_native_voice_event(
             app,
             NativeVoiceEvent {
@@ -1067,11 +1125,15 @@ fn apply_voice_input_settings(samples: &[f32], settings: &VoiceInputSettings) ->
 }
 
 fn interleaved_to_mono_f32_i16(data: &[i16], channels: usize) -> Vec<f32> {
-    interleaved_to_mono(data.len(), channels, |index| data[index] as f32 / i16::MAX as f32)
+    interleaved_to_mono(data.len(), channels, |index| {
+        data[index] as f32 / i16::MAX as f32
+    })
 }
 
 fn interleaved_to_mono_f32_u16(data: &[u16], channels: usize) -> Vec<f32> {
-    interleaved_to_mono(data.len(), channels, |index| (data[index] as f32 / u16::MAX as f32) * 2.0 - 1.0)
+    interleaved_to_mono(data.len(), channels, |index| {
+        (data[index] as f32 / u16::MAX as f32) * 2.0 - 1.0
+    })
 }
 
 fn interleaved_to_mono_f32(data: &[f32], channels: usize) -> Vec<f32> {

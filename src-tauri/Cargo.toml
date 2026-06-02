@@ -1,6 +1,6 @@
 [package]
 name = "flow"
-version = "1.8.3"
+version = "1.9.0"
 description = "A lightweight Windows teleprompter built with Tauri, featuring a minimal always-on-top reading UI, tray controls, script editing, and Groq-powered prompt generation."
 authors = ["lumorez"]
 edition = "2021"
@@ -36,4 +36,7 @@ windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Powe
 futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
 

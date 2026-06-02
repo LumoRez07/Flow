@@ -34,12 +34,30 @@ const remotePendingActions = new Set();
 let pollTimer = null;
 let lastMessageSignature = "";
 
+function logRemoteInboxError(context, error) {
+  console.error(`[remote-inbox] ${context}`, error);
+}
+
+function getCurrentState() {
+  return loadState();
+}
+
+function applyCurrentDocumentState() {
+  const currentState = getCurrentState();
+  applyAppearanceToDocument(currentState.appearance);
+  applyTranslationsToDocument(currentState.language);
+}
+
+function getVisibleRemoteMessages() {
+  return remoteMessages.filter((message) => !remotePendingActions.has(message.id));
+}
+
 function t(key, params = {}) {
-  return translate(key, loadState().language, params);
+  return translate(key, getCurrentState().language, params);
 }
 
 function buildRemoteScriptAppend(content) {
-  const state = loadState();
+  const state = getCurrentState();
   const existing = (state.script || "").trimEnd();
   const addition = String(content || "").trim();
 
@@ -54,6 +72,15 @@ function wait(ms) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);
   });
+}
+
+function normalizeScaleFactor(scaleFactor) {
+  const numericScaleFactor = Number(scaleFactor);
+  return Number.isFinite(numericScaleFactor) && numericScaleFactor > 0 ? numericScaleFactor : 1;
+}
+
+function logicalValueToPhysical(value, scaleFactor) {
+  return Math.round((Number(value) || 0) * scaleFactor);
 }
 
 async function syncWindowVisibility(hasMessages) {
@@ -76,8 +103,10 @@ async function positionInboxWindow() {
   }
 
   const outer = await appWindow.outerSize();
+  const scaleFactor = normalizeScaleFactor(await appWindow.scaleFactor?.().catch(() => monitor.scaleFactor ?? 1));
+  const bottomOffsetPhysical = logicalValueToPhysical(WINDOW_BOTTOM_OFFSET, scaleFactor);
   const x = monitor.position.x + Math.round((monitor.size.width - outer.width) / 2);
-  const y = monitor.position.y + monitor.size.height - outer.height - WINDOW_BOTTOM_OFFSET;
+  const y = monitor.position.y + monitor.size.height - outer.height - bottomOffsetPhysical;
   await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y)).catch(console.error);
 }
 
@@ -88,7 +117,7 @@ async function applyWindowLayout() {
 
   const appWindow = tauriWindow.getCurrentWindow();
   const width = COLLAPSED_WIDTH;
-  const visibleMessageCount = remoteMessages.filter((message) => !remotePendingActions.has(message.id)).length;
+  const visibleMessageCount = getVisibleRemoteMessages().length;
   const contentHeight = visibleMessageCount > 0
     ? WINDOW_VERTICAL_PADDING
       + (visibleMessageCount * REMOTE_CARD_SLOT_HEIGHT)
@@ -102,7 +131,9 @@ async function applyWindowLayout() {
   ]);
 
   if (outerSize && outerPosition) {
-    const anchoredY = outerPosition.y + (outerSize.height - height);
+    const scaleFactor = normalizeScaleFactor(await appWindow.scaleFactor?.().catch(() => 1));
+    const targetPhysicalHeight = logicalValueToPhysical(height, scaleFactor);
+    const anchoredY = outerPosition.y + (outerSize.height - targetPhysicalHeight);
     if (anchoredY !== outerPosition.y) {
       await appWindow.setPosition(new tauriDpi.PhysicalPosition(outerPosition.x, anchoredY)).catch(console.error);
     }
@@ -123,7 +154,7 @@ function renderRemoteInbox() {
     return;
   }
 
-  const visibleMessages = remoteMessages.filter((message) => !remotePendingActions.has(message.id));
+  const visibleMessages = getVisibleRemoteMessages();
   ui.inbox.replaceChildren();
 
   visibleMessages.forEach((message) => {
@@ -154,12 +185,12 @@ function renderRemoteInbox() {
     card.querySelector(".remote-card-excerpt").textContent = message.preview || message.content || "";
 
     card.addEventListener("dblclick", () => {
-      acceptRemoteMessage(message.id).catch(console.error);
+      acceptRemoteMessage(message.id).catch((error) => logRemoteInboxError("accept remote message", error));
     });
 
     card.querySelector(".remote-reject").addEventListener("click", (event) => {
       event.stopPropagation();
-      denyRemoteMessage(message.id).catch(console.error);
+      denyRemoteMessage(message.id).catch((error) => logRemoteInboxError("deny remote message", error));
     });
 
     ui.inbox.appendChild(card);
@@ -178,6 +209,7 @@ async function syncRemoteMessages() {
     if (remoteMessages.length === 0) {
       lastMessageSignature = "";
       await syncWindowVisibility(false);
+      renderRemoteInbox();
       return;
     }
 
@@ -188,7 +220,7 @@ async function syncRemoteMessages() {
       await applyWindowLayout();
     }
   } catch (error) {
-    console.error(error);
+    logRemoteInboxError("sync remote messages", error);
   }
 }
 
@@ -218,7 +250,9 @@ async function acceptRemoteMessage(messageId) {
   await wait(260);
 
   saveState({ script: buildRemoteScriptAppend(message.content) });
-  await resolveRemoteMessageAction(messageId, "accept").catch(console.error);
+  await resolveRemoteMessageAction(messageId, "accept").catch((error) => {
+    logRemoteInboxError("resolve accepted remote message", error);
+  });
 
   remoteMessages = remoteMessages.filter((entry) => entry.id !== messageId);
   renderRemoteInbox();
@@ -241,7 +275,9 @@ async function denyRemoteMessage(messageId) {
   card?.classList.add("is-denying");
 
   await wait(420);
-  await resolveRemoteMessageAction(messageId, "deny").catch(console.error);
+  await resolveRemoteMessageAction(messageId, "deny").catch((error) => {
+    logRemoteInboxError("resolve denied remote message", error);
+  });
 
   remoteMessages = remoteMessages.filter((entry) => entry.id !== messageId);
   renderRemoteInbox();
@@ -253,38 +289,49 @@ async function denyRemoteMessage(messageId) {
   await applyWindowLayout();
 }
 
-function bootRemoteInboxPage() {
-  applyAppearanceToDocument(loadState().appearance);
-  applyTranslationsToDocument(loadState().language);
-  applyWindowLayout().catch(console.error);
-  syncRemoteMessages().catch(console.error);
-  initializeDesktopWindowOpacityFade();
-
+function startRemoteInboxPolling() {
   pollTimer = window.setInterval(() => {
-    syncRemoteMessages().catch(console.error);
+    syncRemoteMessages().catch((error) => logRemoteInboxError("poll remote messages", error));
   }, 1200);
+}
 
+function stopRemoteInboxPolling() {
+  if (!pollTimer) {
+    return;
+  }
+
+  clearInterval(pollTimer);
+  pollTimer = null;
+}
+
+function bindRemoteInboxWindowEvents() {
   window.addEventListener("resize", () => {
-    positionInboxWindow().catch(console.error);
+    positionInboxWindow().catch((error) => logRemoteInboxError("position inbox window", error));
   });
 
   window.addEventListener("beforeunload", () => {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-    }
+    stopRemoteInboxPolling();
   });
+}
 
-  window.addEventListener("storage", () => {
-    applyAppearanceToDocument(loadState().appearance);
-    applyTranslationsToDocument(loadState().language);
+function bindRemoteInboxStateEvents() {
+  const handleStateChange = () => {
+    applyCurrentDocumentState();
     renderRemoteInbox();
-  });
+  };
 
-  window.addEventListener("flow-state-updated", () => {
-    applyAppearanceToDocument(loadState().appearance);
-    applyTranslationsToDocument(loadState().language);
-    renderRemoteInbox();
-  });
+  window.addEventListener("storage", handleStateChange);
+  window.addEventListener("flow-state-updated", handleStateChange);
+}
+
+function bootRemoteInboxPage() {
+  applyCurrentDocumentState();
+  applyWindowLayout().catch((error) => logRemoteInboxError("apply window layout", error));
+  syncRemoteMessages().catch((error) => logRemoteInboxError("initial remote message sync", error));
+  initializeDesktopWindowOpacityFade();
+  startRemoteInboxPolling();
+  bindRemoteInboxWindowEvents();
+  bindRemoteInboxStateEvents();
 }
 
 if (document.readyState === "loading") {

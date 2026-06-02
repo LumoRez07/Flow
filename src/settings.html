@@ -69,47 +69,98 @@
           </div>
 
           <div class="remote-session-grid">
-            <div class="remote-session-card">
-              <span class="remote-session-label" data-i18n="settings.remoteUuid">Active UUID</span>
-              <div class="remote-session-row">
-                <span class="remote-session-value" id="remoteSessionId" data-i18n="common.loading">Loading…</span>
-                <button class="mini-link copy-chip" id="copySessionIdButton" type="button"><span class="button-label-content"><i class="ph ph-copy-simple" aria-hidden="true"></i><span data-i18n="common.copy">Copy</span></span></button>
-              </div>
-            </div>
-
-            <div class="remote-session-card">
-              <span class="remote-session-label" data-i18n="settings.remoteAccessPassword">Access password</span>
-              <div class="remote-session-row remote-link-row remote-access-row">
-                <textarea id="remoteAccessPasswordInput" class="page-textarea small-textarea remote-access-box" readonly></textarea>
-                <button class="mini-link copy-chip" id="copyAccessPasswordButton" type="button"><span class="button-label-content"><i class="ph ph-copy-simple" aria-hidden="true"></i><span data-i18n="common.copy">Copy</span></span></button>
-              </div>
-            </div>
-
-            <div class="remote-session-card">
-              <span class="remote-session-label" data-i18n="settings.remoteSenderPage">Sender page</span>
-              <div class="remote-session-row remote-link-row">
-                <a class="remote-session-link" id="remoteSenderUrl" href="#" target="_blank" rel="noreferrer" data-i18n="common.loading">Loading…</a>
-                <button class="mini-link copy-chip" id="copySenderUrlButton" type="button"><span class="button-label-content"><i class="ph ph-link-simple" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
-              </div>
-            </div>
-
-            <div class="remote-session-card remote-qr-card" id="remoteSenderQrCard">
-              <span class="remote-session-label" data-i18n="settings.remoteSenderQr">Quick connect QR</span>
-              <div class="remote-qr-layout">
-                <div class="remote-qr-canvas-wrap">
-                  <img id="remoteSenderQrImage" class="remote-qr-canvas hidden" width="220" height="220" alt="" />
+            <div class="remote-feature-card">
+              <div class="remote-feature-header">
+                <div class="remote-feature-copy">
+                  <h3 class="remote-feature-title" data-i18n="settings.remoteInjection">Remote injection</h3>
+                  <p class="helper-text remote-status-text" id="remoteSessionStatus" data-i18n="settings.remoteStatusWaiting">Waiting for relay status.</p>
                 </div>
-                <div class="remote-qr-copy">
-                  <p class="helper-text remote-qr-status" id="remoteSenderQrStatus" data-i18n="settings.remoteSenderQrHelp">Scan to open the sender page with the UUID and access password already filled in.</p>
-                  <button class="mini-link copy-chip" id="copySenderAuthUrlButton" type="button"><span class="button-label-content"><i class="ph ph-qr-code" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
+                <span class="status-pill status-pill-feature is-neutral" id="remoteLiveBadge" data-i18n="common.loading">Loading…</span>
+              </div>
+
+              <div class="remote-feature-grid">
+                <div class="remote-session-card">
+                  <span class="remote-session-label" data-i18n="settings.remoteUuid">Active UUID</span>
+                  <div class="remote-session-row">
+                    <span class="remote-session-value" id="remoteSessionId" data-i18n="common.loading">Loading…</span>
+                    <button class="mini-link copy-chip" id="copySessionIdButton" type="button"><span class="button-label-content"><i class="ph ph-copy-simple" aria-hidden="true"></i><span data-i18n="common.copy">Copy</span></span></button>
+                  </div>
+                </div>
+
+                <div class="remote-session-card">
+                  <span class="remote-session-label" data-i18n="settings.remoteAccessPassword">Access password</span>
+                  <div class="remote-session-row remote-link-row remote-access-row">
+                    <textarea id="remoteAccessPasswordInput" class="page-textarea small-textarea remote-access-box" readonly></textarea>
+                    <button class="mini-link copy-chip" id="copyAccessPasswordButton" type="button"><span class="button-label-content"><i class="ph ph-copy-simple" aria-hidden="true"></i><span data-i18n="common.copy">Copy</span></span></button>
+                  </div>
+                </div>
+
+                <div class="remote-session-card">
+                  <span class="remote-session-label" data-i18n="settings.remoteSenderPage">Sender page</span>
+                  <div class="remote-session-row remote-link-row">
+                    <a class="remote-session-link" id="remoteSenderUrl" href="#" target="_blank" rel="noreferrer" data-i18n="common.loading">Loading…</a>
+                    <button class="mini-link copy-chip" id="copySenderUrlButton" type="button"><span class="button-label-content"><i class="ph ph-link-simple" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
+                  </div>
+                </div>
+
+                <div class="remote-session-card remote-qr-card" id="remoteSenderQrCard">
+                  <span class="remote-session-label" data-i18n="settings.remoteSenderQr">Quick connect QR</span>
+                  <div class="remote-qr-layout">
+                    <div class="remote-qr-canvas-wrap">
+                      <img id="remoteSenderQrImage" class="remote-qr-canvas hidden" width="220" height="220" alt="" />
+                    </div>
+                    <div class="remote-qr-copy">
+                      <p class="helper-text remote-qr-status" id="remoteSenderQrStatus" data-i18n="settings.remoteSenderQrHelp">Scan to open the sender page with the UUID and access password already filled in.</p>
+                      <button class="mini-link copy-chip" id="copySenderAuthUrlButton" type="button"><span class="button-label-content"><i class="ph ph-qr-code" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div class="remote-status-line">
-            <span class="status-pill" id="remoteLiveBadge" data-i18n="common.loading">Loading…</span>
-            <span class="helper-text remote-status-text" id="remoteSessionStatus" data-i18n="settings.remoteStatusWaiting">Waiting for relay status.</span>
+            <div class="remote-session-card remote-qr-card remote-realtime-card" id="remoteRealtimeCard" data-state="idle" data-has-room="false">
+              <div class="remote-realtime-header">
+                <div>
+                  <span class="remote-session-label remote-realtime-title" data-i18n="settings.remoteRealtimeSection">Realtime editing</span>
+                  <p class="helper-text remote-qr-status" id="remoteRealtimeStatus" data-i18n="settings.remoteRealtimeHelp">Create a private browser room for live script editing. The teleprompter stays authoritative and the cloud relay only carries the handshake.</p>
+                </div>
+                <span class="status-pill status-pill-feature is-offline" id="remoteRealtimeBadge" data-i18n="settings.remoteRealtimeBadgeIdle">Idle</span>
+              </div>
+
+              <div class="remote-realtime-actions">
+                <button class="mini-link copy-chip remote-realtime-trigger" id="initializeRealtimeEditingButton" type="button"><span class="button-label-content"><i class="ph ph-rocket-launch" aria-hidden="true"></i><span data-i18n="settings.remoteRealtimeInit">Create room</span></span></button>
+                <button class="mini-link copy-chip remote-realtime-close" id="closeRealtimeEditingButton" type="button"><span class="button-label-content"><i class="ph ph-x-circle" aria-hidden="true"></i><span data-i18n="settings.remoteRealtimeClose">Close room</span></span></button>
+              </div>
+
+              <div class="remote-realtime-reveal" id="remoteRealtimeReveal">
+                <div class="remote-realtime-detail-grid">
+                  <div class="remote-session-card">
+                    <span class="remote-session-label" data-i18n="settings.remoteRealtimePassword">Realtime password</span>
+                    <div class="remote-session-row remote-link-row remote-access-row">
+                      <textarea id="remoteRealtimePasswordInput" class="page-textarea small-textarea remote-access-box remote-realtime-password-box" readonly></textarea>
+                      <button class="mini-link copy-chip" id="copyRealtimePasswordButton" type="button"><span class="button-label-content"><i class="ph ph-copy-simple" aria-hidden="true"></i><span data-i18n="common.copy">Copy</span></span></button>
+                    </div>
+                  </div>
+
+                  <div class="remote-session-card">
+                    <span class="remote-session-label" data-i18n="settings.remoteRealtimeLinkLabel">Realtime room link</span>
+                    <div class="remote-session-row remote-link-row">
+                      <a class="remote-session-link remote-realtime-link-value" id="remoteRealtimeLink" href="#" target="_blank" rel="noreferrer" data-i18n="common.unavailable">Unavailable</a>
+                      <button class="mini-link copy-chip" id="copyRealtimeLinkButton" type="button"><span class="button-label-content"><i class="ph ph-link-simple" aria-hidden="true"></i><span data-i18n="common.copyLink">Copy link</span></span></button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="remote-qr-layout">
+                  <div class="remote-qr-canvas-wrap">
+                    <img id="remoteRealtimeQrImage" class="remote-qr-canvas hidden" width="220" height="220" alt="" />
+                  </div>
+                  <div class="remote-qr-copy">
+                    <p class="helper-text remote-qr-status" id="remoteRealtimeQrStatus" data-i18n="settings.remoteRealtimeQrHelp">Scan to open the realtime room directly in the browser editor.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -202,12 +253,18 @@
                 <option value="inter">Language UI</option>
                 <option value="space-grotesk">Space Grotesk</option>
                 <option value="outfit">Outfit</option>
+                <option value="noto-sans">Noto Sans</option>
                 <option value="english-pro">English Pro</option>
                 <option value="dutch-pro">Dutch Pro</option>
                 <option value="arabic-pro">Arabic Pro</option>
+                <option value="arabic-naskh">Arabic Naskh</option>
+                <option value="amiri">Amiri</option>
                 <option value="turkish-pro">Turkish Pro</option>
                 <option value="german-pro">German Pro</option>
+                <option value="spanish-pro">Spanish Pro</option>
                 <option value="system">System UI</option>
+                <option value="ibm-plex-serif">IBM Plex Serif</option>
+                <option value="lora">Lora</option>
                 <option value="merriweather">Merriweather</option>
                 <option value="source-serif">Source Serif 4</option>
                 <option value="georgia">Georgia</option>

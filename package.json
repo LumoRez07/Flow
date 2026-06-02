@@ -1,11 +1,12 @@
 {
   "name": "flow",
   "private": true,
-  "version": "1.8.3",
+  "version": "1.9.0",
   "type": "module",
   "scripts": {
     "build:qrcode-vendor": "esbuild node_modules/qrcode/lib/browser.js --bundle --format=iife --global-name=QRCode --outfile=src/assets/vendor/qrcode.min.js --minify",
-    "postinstall": "npm run build:qrcode-vendor",
+    "build:peerjs-vendor": "esbuild node_modules/peerjs/dist/peerjs.min.js --bundle --format=iife --global-name=PeerJS --outfile=src/assets/vendor/peerjs.min.js --minify",
+    "postinstall": "npm run build:qrcode-vendor && npm run build:peerjs-vendor",
     "tauri": "tauri"
   },
   "devDependencies": {
@@ -16,6 +17,7 @@
     "@phosphor-icons/web": "^2.1.2",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-updater": "^2.10.1",
+    "peerjs": "^1.5.5",
     "qrcode": "^1.5.4"
   }
 }

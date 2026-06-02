@@ -41,7 +41,7 @@ Please consider starring this repo if it helps you! ⭐
 </p>
 
 > [!CAUTION]
-> If you are encountering scaling issues please download the latest version (1.9.0)
+> If you are encountering scaling issues please download the latest version (1.9.0).
 > If flow doesn't start scrolling on voice tracking mode, please check the microphone permission settings for the app and make sure the correct input device is selected in settings.
 
 ## Flow is available on

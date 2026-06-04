@@ -8,41 +8,35 @@
   (at your option) any later version.
 -->
 
+<div align="center">
+
 <p align="center">
   <img src="src/assets/flow-logo.png" width="128" height="128" alt="Flow logo" />
 </p>
 
-<h1 align="center">Flow</h1>
+<h1 align="center">Flow Teleprompter</h1>
 
-<p align="center">
-  Windows-first teleprompter software built with Tauri for clean reading, fast control, voice-assisted workflows, and low-overhead desktop performance.
-</p>
+English / [Español](/README.es.md) / [Türkçe](/README.tr.md) / [العربية](/README.ar.md) / [Deutsch](/README.de.md) / [Français](/README.fr.md)
 
-<p align="center">
-  <strong>v1.9.0</strong> · Tauri v2 · Rust Core · Vanilla JS UI · Windows-first
-</p>
+<a href="https://github.com/LumoRez07/flow/releases" target="_blank">
+  <img src="https://img.shields.io/github/downloads/LumoRez07/flow/total?style=flat-square&color=blue" alt="Downloads" height="20"/>
+</a>
+<a href="https://sourceforge.net/projects/flowteleprompter/files/latest/download">
+  <img alt="Download Flow Teleprompter" src="https://img.shields.io/sourceforge/dm/flowteleprompter.svg" />
+</a>
 
+Ultra-lightweight, hardware-accelerated teleprompter built with Rust & Tauri.
+
+![Windows][Windows-image]
+![Tauri][Tauri-image]
+![Rust][Rust-image]
 <p align="center">
   <img alt="Version" src="https://img.shields.io/badge/version-1.9.0-2563eb?style=for-the-badge" />
-  <img alt="Platform" src="https://img.shields.io/badge/platform-Windows-0f172a?style=for-the-badge&logo=windows" />
-  <img alt="Tauri v2" src="https://img.shields.io/badge/Tauri-v2-24c8db?style=for-the-badge&logo=tauri" />
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-Core-b7410e?style=for-the-badge&logo=rust" />
   <img alt="JavaScript" src="https://img.shields.io/badge/Frontend-Vanilla%20JS-f7df1e?style=for-the-badge&logo=javascript&logoColor=111827" />
 </p>
-
-<p align="center">
-  <img alt="Voice Commands" src="https://img.shields.io/badge/Voice-Hey%20Flow-7c3aed?style=for-the-badge" />
-  <img alt="Voice Tracking" src="https://img.shields.io/badge/Voice%20Tracking-6%20Languages-16a34a?style=for-the-badge" />
-  <img alt="AI Drafting" src="https://img.shields.io/badge/AI-Groq-0ea5e9?style=for-the-badge" />
-</p>
-
 <p align="center">
 Please consider starring this repo if it helps you! ⭐
 </p>
-
-> [!CAUTION]
-> If you are encountering scaling issues please download the latest version (1.9.0).
-> If flow doesn't start scrolling on voice tracking mode, please check the microphone permission settings for the app and make sure the correct input device is selected in settings.
 
 ## Flow is available on
 <div align="center">
@@ -52,52 +46,26 @@ Please consider starring this repo if it helps you! ⭐
   <a href="https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct">
     <img alt="Get it from Microsoft" src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
   </a>
-
   <br>
-
-  <p>
-    <i>
-      Flow is an open-source project. By purchasing the Microsoft Store version, you are directly supporting the independent developer and ensuring the continued growth of this tool.
-    </i>
-  </p>
-  
 </div>
 
+
+
+[Windows-image]: https://img.shields.io/badge/-Windows-0078D6?logo=windows&style=flat-square
+[Tauri-image]: https://img.shields.io/badge/-Tauri-FFC131?logo=tauri&style=flat-square&logoColor=black
+[Rust-image]: https://img.shields.io/badge/-Rust-000000?logo=rust&style=flat-square
+</div>
+
+
+> [!CAUTION]
+> If you are encountering scaling issues please download the latest version (1.9.0).
+> If flow doesn't start scrolling on voice tracking mode, please check the microphone permission settings for the app and make sure the correct input device is selected in settings.
+
+
 > [!IMPORTANT]
-> Distribution note: the Microsoft Store edition is planned to become a Pro version. Its price is expected to increase to **5 USD** to help compensate for server rental, and hosted services will be turned on once the Pro release reaches the required user threshold. The GitHub version will remain the free open-source build and will continue receiving major features and updates.
+> Distribution note: the Microsoft Store edition is planned to become a Pro version. Its price is expected to increase to **5-10 USD** (*Not decided yet*) to help compensate for server rental, and hosted services will be turned on once the Pro release reaches the required user threshold. The GitHub version will remain the free open-source build and will continue receiving major features and updates.
 
-## Overview
 
-Flow is a desktop teleprompter focused on live readability and operational speed. It keeps the reading surface clean while still covering voice tracking, app-wide voice commands, script editing, remote text delivery, and optional AI-assisted drafting.
-
-## What's New in 1.9.0
-
-- Introduced a new Realtime Editing feature using WebRTC (PeerJS), allowing live cross-device script editing through a secure, private browser room.
-- Upgraded the QR code generator to a more performant library (QRCode).
-- Improve stability, performance, and scaling across the app with various under-the-hood optimizations and fixes.
-- Decreased RAM usage while maintaining/improving performance.
-
-## Preview
-
-<p align="center">
-  <img src="assets/flow%20main.png" alt="Flow main teleprompter" width="48%" />
-  <img src="assets/flow%20main%20playing.png" alt="Flow main teleprompter while playing" width="48%" />
-</p>
-
-<p align="center">
-  <img src="assets/flow%20text%20editor.png" alt="Flow text editor" width="48%" />
-  <img src="assets/flow%20settings.png" alt="Flow settings" width="48%" />
-</p>
-
-<p align="center">
-  <img src="assets/flow%20ai%20assistant.png" alt="Flow AI assistant" width="48%" />
-  <img src="assets/flow%20about.png" alt="Flow about screen" width="48%" />
-</p>
-
-<p align="center">
-  <img src="assets/flow%20bright%20playing.png" alt="Flow bright theme while playing" width="48%" />
-  <img src="assets/flow%20yellow%20green%20playing.png" alt="Flow yellow green theme while playing" width="48%" />
-</p>
 
 ## Highlights
 
@@ -108,13 +76,75 @@ Flow is a desktop teleprompter focused on live readability and operational speed
 - Vosk speech models with bundled English and downloadable Turkish, Arabic, German, French, and Spanish support.
 - Built-in script editor with formatting, word count, and reading-time helpers.
 - Remote messaging flow with inbox review, quick-connect QR links, and sender-side reply status updates.
+- Realtime text editing that allows an unlimited number of guests to join and edit the script at the same time.
 - Optional Groq-powered generation and rewriting.
 - Always-on-top Windows overlay with click-through and capture-protection options.
 - Official Tauri updater with in-app checks, install controls, and signed Windows release-feed support.
 
-## Installation
+## 🎥 Feature Showcase
 
-Download the latest Windows release from the GitHub Releases page.
+### 1. Message Injection
+https://github.com/user-attachments/assets/5e6a4fd1-5084-4e33-b56e-0142c2ad83ce
+
+
+
+### 2. Realtime Editing
+https://github.com/user-attachments/assets/653988f9-03f1-40ad-95b8-04339356cb07
+
+---
+
+
+
+
+## 📸 Screenshots
+
+<div align="center">
+  <h3>Main Teleprompter Look</h3>
+  <img src="./assets/main teleprompter.png" width="400" alt="Main Teleprompter"/>
+  <img src="./assets/main chaned size.png" width="400" alt="Resized Layout"/>
+  
+  <br><br>
+  
+  <h3>Text Editor & Built-in AI Assistant</h3>
+  <img src="./assets/text editor.png" width="400" alt="Text Editor Interface"/>
+  <img src="./assets/AI assistant.png" width="400" alt="AI Workspace Integration"/>
+
+  <br><br>
+
+  <h3>Settings & Compact View</h3>
+  <img src="./assets/settings.png" width="400" alt="Application Settings"/>
+  <img src="./assets/minimized.png" width="400" alt="Minimized Compact Overlay"/>
+</div>
+
+---
+
+## Roadmap
+
+- [x] Tauri + Rust core architecture rewrite
+- [x] Invisible overlay for OBS bypass
+- [x] Microsoft Store certification and release
+- [x] Cloudflare migration
+- [ ] v2.0.0: Frontend JavaScript module refactor and enhancement for performance improvements
+- [ ] v2.0.0: Free/Pro tier split logic implementation
+
+---
+
+## What's New in v1.9.0
+
+- Introduced a new Realtime Editing feature using WebRTC (PeerJS), allowing live cross-device script editing through a secure, private browser room.
+- Upgraded the QR code generator to a more performant library (QRCode).
+- Improve stability, performance, and scaling across the app with various under-the-hood optimizations and fixes.
+- Decreased RAM usage while maintaining/improving performance.
+
+---
+
+## Get Started
+
+1. Download the latest release from the [Microsoft Store](https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct) or [GitHub Releases](https://github.com/LumoRez07/flow/releases);
+2. Run the `.exe` or `.msi` installer;
+3. Launch Flow and start prompting.
+
+---
 
 ## Development
 
@@ -160,17 +190,6 @@ Publish these files from `src-tauri/target/release/bundle` to the GitHub release
 
 The `.sig` file is generated alongside the MSI for reference, while `latest.json` is the updater feed consumed by the app.
 
-## Voice and AI
-
-- Voice command wake phrase is available in all languages. "Hey Flow", "Selam Flow", "مرحباً Flow", "Hallo Flow", "Salut Flow", and "Hola Flow" will all work as wake phrases for their respective languages, but voice command recognition is still somewhat unstable and may require multiple tries to trigger.
-- Voice tracking currently supports English, Turkish, Arabic, German, French, and Spanish.
-- Settings now include microphone selection, live level preview, noise gate, and gain tuning for voice features.
-- English is bundled; the other Vosk models are downloaded on demand from Settings.
-- Groq features are optional and require a user-provided API key.
-
-## Remote Messaging
-
-Flow includes a remote sender and inbox flow for pushing text into a running teleprompter session. Cloud sessions can expose quick-connect links and QR codes with the receiver UUID and access password prefilled, and senders can monitor queued messages as they move to accepted or denied. Remote infrastructure is still evolving, so very heavy usage may hit temporary service limits.
 
 ## Privacy
 
@@ -182,351 +201,6 @@ Flow includes a remote sender and inbox flow for pushing text into a running tel
 ## License
 
 This project is licensed under GPL-3.0-or-later. See [LICENSE](LICENSE).
-## Türkçe
-
-### Genel Bakış
-
-Flow, canlı okuma için tasarlanmış, hızlı ve sade bir masaüstü teleprompter uygulamasıdır. Ses takibi, uygulama genelinde sesli komutlar, metin düzenleme, uzaktan metin gönderimi ve isteğe bağlı yapay zekâ destekli yazım araçlarını temiz bir arayüzde birleştirir.
-
-### 1.9.0 Sürümündeki Yenilikler
-
-- WebRTC (PeerJS) kullanan yeni bir Canlı Düzenleme (Realtime Editing) özelliği eklendi. Bu, güvenli ve özel bir tarayıcı odası üzerinden cihazlar arası canlı metin düzenlemesine olanak tanır.
-- QR kodu oluşturucu daha performanslı bir kütüphaneyle (QRCode) güncellendi.
-- Çeşitli altyapı optimizasyonları ve düzeltmeleriyle uygulama genelinde kararlılık, performans ve ölçeklendirme iyileştirildi.
-- Performans korunurken/iyileştirilirken RAM kullanımı azaltıldı.
-
-### Öne Çıkanlar
-
-- Vurgu, kaydırma, satır, ok ve ses takibi modları.
-- Yerel olarak saklanan metin ve ayarlar.
-- Aygıt seçimi, canlı izleme, gürültü kapısı ve kazanç kontrolleri içeren ses girişi ayarları.
-- Yerelleştirilmiş uyandırma ifadeleri ve daha dayanıklı algılama yapısıyla uygulama genelinde ses kontrolü.
-- İngilizce gömülü, Türkçe, Arapça, Almanca, Fransızca ve İspanyolca için indirilebilir Vosk modelleri.
-- Biçimlendirme, kelime sayısı ve okuma süresi araçları içeren metin düzenleyici.
-- Metni eklemeden önce inceleme, hızlı bağlantı QR ve gönderici yanıt durumu sunan uzaktan mesaj akışı.
-- İsteğe bağlı Groq destekli üretim ve yeniden yazım.
-- Her zaman üstte çalışan Windows katmanı, tıklama geçişi ve yakalama koruması seçenekleri.
-- Resmi Tauri güncelleyicisi, uygulama içi denetim ve kurulum ile imzalı release akışı desteği.
-
-### Kurulum
-
-En güncel Windows sürümünü GitHub Releases sayfasından indirin.
-
-### Geliştirme
-
-Gereksinimler:
-- Node.js
-- Rust
-- Windows için Tauri önkoşulları
-
-Çalıştırma:
-
-```bash
-npm install
-npm run tauri dev
-```
-
-Derleme:
-
-```bash
-npm run tauri build
-```
-
-### Ses ve Yapay Zekâ
-
-- Sesli komutlar için uyandırma ifadesi tüm dillerde mevcuttur. İngilizce için "Hey Flow", Türkçe için "Selam Flow", Arapça için "مرحباً Flow", Almanca için "Hallo Flow", Fransızca için "Salut Flow" ve İspanyolca için "Hola Flow" uyandırma ifadeleri kullanılabilir, ancak sesli komut tanıma hâlâ biraz kararsızdır ve tetiklemek için birden fazla deneme gerekebilir.
-- Ses takibi İngilizce, Türkçe, Arapça, Almanca, Fransızca ve İspanyolca destekler.
-- Ayarlar ekranında mikrofon seçimi, canlı seviye önizlemesi, gürültü kapısı ve giriş kazancı araçları bulunur.
-- İngilizce model gömülüdür; diğer Vosk modelleri Ayarlar ekranından indirilebilir.
-- Groq özellikleri isteğe bağlıdır ve kullanıcı tarafından sağlanan API anahtarı gerektirir.
-
-### Uzaktan Mesajlaşma
-
-Flow, çalışan teleprompter oturumuna uzaktan metin göndermek için gönderici ve gelen kutusu akışı içerir. Bulut oturumları, alıcı UUID'si ve erişim parolası doldurulmuş hızlı bağlantı bağlantıları ve QR kodları üretebilir; göndericiler de kuyruktaki mesajların kabul veya ret durumuna geçtiğini izleyebilir. Altyapı hâlâ geliştirildiği için çok yoğun kullanım geçici sınırlara yol açabilir.
-
-### Gizlilik
-
-- Verilerin çoğu cihazda yerel olarak saklanır.
-- Ses takibi Vosk modelleriyle yerel çalışacak şekilde tasarlanmıştır.
-- Groq istekleri yalnızca AI özellikleri kullanıldığında gönderilir.
-- Ayrıntılar için [privacy-policy.md](privacy-policy.md) dosyasına bakın.
-
-## العربية
-
-### نظرة عامة
-
-Flow هو تطبيق تلقين مكتبي سريع ومبسّط مخصص للقراءة المباشرة. يجمع بين تتبع الصوت، والأوامر الصوتية على مستوى التطبيق، وتحرير النصوص، وإرسال النصوص عن بُعد، وأدوات الكتابة المدعومة بالذكاء الاصطناعي ضمن واجهة نظيفة.
-
-### الجديد في 1.9.0
-
-- تم تقديم ميزة التحرير المباشر (Realtime Editing) الجديدة باستخدام WebRTC (PeerJS)، والتي تتيح تعديل النصوص المباشر عبر الأجهزة من خلال غرفة متصفح خاصة وآمنة.
-- تم تحديث أداة إنشاء رمز الاستجابة السريعة إلى مكتبة أكثر كفاءة (QRCode).
-- تحسين الاستقرار والأداء والتحجيم عبر التطبيق من خلال تحسينات وإصلاحات خلف الكواليس.
-- تقليل استهلاك ذاكرة الوصول العشوائي (RAM) مع الحفاظ على الأداء أو تحسينه.
-
-### أبرز الميزات
-
-- أوضاع التمييز والتمرير والسطر والسهم وتتبع الصوت.
-- تخزين النصوص والإعدادات محلياً.
-- إعدادات لإدخال الصوت تشمل اختيار الجهاز، والمراقبة الحية، وبوابة الضوضاء، والتحكم في الكسب.
-- تحكم صوتي على مستوى التطبيق مع عبارات تنبيه مترجمة ومعالجة أكثر ثباتًا للتعرّف.
-- نماذج Vosk مع الإنجليزية المضمنة ودعم قابل للتنزيل للتركية والعربية والألمانية والفرنسية والإسبانية.
-- محرر نصوص مع أدوات التنسيق وعدّ الكلمات ووقت القراءة المتوقع.
-- نظام رسائل عن بُعد مع مراجعة النص، وروابط QR سريعة، وتحديثات لحالة رد المُرسل.
-- كتابة وإعادة صياغة اختيارية عبر Groq.
-- طبقة Windows دائمة الظهور مع دعم النقر العابر وحماية الالتقاط.
-- مُحدِّث Tauri رسمي مع فحص وتثبيت من داخل التطبيق ودعم للإصدارات الموقعة.
-
-### التثبيت
-
-قم بتنزيل أحدث إصدار لويندوز من صفحة GitHub Releases.
-
-### التطوير
-
-المتطلبات:
-- Node.js
-- Rust
-- متطلبات Tauri على Windows
-
-التشغيل:
-
-```bash
-npm install
-npm run tauri dev
-```
-
-البناء:
-
-```bash
-npm run tauri build
-```
-
-### الصوت والذكاء الاصطناعي
-
-- عبارة التنبيه للأوامر الصوتية متاحة بجميع اللغات: "Hey Flow" للإنجليزية، "Selam Flow" للتركية، "مرحباً Flow" للعربية، "Hallo Flow" للألمانية، "Salut Flow" للفرنسية، و "Hola Flow" للإسبانية. ومع ذلك، فإن التعرف على الأوامر الصوتية لا يزال غير مستقر بعض الشيء وقد يتطلب عدة محاولات للتفعيل.
-- يدعم تتبع الصوت الإنجليزية والتركية والعربية والألمانية والفرنسية والإسبانية.
-- تتضمن الإعدادات الآن اختيار الميكروفون، ومعاينة المستوى مباشرة، وبوابة الضوضاء، وضبط كسب الإدخال.
-- اللغة الإنجليزية مدمجة؛ ويمكن تنزيل بقية نماذج Vosk من الإعدادات.
-- ميزات Groq اختيارية وتتطلب مفتاح API يقدمه المستخدم.
-
-### الرسائل عن بُعد
-
-يتضمن Flow مسار إرسال وصندوق وارد لإرسال النصوص إلى جلسة تلقين تعمل حالياً. يمكن للجلسات السحابية توفير روابط سريعة ورموز QR مع تعبئة UUID وكلمة مرور الوصول مسبقًا، كما يمكن للمُرسل متابعة الرسائل المعلقة عندما تنتقل إلى حالة قبول أو رفض. ما زالت البنية التحتية تتطور، لذلك قد يؤدي الاستخدام المكثف إلى حدود مؤقتة.
-
-### الخصوصية
-
-- يتم تخزين معظم البيانات محلياً على الجهاز.
-- تم تصميم تتبع الصوت ليعمل محلياً باستخدام نماذج Vosk.
-- لا يتم إرسال طلبات Groq إلا عند استخدام ميزات الذكاء الاصطناعي.
-- راجع [privacy-policy.md](privacy-policy.md) لمزيد من التفاصيل.
-
-## Français
-
-### Vue d'ensemble
-
-Flow est un teleprompter de bureau rapide et epure concu pour la lecture en direct. Il combine le suivi vocal, les commandes vocales globales, l'edition de texte, l'envoi de texte a distance et des outils d'ecriture IA optionnels dans une interface propre.
-
-### Nouveautes de la version 1.9.0
-
-- Introduction d'une nouvelle fonctionnalite d'edition en temps reel (Realtime Editing) utilisant WebRTC (PeerJS), permettant l'edition de scripts en direct sur plusieurs appareils via une salle de navigateur privee et securisee.
-- Mise a jour du generateur de code QR vers une bibliotheque plus performante (QRCode).
-- Amelioration de la stabilite, des performances et de la mise a l'echelle dans toute l'application grace a diverses optimisations et corrections sous le capot.
-- Diminution de l'utilisation de la RAM tout en maintenant/ameliorant les performances.
-
-### Points forts
-
-- Modes surlignage, defilement, ligne, fleches et suivi vocal.
-- Stockage local du texte et des parametres.
-- Reglages d'entree audio avec selection du peripherique, monitoring en direct, noise gate et controle du gain.
-- Commandes vocales globales avec expressions de reveil localisees et reconnaissance plus robuste.
-- Modeles Vosk avec anglais integre et prise en charge telechargeable du turc, de l'arabe, de l'allemand, du francais et de l'espagnol.
-- Editeur de texte avec mise en forme, compteur de mots et estimation du temps de lecture.
-- Flux de messagerie distante avec verification, QR de connexion rapide et statut des reponses cote emetteur.
-- Generation et reecriture facultatives avec Groq.
-- Fenetre Windows toujours au premier plan avec options click-through et protection de capture.
-- Programme officiel de mise a jour Tauri avec verification integree, installation depuis l'application et prise en charge des releases signees.
-
-### Installation
-
-Telechargez la derniere version Windows depuis la page GitHub Releases.
-
-### Developpement
-
-Prerequis:
-- Node.js
-- Rust
-- Prerequis Tauri pour Windows
-
-Execution:
-
-```bash
-npm install
-npm run tauri dev
-```
-
-Build:
-
-```bash
-npm run tauri build
-```
-
-### Voix et IA
-
-- L'expression de reveil des commandes vocales est disponible dans toutes les langues : "Hey Flow" pour l'anglais, "Selam Flow" pour le turc, "مرحباً Flow" pour l'arabe, "Hallo Flow" pour l'allemand, "Salut Flow" pour le français et "Hola Flow" pour l'espagnol. Cependant, la reconnaissance des commandes vocales reste quelque peu instable et peut nécessiter plusieurs tentatives pour se déclencher.
-- Le suivi vocal prend en charge l'anglais, le turc, l'arabe, l'allemand, le francais et l'espagnol.
-- Les parametres incluent maintenant la selection du microphone, un apercu du niveau en direct, un noise gate et le reglage du gain.
-- L'anglais est integre; les autres modeles Vosk peuvent etre telecharges depuis les parametres.
-- Les fonctions Groq sont optionnelles et necessitent une cle API fournie par l'utilisateur.
-
-### Messagerie distante
-
-Flow inclut un emetteur distant et une boite de reception pour envoyer du texte vers une session de teleprompter active. Les sessions cloud peuvent fournir des liens rapides et des QR codes avec l'UUID du recepteur et le mot de passe deja remplis, et les emetteurs peuvent suivre les messages en attente jusqu'a leur acceptation ou leur refus. L'infrastructure evolue encore, donc un usage intensif peut provoquer des limites temporaires.
-
-### Confidentialite
-
-- La plupart des donnees sont stockees localement sur l'appareil.
-- Le suivi vocal est concu pour fonctionner localement avec les modeles Vosk.
-- Les requetes Groq ne sont envoyees que lorsque les fonctions IA sont utilisees.
-- Consultez [privacy-policy.md](privacy-policy.md) pour plus de details.
-
-## Deutsch
-
-### Ueberblick
-
-Flow ist ein schnelles und reduziertes Desktop-Teleprompter-Tool fuer Live-Lesen. Es kombiniert Sprachverfolgung, app-weite Sprachbefehle, Textbearbeitung, Remote-Textuebertragung und optionale KI-Schreibwerkzeuge in einer sauberen Oberflaeche.
-
-### Neu in 1.9.0
-
-- Einführung einer neuen Echtzeit-Bearbeitungsfunktion (Realtime Editing) über WebRTC (PeerJS), die eine geräteübergreifende Live-Teleprompter-Bearbeitung über einen privaten Browserraum ermöglicht.
-- Aktualisierung des QR-Code-Generators auf eine leistungsfähigere Bibliothek (QRCode).
-- Verbesserung von Stabilitaet, Leistung und Skalierung in der gesamten App durch verschiedene Optimierungen und Fehlerbehebungen unter der Haube.
-- Verringerung der RAM-Nutzung bei gleichzeitiger Beibehaltung/Verbesserung der Leistung.
-
-### Highlights
-
-- Hervorheben, Scrollen, Zeilen-, Pfeil- und Sprachverfolgungsmodus.
-- Lokale Speicherung von Text und Einstellungen.
-- Audioeingabe-Einstellungen mit Geraetewahl, Live-Monitoring, Noise Gate und Gain-Reglern.
-- App-weite Sprachsteuerung mit lokalisierten Aktivierungsphrasen und robusterer Erkennung.
-- Vosk-Modelle mit integriertem Englisch und herunterladbarer Unterstuetzung fuer Tuerkisch, Arabisch, Deutsch, Franzoesisch und Spanisch.
-- Texteditor mit Formatierung, Wortzaehler und Lesedauer-Schaetzung.
-- Remote-Messaging mit Pruefung, Schnellverbindungs-QR und Antwortstatus auf Senderseite.
-- Optionale Groq-Generierung und -Umschreibung.
-- Immer-im-Vordergrund-Windows-Overlay mit Click-through und Aufnahmeschutz.
-- Offizieller Tauri-Updater mit integrierter Pruefung, Installation in der App und Unterstuetzung fuer signierte Releases.
-
-### Installation
-
-Laden Sie die neueste Windows-Version von der GitHub-Releases-Seite herunter.
-
-### Entwicklung
-
-Voraussetzungen:
-- Node.js
-- Rust
-- Tauri-Voraussetzungen fuer Windows
-
-Starten:
-
-```bash
-npm install
-npm run tauri dev
-```
-
-Build:
-
-```bash
-npm run tauri build
-```
-
-### Sprache und KI
-
-- Die Aktivierungsphrase fuer Sprachbefehle ist in allen Sprachen verfuegbar: "Hey Flow" fuer Englisch, "Selam Flow" fuer Tuerkisch, "مرحباً Flow" fuer Arabisch, "Hallo Flow" fuer Deutsch, "Salut Flow" fuer Franzoesisch und "Hola Flow" fuer Espanol. Die Spracherkennung ist jedoch noch etwas instabil und kann mehrere Versuche erfordern, um ausgelöst zu werden.
-- Sprachverfolgung unterstuetzt Englisch, Tuerkisch, Arabisch, Deutsch, Franzoesisch und Spanisch.
-- Die Einstellungen enthalten jetzt Mikrofonwahl, Live-Pegelvorschau, Noise Gate und Eingangsverstaerkung fuer Sprachfunktionen.
-- Englisch ist integriert; die anderen Vosk-Modelle koennen in den Einstellungen heruntergeladen werden.
-- Groq-Funktionen sind optional und benoetigen einen vom Nutzer bereitgestellten API-Schluessel.
-
-### Remote Messaging
-
-Flow enthaelt einen Remote-Sender und einen Posteingang, um Text an eine laufende Teleprompter-Sitzung zu senden. Cloud-Sitzungen koennen Schnellverbindungs-Links und QR-Codes mit vorausgefuellter UUID und Zugriffspasswort bereitstellen, und Sender koennen wartende Nachrichten bis zur Annahme oder Ablehnung verfolgen. Die Infrastruktur entwickelt sich noch weiter, daher kann starke Nutzung zu temporaeren Begrenzungen fuehren.
-
-### Datenschutz
-
-- Die meisten Daten werden lokal auf dem Geraet gespeichert.
-- Die Sprachverfolgung ist fuer lokale Ausfuehrung mit Vosk-Modellen ausgelegt.
-- Groq-Anfragen werden nur gesendet, wenn KI-Funktionen genutzt werden.
-- Weitere Details stehen in [privacy-policy.md](privacy-policy.md).
-
-## Espanol
-
-### Resumen
-
-Flow es un teleprompter de escritorio rapido y limpio pensado para lectura en vivo. Combina seguimiento por voz, comandos de voz en toda la aplicacion, edicion de texto, envio remoto de texto y herramientas opcionales de escritura con IA en una interfaz sencilla.
-
-### Novedades en 1.9.0
-
-- Introduccion de una nueva funcion de edicion en tiempo real (Realtime Editing) utilizando WebRTC (PeerJS), lo que permite la edicion de scripts en vivo a traves de multiples dispositivos en una sala de navegador privada y segura.
-- Actualizacion del generador de codigos QR a una biblioteca con mejor rendimiento (QRCode).
-- Mejora de la estabilidad, el rendimiento y el escalado en toda la aplicacion con varias optimizaciones y correcciones internas.
-- Disminucion del uso de RAM manteniendo/mejorando el rendimiento.
-
-### Puntos destacados
-
-- Modos de resaltado, desplazamiento, linea, flechas y seguimiento por voz.
-- Almacenamiento local de texto y configuracion.
-- Ajustes de entrada de audio con seleccion de dispositivo, monitoreo en vivo, puerta de ruido y controles de ganancia.
-- Control por voz en toda la aplicacion con frases de activacion localizadas y reconocimiento mas resistente.
-- Modelos Vosk con ingles integrado y soporte descargable para turco, arabe, aleman, frances y espanol.
-- Editor de texto con formato, conteo de palabras y estimacion de tiempo de lectura.
-- Flujo de mensajeria remota con revision, QR de conexion rapida y actualizaciones de estado de respuesta para el emisor.
-- Generacion y reescritura opcionales con Groq.
-- Superposicion de Windows siempre visible con opciones de click-through y proteccion de captura.
-- Actualizador oficial de Tauri con comprobacion integrada, instalacion dentro de la app y soporte para releases firmadas.
-
-### Instalacion
-
-Descarga la version mas reciente de Windows desde la pagina de GitHub Releases.
-
-### Desarrollo
-
-Requisitos:
-- Node.js
-- Rust
-- Requisitos previos de Tauri para Windows
-
-Ejecucion:
-
-```bash
-npm install
-npm run tauri dev
-```
-
-Compilacion:
-
-```bash
-npm run tauri build
-```
-
-### Voz e IA
-
-- La frase de activacion para los comandos de voz esta disponible en todos los idiomas: "Hey Flow" para ingles, "Selam Flow" para turco, "مرحباً Flow" para arabe, "Hallo Flow" para aleman, "Salut Flow" para frances y "Hola Flow" para espanol. Sin embargo, el reconocimiento de comandos de voz sigue siendo algo inestable y puede requerir varios intentos para activarse.
-- El seguimiento por voz admite ingles, turco, arabe, aleman, frances y espanol.
-- Configuracion ahora incluye seleccion de microfono, vista previa de nivel en vivo, puerta de ruido y ajuste de ganancia para las funciones de voz.
-- Ingles viene integrado; los demas modelos Vosk se pueden descargar desde Configuracion.
-- Las funciones de Groq son opcionales y requieren una clave API proporcionada por el usuario.
-
-### Mensajeria remota
-
-Flow incluye un emisor remoto y una bandeja de entrada para enviar texto a una sesion de teleprompter en ejecucion. Las sesiones en la nube pueden ofrecer enlaces rapidos y codigos QR con el UUID del receptor y la contrasena de acceso ya completados, y los emisores pueden seguir los mensajes en cola hasta que sean aceptados o rechazados. La infraestructura aun sigue evolucionando, por lo que un uso intensivo puede generar limites temporales.
-
-### Privacidad
-
-- La mayor parte de los datos se guarda localmente en el dispositivo.
-- El seguimiento por voz esta pensado para funcionar localmente con modelos Vosk.
-- Las solicitudes a Groq solo se envian cuando se usan las funciones de IA.
-- Consulta [privacy-policy.md](privacy-policy.md) para mas detalles.
-
 
 ## Star History
 

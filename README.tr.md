@@ -37,6 +37,11 @@ Rust ve Tauri ile geliştirilmiş, ultra hafif, donanım hızlandırmalı telepr
 <p align="center">
 Size yardımcı olduysa lütfen bu depoyu yıldızlamayı düşünün! ⭐
 </p>
+<p align="center">
+  <a href="https://www.ghacks.net/de/2026/05/28/flow-teleprompter-windows-voice-tracking/" target="_blank">
+    <img src="assets/featured%20on%20ghacks.svg" alt="Featured on Ghacks" width="480" />
+  </a>
+</p>
 
 ## Flow şuralarda mevcuttur
 <div align="center">

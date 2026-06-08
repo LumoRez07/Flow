@@ -38,6 +38,12 @@ Ultra-lightweight, hardware-accelerated teleprompter built with Rust & Tauri.
 Please consider starring this repo if it helps you! ⭐
 </p>
 
+<p align="center">
+  <a href="https://www.ghacks.net/de/2026/05/28/flow-teleprompter-windows-voice-tracking/" target="_blank">
+    <img src="assets/featured%20on%20ghacks.svg" alt="Featured on Ghacks" width="480" />
+  </a>
+</p>
+
 ## Flow is available on
 <div align="center">
   <a href="https://sourceforge.net/p/flowteleprompter/">

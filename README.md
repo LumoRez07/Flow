@@ -27,6 +27,8 @@ English / [Español](/README.es.md) / [Türkçe](/README.tr.md) / [العربي�
 
 Ultra-lightweight, hardware-accelerated teleprompter built with Rust & Tauri.
 
+*Note : The next major update (v2) will take a little longer than usual as I modularize the codebase and finalize the Pro/Free tier split. Once v2 drops, I'll be right back to the regular 1-2 weekly update schedule!*
+
 ![Windows][Windows-image]
 ![Tauri][Tauri-image]
 ![Rust][Rust-image]

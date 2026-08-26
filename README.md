@@ -14,54 +14,18 @@
   <img src="src/assets/readme-assets/github-readme-header.webp" width="960" alt="Flow Teleprompter v2" />
 </p>
 
-<p align="center">
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <img src="src/assets/readme-assets/en-circle-active.webp" width="32" height="32" alt="English (Selected)" /><br />
-    <sub><b>English</b></sub>
-  </span>
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <a href="README.es.md" style="text-decoration:none;">
-      <img src="src/assets/readme-assets/es-circle.webp" width="32" height="32" alt="Español" /><br />
-      <sub><b>Español</b></sub>
-    </a>
-  </span>
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <a href="README.tr.md" style="text-decoration:none;">
-      <img src="src/assets/readme-assets/tr-circle.webp" width="32" height="32" alt="Türkçe" /><br />
-      <sub><b>Türkçe</b></sub>
-    </a>
-  </span>
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <a href="README.ar.md" style="text-decoration:none;">
-      <img src="src/assets/readme-assets/sa-circle.webp" width="32" height="32" alt="العربية" /><br />
-      <sub><b>العربية</b></sub>
-    </a>
-  </span>
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <a href="README.de.md" style="text-decoration:none;">
-      <img src="src/assets/readme-assets/de-circle.webp" width="32" height="32" alt="Deutsch" /><br />
-      <sub><b>Deutsch</b></sub>
-    </a>
-  </span>
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <a href="README.fr.md" style="text-decoration:none;">
-      <img src="src/assets/readme-assets/fr-circle.webp" width="32" height="32" alt="Français" /><br />
-      <sub><b>Français</b></sub>
-    </a>
-  </span>
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <a href="README.pt.md" style="text-decoration:none;">
-      <img src="src/assets/readme-assets/br-circle.webp" width="32" height="32" alt="Português" /><br />
-      <sub><b>Português</b></sub>
-    </a>
-  </span>
-  <span style="display:inline-block; margin: 0 10px; text-align: center;">
-    <a href="README.fi.md" style="text-decoration:none;">
-      <img src="src/assets/readme-assets/fi-circle.webp" width="32" height="32" alt="Suomi" /><br />
-      <sub><b>Suomi</b></sub>
-    </a>
-  </span>
-</p>
+<table align="center">
+  <tr>
+    <td align="center"><img src="src/assets/readme-assets/en-circle-active.webp" width="32" height="32" alt="English" /><br /><sub><b>English</b></sub></td>
+    <td align="center"><a href="README.es.md"><img src="src/assets/readme-assets/es-circle.webp" width="32" height="32" alt="Español" /><br /><sub><b>Español</b></sub></a></td>
+    <td align="center"><a href="README.tr.md"><img src="src/assets/readme-assets/tr-circle.webp" width="32" height="32" alt="Türkçe" /><br /><sub><b>Türkçe</b></sub></a></td>
+    <td align="center"><a href="README.ar.md"><img src="src/assets/readme-assets/sa-circle.webp" width="32" height="32" alt="العربية" /><br /><sub><b>العربية</b></sub></a></td>
+    <td align="center"><a href="README.de.md"><img src="src/assets/readme-assets/de-circle.webp" width="32" height="32" alt="Deutsch" /><br /><sub><b>Deutsch</b></sub></a></td>
+    <td align="center"><a href="README.fr.md"><img src="src/assets/readme-assets/fr-circle.webp" width="32" height="32" alt="Français" /><br /><sub><b>Français</b></sub></a></td>
+    <td align="center"><a href="README.pt.md"><img src="src/assets/readme-assets/br-circle.webp" width="32" height="32" alt="Português" /><br /><sub><b>Português</b></sub></a></td>
+    <td align="center"><a href="README.fi.md"><img src="src/assets/readme-assets/fi-circle.webp" width="32" height="32" alt="Suomi" /><br /><sub><b>Suomi</b></sub></a></td>
+  </tr>
+</table>
 
 <p align="center">
   <a href="https://github.com/LumoRez07/flow/releases" target="_blank">

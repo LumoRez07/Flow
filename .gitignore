@@ -15,6 +15,7 @@ src-tauri/target/
 src-tauri/gen/
 tools/
 tmp/
+src/pro
 src/diagnostics/
 *.private.json
 *.private.ps1

@@ -1,0 +1,3 @@
+[submodule "src/pro"]
+	path = src/pro
+	url = https://github.com/LumoRez07/Flowteleprompter-pro

@@ -14,7 +14,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="doc.textTitle">Flow · Text</title>
     <link rel="stylesheet" href="styles.css" />
-    <script type="module" src="/input.js" defer></script>
+    <script type="module" src="./input.js" defer></script>
   </head>
   <body data-page="input">
     <main class="page-shell settings-shell">
@@ -25,7 +25,7 @@
             <h2 class="settings-section-picker-title" data-i18n="input.sectionTitle">Choose editor panel</h2>
           </div>
           <div class="page-actions input-section-picker-actions">
-            <button class="mini-link" id="openSettingsButton" type="button"><span class="button-label-content"><i class="ph ph-gear-six" aria-hidden="true"></i><span data-i18n="common.settings">Settings</span></span></button>
+            <button class="mini-link" id="openSettingsButton" type="button"><span class="button-label-content"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i><span data-i18n="common.settings">Settings</span></span></button>
             <button class="mini-link" id="closeWindowButton" type="button"><span class="button-label-content"><i class="ph ph-x" aria-hidden="true"></i><span data-i18n="common.close">Close</span></span></button>
           </div>
         </div>
@@ -57,7 +57,7 @@
         <label class="field-label" for="scriptInput" data-i18n="input.teleprompterText">Teleprompter text</label>
         <div class="editor-toolbar" data-i18n-aria-label="input.toolbar" aria-label="Formatting toolbar">
           <button class="toolbar-button" type="button" data-wrap-before="**" data-wrap-after="**" data-placeholder="bold text" data-i18n-aria-label="input.toolbar.bold" aria-label="Bold">
-            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-text-bolder"></i></span>
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-text-b"></i></span>
             <span class="toolbar-button-label" data-i18n="input.toolbar.bold">Bold</span>
           </button>
           <button class="toolbar-button" type="button" data-wrap-before="*" data-wrap-after="*" data-placeholder="italic text" data-i18n-aria-label="input.toolbar.italic" aria-label="Italic">
@@ -69,11 +69,11 @@
             <span class="toolbar-button-label" data-i18n="input.toolbar.underline">Underline</span>
           </button>
           <button class="toolbar-button tone-white" type="button" data-wrap-before="[white]" data-wrap-after="[/white]" data-placeholder="white text" data-i18n-aria-label="input.toolbar.white" aria-label="White text">
-            <span class="toolbar-button-icon toolbar-button-tone-swatch" aria-hidden="true">A</span>
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-paint-brush"></i></span>
             <span class="toolbar-button-label" data-i18n="input.toolbar.white">White</span>
           </button>
           <button class="toolbar-button tone-softwhite" type="button" data-wrap-before="[softwhite]" data-wrap-after="[/softwhite]" data-placeholder="soft white text" data-i18n-aria-label="input.toolbar.softWhite" aria-label="Soft white text">
-            <span class="toolbar-button-icon toolbar-button-tone-swatch" aria-hidden="true">A</span>
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-paint-bucket"></i></span>
             <span class="toolbar-button-label" data-i18n="input.toolbar.softWhite">Soft white</span>
           </button>
           <button class="toolbar-button" type="button" data-line-prefix="- " data-placeholder="list item" data-i18n-aria-label="input.toolbar.bullets" aria-label="Bullets">
@@ -89,16 +89,20 @@
             <span class="toolbar-button-label" data-i18n="input.toolbar.quote">Quote</span>
           </button>
           <button class="toolbar-button highlight-yellow" type="button" data-wrap-before="[yellow]" data-wrap-after="[/yellow]" data-placeholder="yellow highlight" data-i18n-aria-label="input.toolbar.highlightYellow" aria-label="Yellow highlight">
-            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter-circle"></i></span>
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter"></i></span>
             <span class="toolbar-button-label" data-i18n="input.toolbar.highlightYellow">Yellow</span>
           </button>
           <button class="toolbar-button highlight-blue" type="button" data-wrap-before="[blue]" data-wrap-after="[/blue]" data-placeholder="blue highlight" data-i18n-aria-label="input.toolbar.highlightBlue" aria-label="Blue highlight">
-            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter-circle"></i></span>
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter"></i></span>
             <span class="toolbar-button-label" data-i18n="input.toolbar.highlightBlue">Blue</span>
           </button>
           <button class="toolbar-button highlight-red" type="button" data-wrap-before="[red]" data-wrap-after="[/red]" data-placeholder="red highlight" data-i18n-aria-label="input.toolbar.highlightRed" aria-label="Red highlight">
-            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter-circle"></i></span>
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-highlighter"></i></span>
             <span class="toolbar-button-label" data-i18n="input.toolbar.highlightRed">Red</span>
+          </button>
+          <button class="toolbar-button" id="insertSectionButton" type="button" data-i18n-aria-label="input.toolbar.section" aria-label="Insert section milestone">
+            <span class="toolbar-button-icon" aria-hidden="true"><i class="ph ph-bookmark-simple"></i></span>
+            <span class="toolbar-button-label" data-i18n="input.toolbar.section">Section</span>
           </button>
         </div>
 
@@ -142,7 +146,7 @@
                 </div>
                 <div class="card-builder-template-toolbar">
                   <span class="helper-text" id="scriptCardTemplateMeta"></span>
-                  <button class="mini-link hidden" id="deleteScriptCardTemplateButton" type="button"><span class="button-label-content"><i class="ph ph-trash" aria-hidden="true"></i><span data-i18n="input.cardDeleteAction">Delete</span></span></button>
+                  <button class="mini-link hidden" id="deleteScriptCardTemplateButton" type="button"><span class="button-label-content"><i class="ph ph-trash-simple" aria-hidden="true"></i><span data-i18n="input.cardDeleteAction">Delete</span></span></button>
                 </div>
               </div>
 
@@ -339,6 +343,9 @@
                   <option value="ar" data-i18n="language.ar">Arabic</option>
                   <option value="de" data-i18n="language.de">German</option>
                   <option value="fr" data-i18n="language.fr">French</option>
+                  <option value="es" data-i18n="language.es">Spanish</option>
+                  <option value="pt" data-i18n="language.pt">Portuguese</option>
+                  <option value="fi" data-i18n="language.fi">Finnish</option>
                 </select>
                 <button class="choice-trigger" id="groqOutputLanguageTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="groqOutputLanguageTriggerLabel">
                   <span class="choice-trigger-copy">
@@ -365,6 +372,38 @@
 
         <div class="helper-text" id="groqStatus" data-i18n="input.groqOptional">Groq is optional. Your key stays in local storage on this device.</div>
       </section>
+      </div>
+
+      <!-- Section Creation Modal -->
+      <div class="modal-overlay hidden" id="sectionModal" role="dialog" aria-modal="true" aria-labelledby="sectionModalTitle" aria-hidden="true">
+        <div class="modal-card section-modal-card">
+          <div class="modal-header">
+            <div class="modal-title-group">
+              <span class="modal-title-icon" aria-hidden="true"><i class="ph ph-bookmark-simple"></i></span>
+              <h3 class="modal-title" id="sectionModalTitle" data-i18n="input.sectionModal.title">Add Section Milestone</h3>
+            </div>
+            <button class="icon-button modal-close-button" id="sectionModalCloseButton" type="button" aria-label="Close">
+              <i class="ph ph-x" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="modal-field">
+              <label class="field-label compact-field-label" for="sectionModalTitleInput" data-i18n="input.sectionModal.sectionTitleLabel">Section title</label>
+              <input id="sectionModalTitleInput" class="page-input" type="text" maxlength="80" data-i18n-placeholder="input.sectionModal.sectionTitlePlaceholder" placeholder="e.g., Introduction, Market Overview..." autocomplete="off" />
+            </div>
+            <div class="modal-field">
+              <label class="field-label compact-field-label" for="sectionModalWaitInput" data-i18n="input.sectionModal.waitTimeLabel">Pause duration (seconds)</label>
+              <div class="page-input-wrap">
+                <input id="sectionModalWaitInput" class="page-input" type="number" min="0" max="120" step="1" value="0" data-i18n-placeholder="input.sectionModal.waitTimePlaceholder" placeholder="0 (no pause)" inputmode="numeric" />
+              </div>
+              <span class="helper-text" data-i18n="input.sectionModal.waitTimeHelp">Teleprompter will stop scrolling for this duration when reaching this section.</span>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="primary-action compact-action" id="sectionModalAddButton" type="button" data-i18n="input.sectionModal.addButton">Add Section</button>
+            <button class="secondary-action compact-action" id="sectionModalCancelButton" type="button" data-i18n="input.sectionModal.cancelButton">Cancel</button>
+          </div>
+        </div>
       </div>
     </main>
   </body>

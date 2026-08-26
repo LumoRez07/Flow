@@ -194,12 +194,13 @@ pub(crate) fn start_voice_tracking(
     language: String,
     sound_input: VoiceInputSettings,
     model_id: Option<String>,
+    grammar: Option<Vec<String>>,
 ) -> Result<(), String> {
     let mut engine = voice_engine.lock();
     let language = normalize_voice_language(&language).to_string();
     let model = engine.load_model(&app, &language, model_id.as_deref())?;
     engine.ensure_capture(&app, &sound_input)?;
-    let recognizer = build_active_recognizer(model, language.clone(), None)?;
+    let recognizer = build_active_recognizer(model, language.clone(), grammar)?;
 
     if let Some(shared) = &engine.shared {
         let mut shared = shared
@@ -258,6 +259,7 @@ pub(crate) fn stop_voice_command_listener(
     engine.stop_commands(&app)
 }
 
+#[allow(dead_code)]
 #[tauri::command]
 pub(crate) fn get_voice_engine_debug_state(
     voice_engine: State<'_, VoiceEngineState>,
@@ -474,6 +476,7 @@ impl VoiceEngine {
 
         if should_stop {
             self.stop_capture();
+            self.model_cache.clear();
         }
     }
 

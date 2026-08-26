@@ -1,20 +1,38 @@
+/*
+ * Flow - A high-performance teleprompter for Windows.
+ * Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
+
 import {
   applyTextPatch,
   computeTextPatch,
   isHostRealtimeEditActive,
   loadRealtimeEditingConfig,
-  saveRealtimeEditingConfig
+  saveRealtimeEditingConfig,
+  transformTextPatch
 } from "./realtime-editing.js";
+import { loadState } from "../../core/state.js";
+import { CONFIGURED_REALTIME_RELAY_URL } from "./realtime.js";
+import Peer from "../../assets/vendor/peerjs.esm.js";
 
 const REALTIME_HANDSHAKE_REFRESH_MS = 45_000;
 const REALTIME_RECONNECT_DELAY_MS = 1_500;
 const REALTIME_CONNECTION_HEARTBEAT_MS = 3_000;
 const REALTIME_WAKE_POLL_MS = 2_500;
-const PEERJS_VENDOR_URL = new URL("./assets/vendor/peerjs.min.js", import.meta.url).href;
 
 let peerConstructorPromise = null;
 
 async function loadPeerConstructor() {
+  const PeerConstructor = Peer?.Peer || Peer || window.PeerJS?.Peer || window.Peer;
+  if (typeof PeerConstructor === "function") {
+    return PeerConstructor;
+  }
+
   if (!peerConstructorPromise) {
     peerConstructorPromise = new Promise((resolve, reject) => {
       const existingConstructor = window.PeerJS?.Peer || window.Peer;
@@ -41,7 +59,7 @@ async function loadPeerConstructor() {
       }
 
       const script = document.createElement("script");
-      script.src = PEERJS_VENDOR_URL;
+      script.src = "./assets/vendor/peerjs.min.js";
       script.async = true;
       script.dataset.flowPeerjs = "true";
       script.addEventListener("load", () => {
@@ -94,8 +112,11 @@ export function createRealtimeHostController(options = {}) {
   let heartbeatTimer = 0;
   let wakePollTimer = 0;
   let activeConfigSignature = "";
+  let isStartingPeer = false;
   let currentText = String(options.getCurrentScript?.() || "");
   let currentRevision = 0;
+  const MAX_PATCH_HISTORY = 60;
+  const patchHistory = [];
   let currentPlaybackState = normalizePlaybackState(options.getCurrentPlaybackState?.());
   const connections = new Set();
 
@@ -150,12 +171,13 @@ export function createRealtimeHostController(options = {}) {
   }
 
   function hasActivePeer(signature) {
-    return Boolean(peer && activeConfigSignature === signature && !peer.destroyed && !peer.disconnected);
+    return Boolean(peer && activeConfigSignature === signature && !peer.destroyed);
   }
 
   function resetRuntimeState() {
     currentText = String(options.getCurrentScript?.() || "");
     currentRevision = 0;
+    patchHistory.length = 0;
     currentPlaybackState = normalizePlaybackState(options.getCurrentPlaybackState?.());
   }
 
@@ -281,16 +303,25 @@ export function createRealtimeHostController(options = {}) {
       });
   }
 
+  let consecutiveReconnectFailures = 0;
+
   function scheduleReconnect() {
     clearReconnectTimer();
     if (destroyed) {
       return;
     }
 
+    consecutiveReconnectFailures += 1;
+    if (consecutiveReconnectFailures > 3) {
+      scheduleWakePoll();
+      return;
+    }
+
+    const delay = Math.min(REALTIME_RECONNECT_DELAY_MS * Math.pow(2, consecutiveReconnectFailures - 1), 30_000);
     reconnectTimer = window.setTimeout(() => {
       reconnectTimer = 0;
       refreshConfig().catch(console.error);
-    }, REALTIME_RECONNECT_DELAY_MS);
+    }, delay);
   }
 
   function scheduleWakePoll() {
@@ -299,11 +330,15 @@ export function createRealtimeHostController(options = {}) {
       return;
     }
 
+    const pollInterval = consecutiveReconnectFailures > 2
+      ? Math.min(REALTIME_WAKE_POLL_MS * Math.pow(2, consecutiveReconnectFailures - 2), 30_000)
+      : REALTIME_WAKE_POLL_MS;
+
     wakePollTimer = window.setTimeout(async () => {
       wakePollTimer = 0;
       try {
         const shouldWake = await peekWakeRequest();
-        if (shouldWake) {
+        if (shouldWake && consecutiveReconnectFailures <= 4) {
           await startPeer();
           return;
         }
@@ -314,7 +349,7 @@ export function createRealtimeHostController(options = {}) {
       if (!destroyed && !peer && connections.size === 0) {
         scheduleWakePoll();
       }
-    }, REALTIME_WAKE_POLL_MS);
+    }, pollInterval);
   }
 
   function scheduleHandshake(peerId) {
@@ -410,12 +445,25 @@ export function createRealtimeHostController(options = {}) {
     }
 
     const baseRevision = Number(normalizedMessage.baseRevision);
-    if (!Number.isFinite(baseRevision) || baseRevision !== currentRevision) {
+    if (!Number.isFinite(baseRevision)) {
       sendSnapshot(connection);
       return;
     }
 
-    const nextText = applyTextPatch(currentText, normalizedMessage.patch);
+    let patchToApply = normalizedMessage.patch;
+    if (baseRevision !== currentRevision) {
+      if (baseRevision < currentRevision && currentRevision - baseRevision <= patchHistory.length) {
+        const historySinceBase = patchHistory.filter((entry) => entry.revision > baseRevision);
+        for (const entry of historySinceBase) {
+          patchToApply = transformTextPatch(patchToApply, entry.patch);
+        }
+      } else {
+        sendSnapshot(connection);
+        return;
+      }
+    }
+
+    const nextText = applyTextPatch(currentText, patchToApply);
     if (nextText === currentText) {
       connection.send({
         type: "script-ack",
@@ -426,6 +474,11 @@ export function createRealtimeHostController(options = {}) {
 
     currentText = nextText;
     currentRevision += 1;
+    patchHistory.push({ revision: currentRevision, patch: patchToApply });
+    if (patchHistory.length > MAX_PATCH_HISTORY) {
+      patchHistory.shift();
+    }
+
     connection.send({
       type: "script-ack",
       revision: currentRevision
@@ -433,7 +486,7 @@ export function createRealtimeHostController(options = {}) {
     broadcast({
       type: "script-patch",
       revision: currentRevision,
-      patch: normalizedMessage.patch
+      patch: patchToApply
     }, connection);
     await options.applyRemoteScript?.(nextText);
   }
@@ -451,8 +504,6 @@ export function createRealtimeHostController(options = {}) {
     options.onConnectionCountChanged?.(connections.size);
     if (!connections.size) {
       clearHeartbeatTimer();
-      clearHandshake().catch(console.error);
-      destroyPeerAnd("wake");
     }
   }
 
@@ -505,9 +556,35 @@ export function createRealtimeHostController(options = {}) {
     }
   }
 
+  function getPeerOptions() {
+    const configuredHost = String(loadState()?.remote?.publicHost || CONFIGURED_REALTIME_RELAY_URL || "").trim();
+    if (configuredHost) {
+      try {
+        const url = new URL(configuredHost.startsWith("http") ? configuredHost : `https://${configuredHost}`);
+        return {
+          host: url.hostname,
+          port: url.port ? Number(url.port) : (url.protocol === "https:" ? 443 : 80),
+          path: url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`,
+          secure: url.protocol === "https:",
+          debug: 0
+        };
+      } catch {
+        // Fall back to default cloud server if URL parsing fails
+      }
+    }
+
+    return {
+      host: "0.peerjs.com",
+      port: 443,
+      path: "/",
+      secure: true,
+      debug: 0
+    };
+  }
+
   async function startPeer() {
     const config = getActiveConfig();
-    if (!config) {
+    if (!config || isStartingPeer) {
       return;
     }
 
@@ -516,43 +593,56 @@ export function createRealtimeHostController(options = {}) {
       return;
     }
 
+    isStartingPeer = true;
     activeConfigSignature = nextSignature;
     resetRuntimeState();
     await destroyPeer();
 
-    const Peer = await loadPeerConstructor();
-    const nextPeer = new Peer(buildPeerId(config.roomId));
-    peer = nextPeer;
+    try {
+      const Peer = await loadPeerConstructor();
+      if (destroyed) return;
+      const nextPeer = new Peer(buildPeerId(config.roomId), getPeerOptions());
+      peer = nextPeer;
 
-    nextPeer.on("open", (peerId) => {
-      announceHost(peerId)
-        .then(() => {
-          updatePublishedTimestamp();
-          scheduleHandshake(peerId);
-          clearWakeRequest(config).catch(console.error);
-        })
-        .catch((error) => {
-          console.error("Failed to announce realtime host", error);
-          scheduleReconnect();
-        });
-    });
+      nextPeer.on("open", (peerId) => {
+        consecutiveReconnectFailures = 0;
+        announceHost(peerId)
+          .then(() => {
+            updatePublishedTimestamp();
+            scheduleHandshake(peerId);
+            clearWakeRequest(config).catch(console.error);
+          })
+          .catch((error) => {
+            console.error("Failed to announce realtime host", error);
+            scheduleReconnect();
+          });
+      });
 
-    nextPeer.on("connection", (connection) => {
-      attachConnection(connection);
-    });
+      nextPeer.on("connection", (connection) => {
+        attachConnection(connection);
+      });
 
-    nextPeer.on("disconnected", () => {
-      destroyPeerAnd("wake");
-    });
+      nextPeer.on("disconnected", () => {
+        if (peer && !peer.destroyed) {
+          try {
+            peer.reconnect();
+          } catch {
+            destroyPeerAnd("wake");
+          }
+        }
+      });
 
-    nextPeer.on("close", () => {
-      destroyPeerAnd("wake");
-    });
+      nextPeer.on("close", () => {
+        destroyPeerAnd("wake");
+      });
 
-    nextPeer.on("error", (error) => {
-      console.error("Realtime host peer error", error);
-      destroyPeerAnd("reconnect");
-    });
+      nextPeer.on("error", (error) => {
+        console.warn("Realtime host peer connection warning:", error?.message || error);
+        destroyPeerAnd("reconnect");
+      });
+    } finally {
+      isStartingPeer = false;
+    }
   }
 
   async function refreshConfig() {
@@ -577,10 +667,16 @@ export function createRealtimeHostController(options = {}) {
       return;
     }
 
-    activeConfigSignature = nextSignature;
-    resetRuntimeState();
-    await destroyPeer();
-    scheduleWakePoll();
+    await startPeer();
+  }
+
+  function isPlaybackStateEqual(a, b) {
+    if (!a || !b) return false;
+    return a.active === b.active &&
+      a.paused === b.paused &&
+      a.wordIndex === b.wordIndex &&
+      a.totalWords === b.totalWords &&
+      a.wordText === b.wordText;
   }
 
   function syncLocalScript(nextText) {
@@ -592,24 +688,32 @@ export function createRealtimeHostController(options = {}) {
     const patch = computeTextPatch(currentText, normalizedText);
     currentText = normalizedText;
     currentRevision += 1;
-    broadcast({
-      type: "script-patch",
-      revision: currentRevision,
-      patch
-    });
+    patchHistory.push({ revision: currentRevision, patch });
+    if (patchHistory.length > MAX_PATCH_HISTORY) {
+      patchHistory.shift();
+    }
+    if (connections.size > 0) {
+      broadcast({
+        type: "script-patch",
+        revision: currentRevision,
+        patch
+      });
+    }
   }
 
   function syncPlaybackState(nextState) {
     const normalizedState = normalizePlaybackState(nextState);
-    if (JSON.stringify(normalizedState) === JSON.stringify(currentPlaybackState)) {
+    if (isPlaybackStateEqual(normalizedState, currentPlaybackState)) {
       return;
     }
 
     currentPlaybackState = normalizedState;
-    broadcast({
-      type: "host-playback",
-      playback: currentPlaybackState
-    });
+    if (connections.size > 0) {
+      broadcast({
+        type: "host-playback",
+        playback: currentPlaybackState
+      });
+    }
   }
 
   return {

@@ -8,7 +8,20 @@
  * (at your option) any later version.
  */
 
-import { REALTIME_RELAY_URL, REMOTE_PUBLIC_URL, REMOTE_RELAY_URL } from "./remote-config.js";
+import { CONFIGURED_REMOTE_PUBLIC_URL, CONFIGURED_CLOUD_RELAY_URL, isCloudRemoteEnabled, buildCloudApiUrl, buildCloudSenderUrl, buildCloudSenderAuthUrl, fetchCloudRemoteStatus } from "./services/network/remote.js";
+import { CONFIGURED_REALTIME_RELAY_URL, buildRealtimeApiUrl, fetchRealtimeRelayProbe, isRealtimeRelayConfigured, getRealtimeRelayProbeState } from "./services/network/realtime.js";
+import QRCode from "./assets/vendor/qrcode.esm.js";
+import {
+  updaterState,
+  setUpdaterDelegate,
+  getUpdaterCheckAvailable,
+  getUpdaterInstallAvailable,
+  resolveMicrosoftStoreBuild,
+  checkForAppUpdates,
+  installAvailableUpdate,
+  ensureCurrentAppVersion,
+  isMicrosoftStoreBuild
+} from "./services/updater.js";
 import {
   buildRealtimeRoomUrl,
   clearRealtimeEditingConfig,
@@ -17,10 +30,11 @@ import {
   getRealtimeEditingUpdatedEventName,
   loadRealtimeEditingConfig,
   saveRealtimeEditingConfig
-} from "./realtime-editing.js";
+} from "./services/network/realtime-editing.js";
 import {
   applyAppearanceToDocument,
   applyTranslationsToDocument,
+  clampNumber,
   defaultState,
   FONT_OPTIONS,
   getThemeTeleprompterTextColor,
@@ -33,6 +47,7 @@ import {
   loadState,
   parseLocaleNumber,
   normalizeVoiceLanguage,
+  normalizeCustomColor,
   resolveFontStack,
   saveState,
   saveVoiceModelRegistry,
@@ -40,18 +55,23 @@ import {
   translate,
   VOICE_LANGUAGE_OPTIONS
 } from "./shared.js";
+import { getProModule } from "./core/pro-loader.js";
+import {
+  MIN_WIDTH,
+  MIN_HEIGHT,
+  COLLAPSED_HEIGHT,
+  SPEED_RAIL_WINDOW_GUTTER,
+  REMOTE_RAIL_WINDOW_GUTTER,
+  SIDE_PANEL_WINDOW_GUTTER,
+  MAX_WIDTH_FALLBACK,
+  MAX_HEIGHT_FALLBACK,
+  TOP_CENTER_X_OFFSET
+} from "./teleprompter/layout.js";
 
 await initializePersistentStorage();
 
-const MIN_WIDTH = 400;
-const MIN_HEIGHT = 200;
-const COLLAPSED_HEIGHT = 56;
-const SPEED_RAIL_WINDOW_GUTTER = 74;
-const MAX_WIDTH_FALLBACK = 2200;
-const MAX_HEIGHT_FALLBACK = 1400;
 const POSITION_PADDING = 600;
-const APPLY_DELAY = 70;
-const TOP_CENTER_X_OFFSET = 32;
+const APPLY_DELAY = 120;
 const REMOTE_STATUS_REFRESH_MS = 20_000;
 const WINDOW_SIZE_PREVIEW_CLASS = "window-size-preview-active";
 const WINDOW_SIZE_PREVIEW_RELEASE_DELAY = 140;
@@ -71,8 +91,7 @@ const tauriApp = window.__TAURI__?.app;
 const tauriWindow = window.__TAURI__?.window;
 const tauriDpi = window.__TAURI__?.dpi;
 const tauriEvent = window.__TAURI__?.event;
-let isMicrosoftStoreBuild = null;
-let microsoftStoreBuildPromise = null;
+
 
 const state = loadState();
 state.window = state.window || structuredClone(defaultState.window);
@@ -200,6 +219,8 @@ const ui = {
   themeMenu: document.querySelector("#themeMenu"),
   settingsSections: document.querySelectorAll("[data-settings-section]"),
   updatesSection: document.querySelector('[data-settings-section="updates"]'),
+  showScriptManagerInput: document.querySelector("#showScriptManagerInput"),
+  showScriptCompletionInput: document.querySelector("#showScriptCompletionInput"),
   windowStatus: document.querySelector("#windowStatus"),
   updaterCurrentVersion: document.querySelector("#updaterCurrentVersion"),
   updaterAvailableVersion: document.querySelector("#updaterAvailableVersion"),
@@ -237,7 +258,31 @@ const ui = {
   copySenderUrlButton: document.querySelector("#copySenderUrlButton"),
   copySenderAuthUrlButton: document.querySelector("#copySenderAuthUrlButton"),
   closeWindowButton: document.querySelector("#closeWindowButton"),
-  openTextButton: document.querySelector("#openTextButton")
+  openTextButton: document.querySelector("#openTextButton"),
+  cornerRadiusInput: document.querySelector("#cornerRadiusInput"),
+  cornerRadiusValue: document.querySelector("#cornerRadiusValue"),
+  cardRadiusInput: document.querySelector("#cardRadiusInput"),
+  cardRadiusValue: document.querySelector("#cardRadiusValue"),
+  borderWidthInput: document.querySelector("#borderWidthInput"),
+  borderWidthValue: document.querySelector("#borderWidthValue"),
+  borderOpacityInput: document.querySelector("#borderOpacityInput"),
+  borderOpacityValue: document.querySelector("#borderOpacityValue"),
+  glassBlurInput: document.querySelector("#glassBlurInput"),
+  glassBlurValue: document.querySelector("#glassBlurValue"),
+  companionOpacityInput: document.querySelector("#companionOpacityInput"),
+  companionOpacityValue: document.querySelector("#companionOpacityValue"),
+  customAccentColorInput: document.querySelector("#customAccentColorInput"),
+  customAccentColorHex: document.querySelector("#customAccentColorHex"),
+  customHighlightColorInput: document.querySelector("#customHighlightColorInput"),
+  resetStylingButton: document.querySelector("#resetStylingButton"),
+  resetCornerRadiusBtn: document.querySelector("#resetCornerRadiusBtn"),
+  resetCardRadiusBtn: document.querySelector("#resetCardRadiusBtn"),
+  resetBorderWidthBtn: document.querySelector("#resetBorderWidthBtn"),
+  resetBorderOpacityBtn: document.querySelector("#resetBorderOpacityBtn"),
+  resetGlassBlurBtn: document.querySelector("#resetGlassBlurBtn"),
+  resetCompanionOpacityBtn: document.querySelector("#resetCompanionOpacityBtn"),
+  resetCustomAccentBtn: document.querySelector("#resetCustomAccentBtn"),
+  resetCustomHighlightBtn: document.querySelector("#resetCustomHighlightBtn")
 };
 
 let applyTimer = null;
@@ -261,24 +306,22 @@ let remoteSenderQrSource = "";
 let remoteRealtimeQrDataUrl = "";
 let remoteRealtimeQrSource = "";
 let realtimeEditingInitBusy = false;
-let realtimeRelayProbeState = "idle";
 let windowSizePreviewReleaseTimer = 0;
-let realtimeRelayProbeUrl = "";
-let realtimeRelayProbePromise = null;
 const customSettingsSelectControllers = [];
 const RTL_TEXT_PATTERN = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
 const SETTINGS_SECTION_CHOICE_METADATA = {
   appearance: { icon: "ph-palette", accent: "appearance" },
+  "advanced-styling": { icon: "ph-paint-brush-broad", accent: "advanced-styling" },
   scrolling: { icon: "ph-arrows-vertical", accent: "scrolling" },
   positioning: { icon: "ph-app-window", accent: "positioning" },
-  "sound-input": { icon: "ph-microphone-stage", accent: "sound-input" },
+  "sound-input": { icon: "ph-microphone", accent: "sound-input" },
   remote: { icon: "ph-broadcast", accent: "remote" },
-  usability: { icon: "ph-hand-tap", accent: "usability" },
+  usability: { icon: "ph-keyboard", accent: "usability" },
   privacy: { icon: "ph-shield-check", accent: "privacy" },
-  updates: { icon: "ph-arrow-clockwise", accent: "updates" }
+  updates: { icon: "ph-cloud-arrow-down", accent: "updates" }
 };
 const MODE_CHOICE_METADATA = {
-  highlight: { icon: "ph-highlighter-circle", accent: "mode" },
+  highlight: { icon: "ph-highlighter", accent: "mode" },
   scroll: { icon: "ph-arrows-down-up", accent: "mode" },
   line: { icon: "ph-text-align-left", accent: "mode" },
   arrow: { icon: "ph-arrow-elbow-down-right", accent: "mode" },
@@ -286,37 +329,18 @@ const MODE_CHOICE_METADATA = {
 };
 const WINDOW_PRESET_CHOICE_METADATA = {
   "top-center": { icon: "ph-arrow-line-up", accent: "window" },
-  center: { icon: "ph-square", accent: "window" },
+  center: { icon: "ph-frame-corners", accent: "window" },
   custom: { icon: "ph-sliders-horizontal", accent: "window" },
   drag: { icon: "ph-arrows-out-cardinal", accent: "window" }
 };
 const VOICE_STYLE_CHOICE_METADATA = {
-  highlight: { icon: "ph-highlighter-circle", accent: "voice-style" },
+  highlight: { icon: "ph-highlighter", accent: "voice-style" },
   line: { icon: "ph-text-align-left", accent: "voice-style" },
   plain: { icon: "ph-text-aa", accent: "voice-style" }
 };
-let updaterState = {
-  currentVersion: "",
-  update: null,
-  publishedVersion: "",
-  publishedAt: "",
-  publishedNotes: "",
-  checking: false,
-  installing: false,
-  progress: null,
-  badgeKey: "settings.updaterStatusIdle",
-  messageKey: "settings.updaterIdle",
-  messageParams: {}
-};
 
-function clampNumber(value, min, max, fallback) {
-  const numericValue = parseLocaleNumber(value);
-  if (!Number.isFinite(numericValue)) {
-    return fallback;
-  }
 
-  return Math.min(Math.max(numericValue, min), max);
-}
+
 
 function getChoiceTextDirection(text, fallback = document.body?.dataset.uiDirection || "ltr") {
   const normalizedText = String(text || "").trim();
@@ -790,8 +814,16 @@ function getSpeedRailWindowGutter() {
     : SPEED_RAIL_WINDOW_GUTTER;
 }
 
+function getSidePanelWindowGutter() {
+  return 0;
+}
+
+function getBottomDockWindowGutter() {
+  return state.modules?.scriptManager !== false ? 40 : 0;
+}
+
 function getWindowPositionOffset(gutterWidth = getSpeedRailWindowGutter()) {
-  return state.window?.preset === "top-center" ? TOP_CENTER_X_OFFSET - gutterWidth : -gutterWidth;
+  return -gutterWidth;
 }
 
 function getVoiceLanguageLabel(language) {
@@ -832,15 +864,9 @@ function formatPublishedDate(value) {
   }
 }
 
-function getUpdaterCheckAvailable() {
-  return !isMicrosoftStoreBuild && Boolean(invoke);
-}
 
-function getUpdaterInstallAvailable() {
-  return !isMicrosoftStoreBuild && Boolean(invoke && tauriCore?.Channel);
-}
-
-function syncUpdatesSettingsVisibility() {
+async function syncUpdatesSettingsVisibility() {
+  const isMicrosoftStoreBuild = await resolveMicrosoftStoreBuild();
   const hideUpdates = Boolean(isMicrosoftStoreBuild);
 
   if (ui.settingsUpdatesOption) {
@@ -851,37 +877,6 @@ function syncUpdatesSettingsVisibility() {
   if (hideUpdates && ui.settingsSectionSelect?.value === "updates") {
     ui.settingsSectionSelect.value = "appearance";
   }
-}
-
-async function resolveMicrosoftStoreBuild() {
-  if (typeof isMicrosoftStoreBuild === "boolean") {
-    return isMicrosoftStoreBuild;
-  }
-
-  if (!invoke) {
-    isMicrosoftStoreBuild = false;
-    return isMicrosoftStoreBuild;
-  }
-
-  if (microsoftStoreBuildPromise) {
-    return microsoftStoreBuildPromise;
-  }
-
-  microsoftStoreBuildPromise = invoke("get_distribution_channel")
-    .then((channel) => {
-      isMicrosoftStoreBuild = String(channel || "").trim().toLowerCase() === "store";
-      return isMicrosoftStoreBuild;
-    })
-    .catch((error) => {
-      console.error("Failed to resolve distribution channel", error);
-      isMicrosoftStoreBuild = false;
-      return isMicrosoftStoreBuild;
-    })
-    .finally(() => {
-      microsoftStoreBuildPromise = null;
-    });
-
-  return microsoftStoreBuildPromise;
 }
 
 function setUpdaterProgress(progress = null) {
@@ -950,207 +945,6 @@ function renderUpdaterCard() {
       : (hasUpdate ? t("settings.updaterInstallAction") : t("settings.updaterCheckAction")));
 
   setUpdaterProgress(updaterState.progress);
-}
-
-function setUpdaterState(nextState = {}) {
-  updaterState = {
-    ...updaterState,
-    ...nextState
-  };
-  renderUpdaterCard();
-}
-
-async function ensureCurrentAppVersion() {
-  if (updaterState.currentVersion) {
-    return updaterState.currentVersion;
-  }
-
-  const version = await tauriApp?.getVersion?.().catch(() => "") || "";
-  setUpdaterState({ currentVersion: version });
-  return version;
-}
-
-async function fetchPublishedUpdaterFeedMetadata() {
-  return invoke("fetch_updater_feed_metadata");
-}
-
-function handleUpdaterDownloadEvent(event) {
-  if (!event?.event) {
-    return;
-  }
-
-  if (event.event === "Started") {
-    setUpdaterState({
-      progress: {
-        totalBytes: Number(event.data?.contentLength) || 0,
-        downloadedBytes: 0
-      }
-    });
-    return;
-  }
-
-  if (event.event === "Progress") {
-    const previousProgress = updaterState.progress || { totalBytes: 0, downloadedBytes: 0 };
-    setUpdaterState({
-      progress: {
-        totalBytes: previousProgress.totalBytes,
-        downloadedBytes: previousProgress.downloadedBytes + (Number(event.data?.chunkLength) || 0)
-      }
-    });
-    return;
-  }
-
-  if (event.event === "Finished") {
-    const previousProgress = updaterState.progress || { totalBytes: 0, downloadedBytes: 0 };
-    setUpdaterState({
-      progress: {
-        totalBytes: previousProgress.totalBytes,
-        downloadedBytes: previousProgress.totalBytes || previousProgress.downloadedBytes
-      }
-    });
-  }
-}
-
-async function checkForAppUpdates(options = {}) {
-  const { silentNoUpdate = false, installIfAvailable = false } = options;
-  const storeBuild = await resolveMicrosoftStoreBuild();
-  await ensureCurrentAppVersion();
-
-  if (storeBuild || !getUpdaterCheckAvailable()) {
-    setUpdaterState({
-      update: null,
-      checking: false,
-      installing: false,
-      progress: null,
-      badgeKey: "settings.updaterStatusUnavailable",
-      messageKey: "settings.updaterUnavailable",
-      messageParams: {}
-    });
-    return null;
-  }
-
-  setUpdaterState({
-    checking: true,
-    progress: null,
-    badgeKey: "settings.updaterStatusChecking",
-    messageKey: "settings.updaterChecking",
-    messageParams: {}
-  });
-
-  const publishedFeed = await fetchPublishedUpdaterFeedMetadata().catch((error) => {
-    console.error("Updater feed metadata fetch failed", error);
-    return null;
-  });
-
-  if (publishedFeed) {
-    setUpdaterState({
-      publishedVersion: publishedFeed.version || updaterState.publishedVersion,
-      publishedAt: publishedFeed.publishedAt || updaterState.publishedAt,
-      publishedNotes: publishedFeed.notes || updaterState.publishedNotes
-    });
-  }
-
-  try {
-    const metadata = await invoke("plugin:updater|check", {
-      allowDowngrades: true
-    });
-
-    if (!metadata) {
-      setUpdaterState({
-        update: null,
-        checking: false,
-        installing: false,
-        progress: null,
-        badgeKey: "settings.updaterStatusCurrent",
-        messageKey: silentNoUpdate ? "settings.updaterIdle" : "settings.updaterCurrent",
-        messageParams: { version: updaterState.currentVersion || t("common.unavailable") }
-      });
-      return null;
-    }
-
-    setUpdaterState({
-      update: metadata,
-      publishedVersion: metadata.version || publishedFeed?.version || updaterState.publishedVersion,
-      publishedAt: metadata.date || metadata.pub_date || publishedFeed?.publishedAt || updaterState.publishedAt,
-      publishedNotes: String(metadata.body || publishedFeed?.notes || updaterState.publishedNotes || "").trim(),
-      checking: false,
-      installing: false,
-      progress: null,
-      currentVersion: metadata.currentVersion || updaterState.currentVersion,
-      badgeKey: "settings.updaterStatusAvailable",
-      messageKey: "settings.updaterAvailable",
-      messageParams: { version: metadata.version }
-    });
-
-    if (installIfAvailable) {
-      await installAvailableUpdate();
-    }
-
-    return metadata;
-  } catch (error) {
-    console.error(error);
-    const message = String(error?.message || error || "");
-    const unavailableKey = /404|not found/i.test(message)
-      ? "settings.updaterFeedUnavailable"
-      : "settings.updaterFailed";
-
-    setUpdaterState({
-      update: null,
-      checking: false,
-      installing: false,
-      progress: null,
-      badgeKey: "settings.updaterStatusError",
-      messageKey: unavailableKey,
-      messageParams: { error: message }
-    });
-    return null;
-  }
-}
-
-async function installAvailableUpdate() {
-  if (!updaterState.update?.version || updaterState.installing || updaterState.checking || !getUpdaterInstallAvailable()) {
-    return;
-  }
-
-  const targetVersion = updaterState.update.version;
-  setUpdaterState({
-    installing: true,
-    progress: {
-      totalBytes: 0,
-      downloadedBytes: 0
-    },
-    badgeKey: "settings.updaterStatusInstalling",
-    messageKey: "settings.updaterInstalling",
-    messageParams: { version: targetVersion }
-  });
-  ui.windowStatus.textContent = t("settings.updaterInstallingWindow", { version: targetVersion });
-
-  try {
-    const channel = new tauriCore.Channel();
-    channel.onmessage = handleUpdaterDownloadEvent;
-    await invoke("plugin:updater|download_and_install", {
-      rid: updaterState.update.rid,
-      onEvent: channel
-    });
-
-    setUpdaterState({
-      installing: false,
-      badgeKey: "settings.updaterStatusInstalling",
-      messageKey: "settings.updaterInstallingWindow",
-      messageParams: { version: targetVersion }
-    });
-  } catch (error) {
-    console.error(error);
-    const message = String(error?.message || error || "");
-    setUpdaterState({
-      installing: false,
-      progress: null,
-      badgeKey: "settings.updaterStatusError",
-      messageKey: "settings.updaterInstallFailed",
-      messageParams: { error: message }
-    });
-    ui.windowStatus.textContent = t("settings.updaterInstallFailed", { error: message });
-  }
 }
 
 function setVoiceModelProgress(progress = null) {
@@ -1319,9 +1113,11 @@ function renderVoiceModelOptions(language = ui.voiceLanguageSelect.value) {
   syncCustomSettingsSelects();
 }
 
-function renderVoiceModelStatus(language = ui.voiceLanguageSelect.value) {
+function renderVoiceModelStatus(language = ui.voiceLanguageSelect.value, { rebuildOptions = true } = {}) {
   const normalizedLanguage = normalizeVoiceLanguage(language);
-  renderVoiceModelOptions(normalizedLanguage);
+  if (rebuildOptions) {
+    renderVoiceModelOptions(normalizedLanguage);
+  }
   const status = getSelectedVoiceModelStatus(normalizedLanguage);
   const downloadState = activeVoiceModelDownload?.language === normalizedLanguage
     && activeVoiceModelDownload?.modelId === status?.modelId
@@ -1402,13 +1198,17 @@ function handleVoiceModelDownloadEvent(payload) {
     });
     syncVoiceModelRegistry();
     renderVoiceLanguageOptions();
+    renderVoiceModelStatus(activeVoiceModelDownload.language, { rebuildOptions: true });
+    return;
   }
 
   if (payload.stage === "error") {
     ui.windowStatus.textContent = payload.message || t("settings.voiceModelDownloadFailed");
+    renderVoiceModelStatus(activeVoiceModelDownload.language, { rebuildOptions: true });
+    return;
   }
 
-  renderVoiceModelStatus(activeVoiceModelDownload.language);
+  renderVoiceModelStatus(activeVoiceModelDownload.language, { rebuildOptions: false });
 }
 
 async function downloadSelectedVoiceModel() {
@@ -1561,6 +1361,27 @@ const FONT_PICKER_METADATA = {
   "spanish-pro": {
     sample: () => "Español"
   },
+  "french-pro": {
+    sample: () => "Français"
+  },
+  "portuguese-pro": {
+    sample: () => "Português"
+  },
+  "finnish-pro": {
+    sample: () => "Suomi"
+  },
+  montserrat: {
+    sample: () => "Geometric modern"
+  },
+  poppins: {
+    sample: () => "Clean display"
+  },
+  roboto: {
+    sample: () => "Crisp standard"
+  },
+  "fira-sans": {
+    sample: () => "High legibility"
+  },
   system: {
     sample: (previewLanguage) => translate(`language.${previewLanguage}`, previewLanguage)
   },
@@ -1615,6 +1436,18 @@ function getFontPickerOptionData(value, previewLanguage = state.language) {
 }
 
 function renderFontPicker(selectedValue = ui.fontSelect.value, previewLanguage = state.language) {
+  if (ui.fontSelect && ui.fontSelect.options.length !== FONT_OPTIONS.length) {
+    const currentValue = selectedValue || ui.fontSelect.value;
+    ui.fontSelect.innerHTML = "";
+    FONT_OPTIONS.forEach((entry) => {
+      const opt = document.createElement("option");
+      opt.value = entry.value;
+      opt.textContent = entry.label;
+      ui.fontSelect.appendChild(opt);
+    });
+    ui.fontSelect.value = currentValue;
+  }
+
   const activeValue = selectedValue || defaultState.appearance.fontFamily;
   const activeOption = getFontPickerOptionData(activeValue, previewLanguage);
 
@@ -1925,7 +1758,7 @@ function initializeCustomSettingsSelects() {
       menu: ui.soundInputDeviceMenu,
       getLeading: () => ({
         kind: "icon",
-        icon: "ph-microphone-stage",
+        icon: "ph-microphone",
         accent: "sound-input"
       })
     }
@@ -2058,6 +1891,25 @@ function updateValueLabels() {
   ui.textOpacityValue.textContent = `${ui.textOpacityInput.value}%`;
   ui.soundInputNoiseGateValue.textContent = formatSoundInputNoiseGate(ui.soundInputNoiseGateInput.value);
   ui.soundInputGainValue.textContent = formatSoundInputGain(ui.soundInputGainInput.value);
+
+  if (ui.cornerRadiusValue && ui.cornerRadiusInput) {
+    ui.cornerRadiusValue.textContent = `${ui.cornerRadiusInput.value} px`;
+  }
+  if (ui.cardRadiusValue && ui.cardRadiusInput) {
+    ui.cardRadiusValue.textContent = `${ui.cardRadiusInput.value} px`;
+  }
+  if (ui.borderWidthValue && ui.borderWidthInput) {
+    ui.borderWidthValue.textContent = `${ui.borderWidthInput.value} px`;
+  }
+  if (ui.borderOpacityValue && ui.borderOpacityInput) {
+    ui.borderOpacityValue.textContent = `${ui.borderOpacityInput.value}%`;
+  }
+  if (ui.glassBlurValue && ui.glassBlurInput) {
+    ui.glassBlurValue.textContent = `${ui.glassBlurInput.value} px`;
+  }
+  if (ui.companionOpacityValue && ui.companionOpacityInput) {
+    ui.companionOpacityValue.textContent = `${ui.companionOpacityInput.value}%`;
+  }
 }
 
 function updatePositioningAvailability() {
@@ -2090,85 +1942,38 @@ function updateRemoteModeUi() {
 }
 
 function setActiveSettingsSection(section = ui.settingsSectionSelect?.value || "appearance") {
-  const requestedSection = String(section || "appearance");
-  const activeSection = isMicrosoftStoreBuild && requestedSection === "updates"
-    ? "appearance"
-    : requestedSection;
+  try {
+    const requestedSection = String(section || "appearance");
+    const activeSection = isMicrosoftStoreBuild && requestedSection === "updates"
+      ? "appearance"
+      : requestedSection;
 
-  if (ui.settingsSectionSelect) {
-    ui.settingsSectionSelect.value = activeSection;
+    if (ui.settingsSectionSelect) {
+      ui.settingsSectionSelect.value = activeSection;
+    }
+
+    syncCustomSettingsSelects();
+
+    ui.settingsSections.forEach((element) => {
+      const selected = element.dataset.settingsSection === activeSection
+        && !(isMicrosoftStoreBuild && element.dataset.settingsSection === "updates");
+      element.classList.toggle("hidden", !selected);
+      element.setAttribute("aria-hidden", selected ? "false" : "true");
+    });
+
+    syncSoundInputPreview().catch((error) => console.warn("Sound input preview sync skipped", error));
+
+    if (activeSection === "updates") {
+      checkForAppUpdates({ silentNoUpdate: true }).catch((error) => console.warn("App update check skipped", error));
+    }
+
+    document.querySelector(".page-shell")?.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (error) {
+    console.error("Failed to switch settings section", error);
   }
-
-  ui.settingsSections.forEach((element) => {
-    const selected = element.dataset.settingsSection === activeSection
-      && !(isMicrosoftStoreBuild && element.dataset.settingsSection === "updates");
-    element.classList.toggle("hidden", !selected);
-    element.setAttribute("aria-hidden", selected ? "false" : "true");
-  });
-
-  syncSoundInputPreview().catch(console.error);
-
-  if (activeSection === "updates") {
-    checkForAppUpdates({ silentNoUpdate: true }).catch(console.error);
-  }
-
-  document.querySelector(".page-shell")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function normalizeRemoteCloudUrl(value) {
-  return String(value || "").trim().replace(/\/$/, "");
-}
 
-const CONFIGURED_REMOTE_PUBLIC_URL = normalizeRemoteCloudUrl(REMOTE_PUBLIC_URL) || normalizeRemoteCloudUrl(REMOTE_RELAY_URL);
-const CONFIGURED_CLOUD_RELAY_URL = normalizeRemoteCloudUrl(REMOTE_RELAY_URL);
-const CONFIGURED_REALTIME_RELAY_URL = normalizeRemoteCloudUrl(REALTIME_RELAY_URL);
-
-function isCloudRemoteSelected() {
-  return true;
-}
-
-function isCloudRemoteEnabled() {
-  return Boolean(CONFIGURED_CLOUD_RELAY_URL);
-}
-
-function buildCloudApiUrl(path) {
-  const base = CONFIGURED_CLOUD_RELAY_URL;
-  if (!base) {
-    return "";
-  }
-
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-function buildRealtimeApiUrl(path) {
-  const base = CONFIGURED_REALTIME_RELAY_URL;
-  if (!base) {
-    return "";
-  }
-
-  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-function buildCloudSenderUrl(receiverId = state.remote?.receiverId || "") {
-  const base = CONFIGURED_REMOTE_PUBLIC_URL;
-  if (!base || !receiverId) {
-    return "";
-  }
-
-  return `${base}/?id=${encodeURIComponent(receiverId)}`;
-}
-
-function buildCloudSenderAuthUrl(receiverId = state.remote?.receiverId || "", accessPassword = state.remote?.accessPassword || "") {
-  const base = CONFIGURED_REMOTE_PUBLIC_URL;
-  if (!base || !receiverId || !accessPassword) {
-    return "";
-  }
-
-  const url = new URL(`${base}/`);
-  url.searchParams.set("id", receiverId);
-  url.searchParams.set("accessPassword", accessPassword);
-  return url.toString();
-}
 
 function getRemoteSenderQrStatusKey(authUrl) {
   if (!CONFIGURED_REMOTE_PUBLIC_URL) {
@@ -2197,7 +2002,7 @@ function getRealtimeEditingView(config = loadRealtimeEditingConfig()) {
     };
   }
 
-  if (shouldProbeRelay && realtimeRelayProbeState === "error") {
+  if (shouldProbeRelay && getRealtimeRelayProbeState() === "error") {
     return {
       hasRoomLink,
       cardState: "error",
@@ -2268,7 +2073,7 @@ function getRealtimeQrStatusKey(hasRoomLink) {
     return "settings.remoteRealtimeUnavailable";
   }
 
-  if (hasRoomLink && realtimeRelayProbeState === "error") {
+  if (hasRoomLink && getRealtimeRelayProbeState() === "error") {
     return "settings.remoteRealtimeRelayUnavailable";
   }
 
@@ -2283,51 +2088,14 @@ async function probeRealtimeRelayAvailability(options = {}) {
   const { force = false } = options;
   const config = loadRealtimeEditingConfig();
   const hasRoomLink = config.enabled && config.roomId === (state.remote?.receiverId || "") && Boolean(config.roomUrl);
-  const probeUrl = buildRealtimeApiUrl("/api/realtime/lookup");
-  if (!probeUrl) {
-    realtimeRelayProbeState = "idle";
-    realtimeRelayProbeUrl = "";
-    realtimeRelayProbePromise = null;
-    renderRealtimeEditingState();
-    return false;
-  }
 
   if (!force && !hasRoomLink) {
-    realtimeRelayProbeState = "idle";
-    realtimeRelayProbeUrl = "";
-    realtimeRelayProbePromise = null;
-    renderRealtimeEditingState();
     return false;
   }
 
-  if (!force && realtimeRelayProbePromise) {
-    return realtimeRelayProbePromise;
-  }
-
-  if (!force && realtimeRelayProbeUrl === probeUrl && (realtimeRelayProbeState === "online" || realtimeRelayProbeState === "error")) {
-    return realtimeRelayProbeState === "online";
-  }
-
-  realtimeRelayProbeUrl = probeUrl;
-  realtimeRelayProbeState = "checking";
+  const result = await fetchRealtimeRelayProbe(force);
   renderRealtimeEditingState();
-
-  realtimeRelayProbePromise = fetch(probeUrl, { method: "OPTIONS" })
-    .then((response) => {
-      realtimeRelayProbeState = response.ok ? "online" : "error";
-      return response.ok;
-    })
-    .catch((error) => {
-      console.error("Realtime relay probe failed", error);
-      realtimeRelayProbeState = "error";
-      return false;
-    })
-    .finally(() => {
-      realtimeRelayProbePromise = null;
-      renderRealtimeEditingState();
-    });
-
-  return realtimeRelayProbePromise;
+  return result;
 }
 
 function renderRealtimeEditingState() {
@@ -2335,8 +2103,8 @@ function renderRealtimeEditingState() {
 }
 
 function resetRealtimeRelayProbe() {
-  realtimeRelayProbeState = "idle";
-  realtimeRelayProbeUrl = "";
+  // Probe state is now managed internally by realtime.js. 
+  // It automatically handles retries without a reset.
 }
 
 function updateRealtimeActionButtons(hasRoomLink) {
@@ -2414,7 +2182,11 @@ async function renderRealtimeEditingStateAsync() {
     ui.remoteRealtimeQrImage.classList.toggle("hidden", !canRenderQr);
     ui.remoteRealtimeQrImage.setAttribute("aria-label", t("settings.remoteRealtimeQrHelp"));
     ui.remoteRealtimeQrImage.alt = t("settings.remoteRealtimeQrHelp");
-    ui.remoteRealtimeQrImage.src = canRenderQr ? remoteRealtimeQrDataUrl : "";
+    if (canRenderQr) {
+      ui.remoteRealtimeQrImage.src = remoteRealtimeQrDataUrl;
+    } else {
+      ui.remoteRealtimeQrImage.removeAttribute("src");
+    }
   }
 
   if (ui.copyRealtimePasswordButton) {
@@ -2470,28 +2242,101 @@ function closeRealtimeEditing() {
 }
 
 async function getRemoteQrDataUrl(value, label = "QR code") {
-  if (!value || typeof window.QRCode?.toDataURL !== "function") {
+  if (!value) {
     return "";
   }
 
-  try {
-    return await window.QRCode.toDataURL(value, {
-      errorCorrectionLevel: "M",
-      margin: 1,
-      width: 220,
-      color: {
-        dark: "#0f172a",
-        light: "#ffffff"
+  const qrLib = QRCode || window.QRCode;
+
+  // 1. Vector SVG data URI: high-definition, reliable, no canvas dependencies
+  if (typeof qrLib?.toString === "function") {
+    try {
+      const svg = await qrLib.toString(value, {
+        type: "svg",
+        margin: 1,
+        color: {
+          dark: "#0f172a",
+          light: "#ffffff"
+        }
+      });
+      if (svg && typeof svg === "string" && svg.includes("<svg")) {
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
       }
-    });
-  } catch (error) {
-    console.error(`Failed to render ${label}`, error);
-    return "";
+    } catch (svgError) {
+      console.warn(`SVG QR generation fallback for ${label}`, svgError);
+    }
   }
+
+  // 2. Fallback to canvas toDataURL (PNG)
+  if (typeof qrLib?.toDataURL === "function") {
+    try {
+      return await qrLib.toDataURL(value, {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 220,
+        color: {
+          dark: "#0f172a",
+          light: "#ffffff"
+        }
+      });
+    } catch (error) {
+      console.error(`Failed to render ${label} via canvas`, error);
+    }
+  }
+
+  // 3. Dynamic script loader fallback
+  if (typeof window.QRCode?.toDataURL !== "function" && typeof window.QRCode?.toString !== "function") {
+    try {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "./assets/vendor/qrcode.min.js";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    } catch (error) {
+      console.warn("Failed to load QRCode library dynamically", error);
+    }
+
+    if (typeof window.QRCode?.toString === "function") {
+      try {
+        const svg = await window.QRCode.toString(value, {
+          type: "svg",
+          margin: 1,
+          color: {
+            dark: "#0f172a",
+            light: "#ffffff"
+          }
+        });
+        if (svg && typeof svg === "string" && svg.includes("<svg")) {
+          return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+        }
+      } catch (e) {}
+    }
+
+    if (typeof window.QRCode?.toDataURL === "function") {
+      try {
+        return await window.QRCode.toDataURL(value, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 220,
+          color: {
+            dark: "#0f172a",
+            light: "#ffffff"
+          }
+        });
+      } catch (e) {}
+    }
+  }
+
+  console.error(`QRCode library unavailable for ${label}`);
+  return "";
 }
 
 async function renderRemoteSenderQr() {
-  const authUrl = buildCloudSenderAuthUrl();
+  const receiverId = state.remote?.receiverId || loadState().remote?.receiverId || "";
+  const accessPassword = state.remote?.accessPassword || loadState().remote?.accessPassword || "";
+  const authUrl = buildCloudSenderAuthUrl(receiverId, accessPassword);
   const statusKey = getRemoteSenderQrStatusKey(authUrl);
   if (authUrl !== remoteSenderQrSource || (authUrl && !remoteSenderQrDataUrl)) {
     remoteSenderQrSource = authUrl;
@@ -2508,7 +2353,11 @@ async function renderRemoteSenderQr() {
     ui.remoteSenderQrImage.classList.toggle("hidden", !canRender);
     ui.remoteSenderQrImage.setAttribute("aria-label", t("settings.remoteSenderQrHelp"));
     ui.remoteSenderQrImage.alt = t("settings.remoteSenderQrHelp");
-    ui.remoteSenderQrImage.src = canRender ? remoteSenderQrDataUrl : "";
+    if (canRender) {
+      ui.remoteSenderQrImage.src = remoteSenderQrDataUrl;
+    } else {
+      ui.remoteSenderQrImage.removeAttribute("src");
+    }
   }
 
   if (ui.copySenderAuthUrlButton) {
@@ -2578,20 +2427,46 @@ function getMonitorLogicalSize(monitor) {
 }
 
 async function configureSliderRanges() {
+  const allMonitors = await tauriWindow?.availableMonitors?.().catch(() => []) || [];
   const monitor = await getRelevantMonitor();
-  const monitorWidth = monitor?.size?.width ?? 1920;
-  const monitorHeight = monitor?.size?.height ?? 1080;
-  const logicalMonitorSize = getMonitorLogicalSize(monitor);
-  const originX = monitor?.position?.x ?? 0;
-  const originY = monitor?.position?.y ?? 0;
+  const scaleFactor = normalizeScaleFactor(monitor?.scaleFactor ?? 1);
+  const baseWidth = Math.max(state.window?.width || defaultState.window.width, MIN_WIDTH);
+  const baseHeight = Math.max(state.window?.height || defaultState.window.height, MIN_HEIGHT);
+  const baseWidthPhysical = logicalValueToPhysical(baseWidth, scaleFactor);
+  const baseHeightPhysical = logicalValueToPhysical(baseHeight, scaleFactor);
 
-  ui.xInput.min = String(originX - monitorWidth - POSITION_PADDING);
-  ui.xInput.max = String(originX + monitorWidth + POSITION_PADDING);
-  ui.yInput.min = String(originY - monitorHeight - POSITION_PADDING);
-  ui.yInput.max = String(originY + monitorHeight + POSITION_PADDING);
+  let minX = 0;
+  let maxX = 1920 - baseWidthPhysical;
+  let minY = 0;
+  let maxY = 1080 - baseHeightPhysical;
+
+  if (allMonitors.length > 0) {
+    minX = Math.min(...allMonitors.map((m) => m.position?.x ?? 0));
+    maxX = Math.max(...allMonitors.map((m) => (m.position?.x ?? 0) + Math.max((m.size?.width ?? 1920) - baseWidthPhysical, 0)));
+    minY = Math.min(...allMonitors.map((m) => m.position?.y ?? 0));
+    maxY = Math.max(...allMonitors.map((m) => (m.position?.y ?? 0) + Math.max((m.size?.height ?? 1080) - baseHeightPhysical, 0)));
+  } else if (monitor) {
+    const originX = monitor.position?.x ?? 0;
+    const originY = monitor.position?.y ?? 0;
+    const monitorWidth = monitor.size?.width ?? 1920;
+    const monitorHeight = monitor.size?.height ?? 1080;
+    minX = originX;
+    maxX = originX + Math.max(monitorWidth - baseWidthPhysical, 0);
+    minY = originY;
+    maxY = originY + Math.max(monitorHeight - baseHeightPhysical, 0);
+  }
+
+  ui.xInput.min = String(minX);
+  ui.xInput.max = String(Math.max(maxX, minX));
+  ui.yInput.min = String(minY);
+  ui.yInput.max = String(Math.max(maxY, minY));
+
+  const logicalMonitorSize = getMonitorLogicalSize(monitor);
   const gutterWidth = getSpeedRailWindowGutter();
-  ui.widthInput.max = String(Math.max(Math.min(logicalMonitorSize.width - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH));
-  ui.heightInput.max = String(Math.max(logicalMonitorSize.height, MAX_HEIGHT_FALLBACK));
+  const sideGutter = getSidePanelWindowGutter();
+  const totalGutters = gutterWidth + sideGutter;
+  ui.widthInput.max = String(Math.max(Math.min((logicalMonitorSize.width || 1920) - totalGutters, MAX_WIDTH_FALLBACK - totalGutters), MIN_WIDTH));
+  ui.heightInput.max = String(Math.max(logicalMonitorSize.height || 1080, MAX_HEIGHT_FALLBACK));
 }
 
 function fillForm() {
@@ -2628,13 +2503,36 @@ function fillForm() {
   ui.useSystemTrayInput.checked = Boolean(state.desktop?.useSystemTray);
   ui.preventSleepInput.checked = Boolean(state.desktop?.preventSleep);
   ui.clickthroughShortcutInput.checked = Boolean(state.desktop?.clickthroughShortcutEnabled);
+  if (ui.showScriptManagerInput) ui.showScriptManagerInput.checked = Boolean(state.modules?.scriptManager);
+  if (ui.showScriptCompletionInput) ui.showScriptCompletionInput.checked = Boolean(state.modules?.scriptCompletion);
   ui.textColorInput.value = state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value);
   ui.textOpacityInput.value = String(state.appearance?.textOpacity || defaultState.appearance.textOpacity);
+
+  if (ui.cornerRadiusInput) setSliderValue(ui.cornerRadiusInput, state.appearance?.cornerRadius ?? defaultState.appearance.cornerRadius);
+  if (ui.cardRadiusInput) setSliderValue(ui.cardRadiusInput, state.appearance?.cardRadius ?? defaultState.appearance.cardRadius);
+  if (ui.borderWidthInput) setSliderValue(ui.borderWidthInput, state.appearance?.borderWidth ?? defaultState.appearance.borderWidth);
+  if (ui.borderOpacityInput) setSliderValue(ui.borderOpacityInput, state.appearance?.borderOpacity ?? defaultState.appearance.borderOpacity);
+  if (ui.glassBlurInput) setSliderValue(ui.glassBlurInput, state.appearance?.glassBlur ?? defaultState.appearance.glassBlur);
+  if (ui.companionOpacityInput) setSliderValue(ui.companionOpacityInput, state.appearance?.companionOpacity ?? defaultState.appearance.companionOpacity);
+
+  if (ui.customAccentColorInput) {
+    ui.customAccentColorInput.value = state.appearance?.customAccentColor || "#818cf8";
+  }
+  if (ui.customAccentColorHex) {
+    ui.customAccentColorHex.value = state.appearance?.customAccentColor || "";
+  }
+  if (ui.customHighlightColorInput) {
+    ui.customHighlightColorInput.value = state.appearance?.customHighlightColor || "#facc15";
+  }
+  if (ui.customHighlightColorHex) {
+    ui.customHighlightColorHex.value = state.appearance?.customHighlightColor || "";
+  }
+
   updatePositioningAvailability();
   updateAppearanceAvailability();
   updateRemoteModeUi();
   updateValueLabels();
-  applyAppearanceToDocument({
+  applyAppearanceToDocument(state.appearance || {
     theme: ui.themeSelect.value,
     style: ui.styleSelect.value,
     mirrorMode: ui.mirrorModeInput.checked,
@@ -2682,37 +2580,20 @@ async function readCurrentWindow() {
   if (!appWindow) return;
 
   const scaleFactor = normalizeScaleFactor(await appWindow.scaleFactor?.().catch(() => 1));
-  const size = physicalSizeToLogical(await appWindow.outerSize(), scaleFactor);
-  const pos = await appWindow.outerPosition();
-  const windowIsCollapsed = Number(size?.height) > 0 && Number(size.height) <= COLLAPSED_HEIGHT + 8;
+  const pos = await appWindow.outerPosition?.().catch?.(() => null);
 
-  const gutterWidth = getSpeedRailWindowGutter();
-  const gutterWidthPhysical = logicalValueToPhysical(gutterWidth, scaleFactor);
-  const topCenterOffsetPhysical = logicalValueToPhysical(TOP_CENTER_X_OFFSET, scaleFactor);
-  const positionOffset = state.window?.preset === "top-center"
-    ? topCenterOffsetPhysical - gutterWidthPhysical
-    : -gutterWidthPhysical;
-  const monitor = await getRelevantMonitor();
-  const logicalMonitorSize = getMonitorLogicalSize(monitor);
-  const maxContentWidth = Math.max(Math.min((logicalMonitorSize.width || size.width) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
-  const maxHeight = Math.max(Math.min(logicalMonitorSize.height || size.height, MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
-  state.window.width = Math.max(Math.min(size.width - gutterWidth, maxContentWidth), MIN_WIDTH);
-  if (!windowIsCollapsed) {
-    state.window.height = Math.max(Math.min(size.height, maxHeight), MIN_HEIGHT);
+  if (pos && typeof pos.x === "number" && typeof pos.y === "number") {
+    const gutterWidth = getSpeedRailWindowGutter();
+    const gutterWidthPhysical = logicalValueToPhysical(gutterWidth, scaleFactor);
+    const topCenterOffsetPhysical = logicalValueToPhysical(TOP_CENTER_X_OFFSET, scaleFactor);
+    const positionOffset = state.window?.preset === "top-center"
+      ? topCenterOffsetPhysical - gutterWidthPhysical
+      : -gutterWidthPhysical;
+    state.window.x = pos.x - positionOffset;
+    state.window.y = pos.y;
   }
-  state.window.x = pos.x - positionOffset;
-  state.window.y = pos.y;
+
   await configureSliderRanges();
-  saveState({
-    window: {
-      width: state.window.width,
-      height: state.window.height,
-      x: state.window.x,
-      y: state.window.y,
-      preset: state.window.preset
-    },
-    remote: state.remote
-  });
   fillForm();
   ui.windowStatus.textContent = t("settings.synced");
 }
@@ -2729,6 +2610,10 @@ function collectFormState() {
     useSystemTray: ui.useSystemTrayInput.checked,
     preventSleep: ui.preventSleepInput.checked,
     clickthroughShortcutEnabled: ui.clickthroughShortcutInput.checked
+  };
+  state.modules = {
+    scriptManager: Boolean(ui.showScriptManagerInput?.checked),
+    scriptCompletion: Boolean(ui.showScriptCompletionInput?.checked)
   };
   state.remote = {
     provider: "cloud",
@@ -2765,7 +2650,15 @@ function collectFormState() {
     performanceMode: ui.performanceModeInput.checked,
     scrollStartDelaySeconds: parseLocaleNumber(ui.scrollStartDelayInput.value),
     textColor: ui.textColorInput.value || state.appearance?.textColor || getThemeTeleprompterTextColor(ui.themeSelect.value),
-    textOpacity: parseLocaleNumber(ui.textOpacityInput.value)
+    textOpacity: parseLocaleNumber(ui.textOpacityInput.value),
+    cornerRadius: parseLocaleNumber(ui.cornerRadiusInput?.value ?? defaultState.appearance.cornerRadius),
+    cardRadius: parseLocaleNumber(ui.cardRadiusInput?.value ?? defaultState.appearance.cardRadius),
+    borderWidth: parseLocaleNumber(ui.borderWidthInput?.value ?? defaultState.appearance.borderWidth),
+    borderOpacity: parseLocaleNumber(ui.borderOpacityInput?.value ?? defaultState.appearance.borderOpacity),
+    glassBlur: parseLocaleNumber(ui.glassBlurInput?.value ?? defaultState.appearance.glassBlur),
+    companionOpacity: parseLocaleNumber(ui.companionOpacityInput?.value ?? defaultState.appearance.companionOpacity),
+    customAccentColor: normalizeCustomColor(ui.customAccentColorHex?.value || ui.customAccentColorInput?.value || ""),
+    customHighlightColor: normalizeCustomColor(ui.customHighlightColorHex?.value || ui.customHighlightColorInput?.value || "")
   };
 }
 
@@ -2797,27 +2690,31 @@ async function applyWindowSettings() {
     await configureSliderRanges();
     const windowIsCollapsed = await isMainWindowCollapsed(appWindow);
     const gutterWidth = getSpeedRailWindowGutter();
+    const sideGutter = getSidePanelWindowGutter();
+    const totalGutters = gutterWidth + sideGutter;
     const monitor = await getRelevantMonitor();
     const scaleFactor = normalizeScaleFactor(await appWindow.scaleFactor?.().catch(() => monitor?.scaleFactor ?? 1));
     const gutterWidthPhysical = logicalValueToPhysical(gutterWidth, scaleFactor);
-    const topCenterOffsetPhysical = logicalValueToPhysical(TOP_CENTER_X_OFFSET, scaleFactor);
-    const positionOffset = state.window?.preset === "top-center"
-      ? topCenterOffsetPhysical - gutterWidthPhysical
-      : -gutterWidthPhysical;
+    const positionOffset = -gutterWidthPhysical;
+    const baseWidth = Math.max(state.window.width, MIN_WIDTH);
+    const baseWidthPhysical = logicalValueToPhysical(baseWidth, scaleFactor);
     const logicalMonitorSize = getMonitorLogicalSize(monitor);
-    const maxContentWidth = Math.max(Math.min((logicalMonitorSize.width || (state.window.width + gutterWidth)) - gutterWidth, MAX_WIDTH_FALLBACK - gutterWidth), MIN_WIDTH);
+    const maxContentWidth = Math.max(Math.min((logicalMonitorSize.width || (state.window.width + totalGutters)) - totalGutters, MAX_WIDTH_FALLBACK - totalGutters), MIN_WIDTH);
     state.window.width = Math.max(Math.min(state.window.width, maxContentWidth), MIN_WIDTH);
     state.window.height = Math.max(Math.min(state.window.height, logicalMonitorSize.height || MAX_HEIGHT_FALLBACK), MIN_HEIGHT);
 
+    const bottomGutter = getBottomDockWindowGutter();
+    const targetHeight = state.window.height + bottomGutter;
+
     if (!windowIsCollapsed) {
-      const targetLogicalSize = new tauriDpi.LogicalSize(state.window.width + gutterWidth, state.window.height);
+      const targetLogicalSize = new tauriDpi.LogicalSize(state.window.width + totalGutters, targetHeight);
       const targetPhysicalSize = targetLogicalSize.toPhysical(scaleFactor);
       await appWindow.setSize(targetLogicalSize);
 
       if (state.window.preset === "center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
         const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
         if (monitor) {
-          const x = monitor.position.x + Math.round((monitor.size.width - targetPhysicalSize.width) / 2);
+          const x = monitor.position.x + Math.round((monitor.size.width - baseWidthPhysical) / 2) - gutterWidthPhysical;
           const y = monitor.position.y + Math.round((monitor.size.height - targetPhysicalSize.height) / 2);
           await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
           state.window.x = x - positionOffset;
@@ -2826,7 +2723,7 @@ async function applyWindowSettings() {
       } else if (state.window.preset === "top-center" && tauriWindow.currentMonitor && tauriWindow.primaryMonitor) {
         const monitor = (await tauriWindow.currentMonitor()) ?? (await tauriWindow.primaryMonitor());
         if (monitor) {
-          const x = monitor.position.x + Math.round((monitor.size.width - targetPhysicalSize.width) / 2) + topCenterOffsetPhysical;
+          const x = monitor.position.x + Math.round((monitor.size.width - baseWidthPhysical) / 2) - gutterWidthPhysical;
           const y = monitor.position.y;
           await appWindow.setPosition(new tauriDpi.PhysicalPosition(x, y));
           state.window.x = x - positionOffset;
@@ -2849,7 +2746,8 @@ async function applyWindowSettings() {
       remote: state.remote,
       voiceTracking: state.voiceTracking,
       language: state.language,
-      appearance: state.appearance
+      appearance: state.appearance,
+      modules: state.modules
     });
     await applyDesktopSettings();
     fillForm();
@@ -2925,32 +2823,46 @@ function renderCloudRemoteStatus(status) {
     : t("settings.remoteStatusCloudOffline");
 }
 
-async function fetchCloudRemoteStatus() {
-  const url = buildCloudApiUrl(`/api/receiver/${encodeURIComponent(state.remote?.receiverId || "")}/status`);
-  if (!url) {
-    renderCloudRemoteStatus(null);
-    return;
-  }
-
-  try {
-    const response = await fetch(url, { cache: "no-store" });
-    const status = await response.json().catch(() => null);
-    renderCloudRemoteStatus(response.ok ? status : null);
-  } catch (error) {
-    console.error(error);
-    renderCloudRemoteStatus(null);
-  }
+async function updateCloudRemoteStatus() {
+  const status = await fetchCloudRemoteStatus();
+  renderCloudRemoteStatus(status);
 }
 
 async function refreshRemoteStatus() {
-  await fetchCloudRemoteStatus();
+  await updateCloudRemoteStatus();
+}
+
+function resetAdvancedStyling() {
+  if (ui.cornerRadiusInput) setSliderValue(ui.cornerRadiusInput, defaultState.appearance.cornerRadius);
+  if (ui.cardRadiusInput) setSliderValue(ui.cardRadiusInput, defaultState.appearance.cardRadius);
+  if (ui.borderWidthInput) setSliderValue(ui.borderWidthInput, defaultState.appearance.borderWidth);
+  if (ui.borderOpacityInput) setSliderValue(ui.borderOpacityInput, defaultState.appearance.borderOpacity);
+  if (ui.glassBlurInput) setSliderValue(ui.glassBlurInput, defaultState.appearance.glassBlur);
+  if (ui.companionOpacityInput) setSliderValue(ui.companionOpacityInput, defaultState.appearance.companionOpacity);
+  if (ui.customAccentColorInput) ui.customAccentColorInput.value = "#818cf8";
+  if (ui.customAccentColorHex) ui.customAccentColorHex.value = "";
+  if (ui.customHighlightColorInput) ui.customHighlightColorInput.value = "#facc15";
+  if (ui.customHighlightColorHex) ui.customHighlightColorHex.value = "";
+
+  [ui.cornerRadiusInput, ui.cardRadiusInput, ui.borderWidthInput, ui.borderOpacityInput, ui.glassBlurInput, ui.companionOpacityInput].forEach((input) => {
+    if (input) syncSliderProgress(input);
+  });
+  updateValueLabels();
+  scheduleApply();
 }
 
 async function bootSettingsPage() {
-  await resolveMicrosoftStoreBuild();
+  setUpdaterDelegate({
+    onStateChange: () => renderUpdaterCard(),
+    translate: t,
+    onWindowStatusChange: (text) => {
+      if (ui.windowStatus) {
+        ui.windowStatus.textContent = text;
+      }
+    }
+  });
+
   clearStaleRealtimeEditingConfig();
-  syncUpdatesSettingsVisibility();
-  await configureSliderRanges();
   initializeCustomSettingsSelects();
   fillForm();
   initializeDesktopWindowOpacityFade();
@@ -2958,12 +2870,6 @@ async function bootSettingsPage() {
   initializeWindowSizePreview([ui.xInput, ui.yInput, ui.widthInput, ui.heightInput]);
   initializeWindowLocationPreview(ui.presetSelect);
   renderRealtimeEditingState();
-  await applyDesktopSettings().catch(console.error);
-  await refreshRemoteStatus();
-  await refreshVoiceModelStatuses();
-  await refreshSoundInputDevices().catch(console.error);
-  await ensureCurrentAppVersion();
-  await checkForAppUpdates({ silentNoUpdate: true });
 
   if (navigator.mediaDevices?.addEventListener) {
     navigator.mediaDevices.addEventListener("devicechange", () => {
@@ -2972,18 +2878,118 @@ async function bootSettingsPage() {
   }
 
   if (tauriEvent?.listen) {
-    unlistenVoiceModelDownloads = await tauriEvent.listen("flow-voice-model-download", (event) => {
+    tauriEvent.listen("flow-voice-model-download", (event) => {
       handleVoiceModelDownloadEvent(event.payload);
-    });
+    }).then((unlisten) => {
+      unlistenVoiceModelDownloads = unlisten;
+    }).catch(console.error);
   }
 
-  [ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.scrollStartDelayInput, ui.voiceConfidenceInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput, ui.soundInputNoiseGateInput, ui.soundInputGainInput].forEach((input) => {
+  [
+    ui.xInput, ui.yInput, ui.widthInput, ui.heightInput, ui.scrollStartDelayInput,
+    ui.voiceConfidenceInput, ui.appOpacityInput, ui.textSizeInput, ui.textOpacityInput,
+    ui.soundInputNoiseGateInput, ui.soundInputGainInput,
+    ui.cornerRadiusInput, ui.cardRadiusInput, ui.borderWidthInput, ui.borderOpacityInput, ui.glassBlurInput, ui.companionOpacityInput
+  ].forEach((input) => {
+    if (!input) return;
     syncSliderProgress(input);
     input.addEventListener("input", () => {
       syncSliderProgress(input);
       updateValueLabels();
       scheduleApply();
     });
+  });
+
+  ui.customAccentColorInput?.addEventListener("input", () => {
+    if (ui.customAccentColorHex) {
+      ui.customAccentColorHex.value = ui.customAccentColorInput.value;
+    }
+    scheduleApply();
+  });
+  ui.customAccentColorHex?.addEventListener("input", () => {
+    const val = normalizeCustomColor(ui.customAccentColorHex.value, "");
+    if (val && ui.customAccentColorInput) {
+      ui.customAccentColorInput.value = val;
+    }
+    scheduleApply();
+  });
+
+  ui.customHighlightColorInput?.addEventListener("input", () => {
+    if (ui.customHighlightColorHex) {
+      ui.customHighlightColorHex.value = ui.customHighlightColorInput.value;
+    }
+    scheduleApply();
+  });
+  ui.customHighlightColorHex?.addEventListener("input", () => {
+    const val = normalizeCustomColor(ui.customHighlightColorHex.value, "");
+    if (val && ui.customHighlightColorInput) {
+      ui.customHighlightColorInput.value = val;
+    }
+    scheduleApply();
+  });
+
+  ui.resetStylingButton?.addEventListener("click", () => {
+    resetAdvancedStyling();
+  });
+
+  ui.resetCornerRadiusBtn?.addEventListener("click", () => {
+    if (ui.cornerRadiusInput) {
+      setSliderValue(ui.cornerRadiusInput, defaultState.appearance.cornerRadius);
+      updateValueLabels();
+      scheduleApply();
+    }
+  });
+
+  ui.resetCardRadiusBtn?.addEventListener("click", () => {
+    if (ui.cardRadiusInput) {
+      setSliderValue(ui.cardRadiusInput, defaultState.appearance.cardRadius);
+      updateValueLabels();
+      scheduleApply();
+    }
+  });
+
+  ui.resetBorderWidthBtn?.addEventListener("click", () => {
+    if (ui.borderWidthInput) {
+      setSliderValue(ui.borderWidthInput, defaultState.appearance.borderWidth);
+      updateValueLabels();
+      scheduleApply();
+    }
+  });
+
+  ui.resetBorderOpacityBtn?.addEventListener("click", () => {
+    if (ui.borderOpacityInput) {
+      setSliderValue(ui.borderOpacityInput, defaultState.appearance.borderOpacity);
+      updateValueLabels();
+      scheduleApply();
+    }
+  });
+
+  ui.resetGlassBlurBtn?.addEventListener("click", () => {
+    if (ui.glassBlurInput) {
+      setSliderValue(ui.glassBlurInput, defaultState.appearance.glassBlur);
+      updateValueLabels();
+      scheduleApply();
+    }
+  });
+
+  ui.resetCompanionOpacityBtn?.addEventListener("click", () => {
+    if (ui.companionOpacityInput) {
+      setSliderValue(ui.companionOpacityInput, defaultState.appearance.companionOpacity);
+      updateValueLabels();
+      scheduleApply();
+    }
+  });
+
+  ui.resetCustomAccentBtn?.addEventListener("click", () => {
+    if (ui.customAccentColorInput) ui.customAccentColorInput.value = "#818cf8";
+    if (ui.customAccentColorHex) ui.customAccentColorHex.value = "";
+    scheduleApply();
+  });
+
+  ui.resetCustomHighlightBtn?.addEventListener("click", () => {
+    if (ui.customHighlightColorInput) ui.customHighlightColorInput.value = "#facc15";
+    if (ui.customHighlightColorHex) ui.customHighlightColorHex.value = "";
+    scheduleApply();
   });
 
   [ui.presetSelect, ui.modeSelect, ui.voiceLanguageSelect, ui.voiceStyleSelect, ui.soundInputDeviceSelect, ui.fontSelect, ui.languageSelect, ui.themeSelect, ui.styleSelect, ui.textColorInput].forEach((input) => {
@@ -3092,7 +3098,7 @@ async function bootSettingsPage() {
       customSettingsSelectControllers.forEach((controller) => closeCustomSettingsSelect(controller));
     }
   });
-  [ui.mirrorModeInput, ui.mirrorVerticalInput, ui.autoHideToolbarInput, ui.speedRailEnabledInput, ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput].forEach((input) => {
+  [ui.mirrorModeInput, ui.mirrorVerticalInput, ui.autoHideToolbarInput, ui.speedRailEnabledInput, ui.performanceModeInput, ui.hideFromCaptureInput, ui.useSystemTrayInput, ui.preventSleepInput, ui.clickthroughShortcutInput, ui.appWideVoiceCommandsInput, ui.showScriptManagerInput, ui.showScriptCompletionInput].filter(Boolean).forEach((input) => {
     input.addEventListener("input", scheduleApply);
     input.addEventListener("change", scheduleApply);
   });
@@ -3132,7 +3138,6 @@ async function bootSettingsPage() {
     copyText(ui.remoteRealtimeLink?.href || "", t("settings.copiedRealtimeLink"), ui.remoteRealtimeStatus);
   });
 
-  await readCurrentWindow().catch(console.error);
   setActiveSettingsSection(ui.settingsSectionSelect?.value || "appearance");
 
   remoteStatusTimer = window.setInterval(() => {
@@ -3144,41 +3149,48 @@ async function bootSettingsPage() {
   window.addEventListener("focus", async () => {
     Object.assign(state, loadState());
     state.desktop = state.desktop || structuredClone(defaultState.desktop);
-    await configureSliderRanges();
+    await configureSliderRanges().catch(() => {});
     await applyDesktopSettings().catch(console.error);
     await readCurrentWindow().catch(console.error);
     fillForm();
     renderRealtimeEditingState();
-    await refreshVoiceModelStatuses();
+    await refreshVoiceModelStatuses().catch(() => {});
     await refreshSoundInputDevices().catch(console.error);
     await refreshRemoteStatus().catch(console.error);
   });
-  window.addEventListener("storage", () => {
-    const previousSoundInputDeviceId = normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId);
-    Object.assign(state, loadState());
-    state.desktop = state.desktop || structuredClone(defaultState.desktop);
-    fillForm();
-    renderRealtimeEditingState();
-    refreshVoiceModelStatuses().catch(console.error);
-    if (previousSoundInputDeviceId !== normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId)) {
-      refreshSoundInputDevices().catch(console.error);
-      syncSoundInputPreview({ forceRestart: true }).catch(console.error);
+  function isEditableElement(element) {
+    if (!element || !(element instanceof HTMLElement)) {
+      return false;
     }
-    applyDesktopSettings().catch(console.error);
-  });
-  window.addEventListener("flow-state-updated", () => {
-    const previousSoundInputDeviceId = normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId);
-    Object.assign(state, loadState());
-    state.desktop = state.desktop || structuredClone(defaultState.desktop);
-    fillForm();
-    renderRealtimeEditingState();
-    refreshVoiceModelStatuses().catch(console.error);
-    if (previousSoundInputDeviceId !== normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId)) {
-      refreshSoundInputDevices().catch(console.error);
-      syncSoundInputPreview({ forceRestart: true }).catch(console.error);
+    return element.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName);
+  }
+
+  let syncSettingsTimer = 0;
+  function handleSettingsExternalSync() {
+    if (isEditableElement(document.activeElement)) {
+      return;
     }
-    applyDesktopSettings().catch(console.error);
-  });
+    if (syncSettingsTimer) {
+      clearTimeout(syncSettingsTimer);
+    }
+    syncSettingsTimer = window.setTimeout(() => {
+      syncSettingsTimer = 0;
+      const previousSoundInputDeviceId = normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId);
+      Object.assign(state, loadState());
+      state.desktop = state.desktop || structuredClone(defaultState.desktop);
+      fillForm();
+      renderRealtimeEditingState();
+      refreshVoiceModelStatuses().catch(console.error);
+      if (previousSoundInputDeviceId !== normalizeSoundInputDeviceId(state.appearance?.soundInputDeviceId)) {
+        refreshSoundInputDevices().catch(console.error);
+        syncSoundInputPreview({ forceRestart: true }).catch(console.error);
+      }
+      applyDesktopSettings().catch(console.error);
+    }, 80);
+  }
+
+  window.addEventListener("storage", handleSettingsExternalSync);
+  window.addEventListener("flow-state-updated", handleSettingsExternalSync);
   window.addEventListener(getRealtimeEditingUpdatedEventName(), renderRealtimeEditingState);
   window.addEventListener("beforeunload", () => {
     if (remoteStatusTimer) {
@@ -3187,6 +3199,28 @@ async function bootSettingsPage() {
     stopSoundInputPreview();
     unlistenVoiceModelDownloads?.();
   });
+
+  // Background non-blocking tasks (never stalls or freezes UI responsiveness)
+  (async () => {
+    await resolveMicrosoftStoreBuild().catch(() => false);
+    await syncUpdatesSettingsVisibility().catch(() => {});
+    await configureSliderRanges().catch(() => {});
+    await readCurrentWindow().catch(() => {});
+
+    try {
+      const pro = await getProModule().catch(() => null);
+      pro?.mountProSettings?.(document.querySelector(".page-shell") || document.body, { state, saveState, ui });
+    } catch (e) {
+      console.warn("Pro settings mount skipped", e);
+    }
+
+    applyDesktopSettings().catch(() => {});
+    refreshRemoteStatus().catch(() => {});
+    refreshVoiceModelStatuses().catch(() => {});
+    refreshSoundInputDevices().catch(() => {});
+    ensureCurrentAppVersion().catch(() => {});
+    checkForAppUpdates({ silentNoUpdate: true }).catch(() => {});
+  })();
 }
 
 if (document.readyState === "loading") {

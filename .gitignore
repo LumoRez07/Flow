@@ -13,7 +13,9 @@ dist-ssr
 *.local
 src-tauri/target/
 src-tauri/gen/
+tools/
 tmp/
+src/diagnostics/
 *.private.json
 *.private.ps1
 

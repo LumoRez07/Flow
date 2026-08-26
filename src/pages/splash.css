@@ -1,0 +1,153 @@
+/*
+ * Flow - Splash Screen Styles
+ */
+
+.splash-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border-radius: 20px;
+  z-index: 99999;
+  background:
+    radial-gradient(120% 120% at 50% -10%, rgba(99, 102, 241, 0.12) 0%, transparent 60%),
+    #080c1b;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  outline: 1px solid rgba(255, 255, 255, 0.03);
+  outline-offset: -1px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 16px 40px rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 350ms cubic-bezier(0.16, 1, 0.3, 1), transform 350ms cubic-bezier(0.16, 1, 0.3, 1);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: all;
+  overflow: hidden;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
+.splash-screen.fade-out {
+  opacity: 0;
+  transform: scale(0.975);
+  pointer-events: none;
+}
+
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  animation: splashFadeIn 400ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform: translateZ(0);
+}
+
+.splash-brand {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1.15rem;
+}
+
+.splash-icon {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 10px rgba(99, 102, 241, 0.3));
+}
+
+.splash-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.splash-title {
+  font-size: 2.15rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #ffffff;
+}
+
+.splash-edition {
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  color: rgba(255, 255, 255, 0.42);
+  padding: 3px 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(5px);
+  white-space: nowrap;
+}
+
+.splash-edition.is-pro {
+  color: #c7d2fe;
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(99, 102, 241, 0.28);
+  font-weight: 600;
+}
+
+/* Minimalist Precision Loading Line */
+.splash-progress {
+  width: 140px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.splash-progress-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 35%;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.85);
+  animation: splashGlide 1.7s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  transform: translateZ(0);
+}
+
+@keyframes splashGlide {
+  0% {
+    left: -35%;
+    width: 25%;
+  }
+  50% {
+    width: 50%;
+  }
+  100% {
+    left: 100%;
+    width: 25%;
+  }
+}
+
+@keyframes splashFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body.boot-splash-active .teleprompter-app,
+body.boot-splash-active .teleprompter-speed-rail,
+body.boot-splash-active .remote-inbox {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

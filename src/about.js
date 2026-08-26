@@ -8,17 +8,47 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTranslationsToDocument, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState } from "./shared.js";
+import { applyAppearanceToDocument, applyTranslationsToDocument, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState, translate } from "./shared.js";
+import { isProEdition } from "./core/distribution.js";
 
 await initializePersistentStorage();
 
 const invoke = window.__TAURI__?.core?.invoke;
 const openUrl = window.__TAURI__?.opener?.openUrl;
 
-function syncTheme() {
+async function syncTheme() {
   const state = loadState();
   applyAppearanceToDocument(state.appearance);
   applyTranslationsToDocument(state.language);
+  const isPro = await isProEdition();
+  const versionEl = document.querySelector(".about-version");
+  if (versionEl) {
+    versionEl.textContent = isPro ? "Flow Pro 2.0.0" : "Flow 2.0.0";
+  }
+
+  const p2El = document.querySelector("[data-i18n-html='about.p2']");
+  if (p2El) {
+    p2El.style.display = isPro ? "none" : "";
+  }
+
+  if (isPro) {
+    const titleEl = document.querySelector("[data-i18n='about.title']");
+    if (titleEl) {
+      titleEl.textContent = translate("about.pro.title", state.language);
+    }
+    const p1El = document.querySelector("[data-i18n-html='about.p1']");
+    if (p1El) {
+      p1El.innerHTML = translate("about.pro.p1", state.language);
+    }
+    const p3El = document.querySelector("[data-i18n-html='about.p3']");
+    if (p3El) {
+      p3El.innerHTML = translate("about.pro.p3", state.language);
+    }
+    const p4El = document.querySelector("[data-i18n-html='about.p4']");
+    if (p4El) {
+      p4El.innerHTML = translate("about.pro.p4", state.language);
+    }
+  }
 }
 
 function bootAboutPage() {

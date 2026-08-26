@@ -9,5 +9,5 @@
  */
 
 export const REMOTE_PUBLIC_URL = "https://flowremote.app";
-export const REMOTE_RELAY_URL = "https://cloud-relay-cf.lumorez.workers.dev/";
-export const REALTIME_RELAY_URL = "https://cloud-relay-cf.lumorez.workers.dev/";
+export const REMOTE_RELAY_URL = "https://flowremote.app";
+export const REALTIME_RELAY_URL = "https://flowremote.app";

@@ -11,153 +11,191 @@
 <div align="center">
 
 <p align="center">
-  <img src="src/assets/flow-logo.png" width="128" height="128" alt="Flow logo" />
+  <img src="src/assets/readme-assets/github-readme-header.webp" width="960" alt="Flow Teleprompter v2" />
 </p>
 
-<h1 align="center">Flow Teleprompter</h1>
-
-[English](/README.md) / [Español](/README.es.md) / Türkçe / [العربية](/README.ar.md) / [Deutsch](/README.de.md) / [Français](/README.fr.md)
-
-<a href="https://github.com/LumoRez07/flow/releases" target="_blank">
-  <img src="https://img.shields.io/github/downloads/LumoRez07/flow/total?style=flat-square&color=blue" alt="Downloads" height="20"/>
-</a>
-<a href="https://sourceforge.net/projects/flowteleprompter/files/latest/download">
-  <img alt="Download Flow Teleprompter" src="https://img.shields.io/sourceforge/dm/flowteleprompter.svg" />
-</a>
-
-Rust ve Tauri ile geliştirilmiş, ultra hafif, donanım hızlandırmalı teleprompter.
-
-![Windows][Windows-image]
-![Tauri][Tauri-image]
-![Rust][Rust-image]
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.9.0-2563eb?style=for-the-badge" />
-  <img alt="JavaScript" src="https://img.shields.io/badge/Frontend-Vanilla%20JS-f7df1e?style=for-the-badge&logo=javascript&logoColor=111827" />
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/en-circle.webp" width="32" height="32" alt="English" /><br />
+      <sub><b>English</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.es.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/es-circle.webp" width="32" height="32" alt="Español" /><br />
+      <sub><b>Español</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <img src="src/assets/readme-assets/tr-circle-active.webp" width="32" height="32" alt="Türkçe (Seçili)" /><br />
+    <sub><b>Türkçe</b></sub>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.ar.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/sa-circle.webp" width="32" height="32" alt="العربية" /><br />
+      <sub><b>العربية</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.de.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/de-circle.webp" width="32" height="32" alt="Deutsch" /><br />
+      <sub><b>Deutsch</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.fr.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/fr-circle.webp" width="32" height="32" alt="Français" /><br />
+      <sub><b>Français</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.pt.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/br-circle.webp" width="32" height="32" alt="Português" /><br />
+      <sub><b>Português</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.fi.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/fi-circle.webp" width="32" height="32" alt="Suomi" /><br />
+      <sub><b>Suomi</b></sub>
+    </a>
+  </span>
 </p>
+
 <p align="center">
-Size yardımcı olduysa lütfen bu depoyu yıldızlamayı düşünün! ⭐
+  <a href="https://github.com/LumoRez07/flow/releases" target="_blank">
+    <img src="https://img.shields.io/github/v/release/LumoRez07/flow?style=flat-square&color=2563eb&label=s%C3%BCr%C3%BCm" alt="Sürüm 2.0.0" />
+  </a>
+  <a href="https://github.com/LumoRez07/flow/releases" target="_blank">
+    <img src="https://img.shields.io/github/downloads/LumoRez07/flow/total?style=flat-square&color=3b82f6" alt="GitHub İndirmeleri" />
+  </a>
+  <a href="https://sourceforge.net/projects/flowteleprompter/files/latest/download">
+    <img src="https://img.shields.io/sourceforge/dm/flowteleprompter.svg?style=flat-square" alt="SourceForge İndirmeleri" />
+  </a>
+  <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/altyap%C4%B1-Rust%20%2B%20Tauri%20v2-FFC131?style=flat-square&logo=tauri&logoColor=black" alt="Tauri + Rust" />
+  <img src="https://img.shields.io/badge/lisans-GPLv3-22c55e?style=flat-square" alt="GPLv3 Lisansı" />
 </p>
+
+<p align="center">
+  <strong>Windows için Rust ve Tauri ile geliştirilmiş, yüksek performanslı ve hafif teleprompter.</strong>
+</p>
+
+<p align="center">
+  Size yardımcı olduysa lütfen bu depoya bir yıldız vermeyi düşünün! ⭐
+</p>
+
 <p align="center">
   <a href="https://www.ghacks.net/de/2026/05/28/flow-teleprompter-windows-voice-tracking/" target="_blank">
-    <img src="assets/featured%20on%20ghacks.svg" alt="Featured on Ghacks" width="480" />
+    <img src="assets/featured%20on%20ghacks.svg" alt="Ghacks'te Öne Çıkarıldı" width="480" />
   </a>
 </p>
 
-## Flow şuralarda mevcuttur
+## Flow'u edinin
 <div align="center">
   <a href="https://sourceforge.net/p/flowteleprompter/">
-    <img alt="Download Flow Teleprompter" src="https://sourceforge.net/sflogo.php?type=17&amp;group_id=4087698" width="200">
+    <img alt="Flow Teleprompter'ı İndir" src="https://sourceforge.net/sflogo.php?type=17&amp;group_id=4087698" width="200">
   </a>
   <a href="https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct">
-    <img alt="Get it from Microsoft" src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+    <img alt="Microsoft Store'dan Edin" src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
   </a>
   <br>
 </div>
 
-
-
-[Windows-image]: https://img.shields.io/badge/-Windows-0078D6?logo=windows&style=flat-square
-[Tauri-image]: https://img.shields.io/badge/-Tauri-FFC131?logo=tauri&style=flat-square&logoColor=black
-[Rust-image]: https://img.shields.io/badge/-Rust-000000?logo=rust&style=flat-square
 </div>
 
+---
 
-> [!CAUTION]
-> Ölçeklendirme sorunları yaşıyorsanız lütfen en son sürümü (1.9.0) indirin.
-> Ses takibi modunda kaydırma başlamıyorsa, lütfen uygulamanın mikrofon izni ayarlarını kontrol edin ve ayarlarda doğru giriş cihazının seçildiğinden emin olun.
+<p align="center">
+  <img src="src/assets/readme-assets/tr-f.webp" alt="Özellikler" width="960" />
+</p>
 
+- Beş oynatma modu: vurgu (highlight), kaydırma (scroll), satır (line), ok işareti (arrow) ve ses takibi (voice tracking).
+- Yerel öncelikli (local-first) metin depolama ve kalıcı ayarlar.
+- Cihaz seçimi, canlı izleme, gürültü kapısı (noise gate) ve kazanç (gain) kontrolleri ile özel ses girişi ayarı.
+- Yerelleştirilmiş uyandırma ifadeleri ve esnek tanıma işleme ile uygulama genelinde sesli kontrol.
+- Dahili İngilizce desteği ve indirilebilir Türkçe, Arapça, Almanca, Fransızca, İspanyolca, Portekizce ve Fince desteğine sahip Vosk konuşma modelleri.
+- Geri sayım duraklamaları ve otomatik devam etme özelliğine sahip yönlendirme kartları (cue cards).
+- Biçimlendirme, kelime sayısı ve tahmini okuma süresi araçlarına sahip dahili metin düzenleyici.
+- Gelen kutusu incelemesi, hızlı bağlantı QR bağlantıları ve gönderen tarafında yanıt durumu güncellemeleri ile uzaktan mesajlaşma akışı.
+- Birden fazla konuğun özel bir tarayıcı odası üzerinden metne aynı anda katılmasına ve metni düzenlemesine olanak tanıyan gerçek zamanlı metin düzenleme.
+- Groq destekli isteğe bağlı yapay zeka metin oluşturma ve yeniden yazma.
+- Tıklama (click-through) ve ekran yakalama koruması (capture-protection) seçenekleriyle her zaman üstte (always-on-top) Windows katmanı.
+- Uygulama içi denetimler, kurulum kontrolleri ve imzalı Windows sürüm akışı desteği ile resmi Tauri güncelleyici.
 
-> [!IMPORTANT]
-> Dağıtım notu: Microsoft Store sürümünün bir Pro sürümüne dönüştürülmesi planlanmaktadır. Sunucu kiralama masraflarını dengelemeye yardımcı olmak için fiyatının 5-10 USD (Henüz karar verilmedi) seviyesine çıkması beklenmektedir ve Pro sürümü gerekli kullanıcı eşiğine ulaştığında barındırılan hizmetler devreye alınacaktır. GitHub sürümü ücretsiz açık kaynaklı yapı olarak kalacak ve büyük özellikler ile güncellemeleri almaya devam edecektir.
+---
 
-
-
-## Öne Çıkan Özellikler
-
-- Beş oynatma stili: vurgulama, kaydırma, satır, ok ve ses takibi.
-
-- Önce yerel (local-first) metin depolama ve kalıcı ayarlar.
-
-- Cihaz seçimi, canlı izleme, gürültü geçidi (noise gate) ve kazanç (gain) kontrolleri ile özel ses giriş ayarı.
-
-- Yerelleştirilmiş uyanma selamlamaları ve daha dayanıklı tanıma işleme ile uygulama çapında sesli kontrol.
-
-- Dahili İngilizce ve indirilebilir Türkçe, Arapça, Almanca, Fransızca ve İspanyolca destekli Vosk konuşma modelleri.
-
-- Biçimlendirme, kelime sayımı ve okuma süresi yardımcıları içeren yerleşik metin düzenleyici.
-
-- Gelen kutusu incelemesi, hızlı bağlantı QR linkleri ve gönderici tarafı yanıt durumu güncellemeleri ile uzaktan mesajlaşma akışı.
-
-- Sınırsız sayıda misafirin katılmasına ve metni aynı anda düzenlemesine olanak tanıyan gerçek zamanlı metin düzenleme.
-
-- İsteğe bağlı Groq destekli metin oluşturma ve yeniden yazma.
-
-- Tıklama (click-through) ve yakalama koruması (capture-protection) seçenekleriyle her zaman üstte (always-on-top) Windows katmanı.
-
-- Uygulama içi kontroller, yükleme denetimleri ve imzalı Windows sürüm akışı desteği ile resmi Tauri güncelleyici.
-
-## 🎥 Özellik Gösterimi
+<p align="center">
+  <img src="src/assets/readme-assets/tr-sc.webp" alt="Özellik Vitrini" width="960" />
+</p>
 
 ### 1. Mesaj Enjeksiyonu (Message Injection)
 https://github.com/user-attachments/assets/5e6a4fd1-5084-4e33-b56e-0142c2ad83ce
-
-
 
 ### 2. Gerçek Zamanlı Düzenleme (Realtime Editing)
 https://github.com/user-attachments/assets/653988f9-03f1-40ad-95b8-04339356cb07
 
 ---
 
-
-
-
-## 📸 Ekran Görüntüleri
+<p align="center">
+  <img src="src/assets/readme-assets/tr-ss.webp" alt="Ekran Görüntüleri" width="960" />
+</p>
 
 <div align="center">
   <h3>Ana Teleprompter Görünümü</h3>
-  <img src="./assets/main teleprompter.png" width="400" alt="Main Teleprompter"/>
-  <img src="./assets/main chaned size.png" width="400" alt="Resized Layout"/>
+  <img src="./assets/main teleprompter.png" width="400" alt="Ana Görünüm"/>
+  <img src="./assets/main chaned size.png" width="400" alt="Boyutlandırılmış Düzen"/>
   
   <br><br>
   
   <h3>Metin Düzenleyici ve Dahili Yapay Zeka Asistanı</h3>
-  <img src="./assets/text editor.png" width="400" alt="Text Editor Interface"/>
-  <img src="./assets/AI assistant.png" width="400" alt="AI Workspace Integration"/>
+  <img src="./assets/text editor.png" width="400" alt="Metin Düzenleyici Arayüzü"/>
+  <img src="./assets/AI assistant.png" width="400" alt="Yapay Zeka Çalışma Alanı Entegrasyonu"/>
 
   <br><br>
 
   <h3>Ayarlar ve Kompakt Görünüm</h3>
-  <img src="./assets/settings.png" width="400" alt="Application Settings"/>
-  <img src="./assets/minimized.png" width="400" alt="Minimized Compact Overlay"/>
+  <img src="./assets/settings.png" width="400" alt="Uygulama Ayarları"/>
+  <img src="./assets/minimized.png" width="400" alt="Kompakt Katman Görünümü"/>
 </div>
 
 ---
 
-## Yol Haritası
+<p align="center">
+  <img src="src/assets/readme-assets/tr-win.webp" alt="Neler Yeni?" width="960" />
+</p>
+
+- **Metin Kütüphanesi ve Yöneticisi**: Birden fazla metni anında kaydetmek, düzenlemek, aramak ve aralarında geçiş yapmak için yerleşik bir metin yöneticisi ile hızlı dosya içe aktarma özelliği eklendi.<br><br>
+- **Bölüm Gezgini ve İlerleme Takibi**: Uzun metinleri net bölümlere ayırmak, bölümler arasında tek tıkla gezinmek ve konuşma sırasında tamamlanma oranını canlı takip etmek için bölüm etiketleri eklendi.<br><br>
+- **Modüler Kod Tabanı**: Daha hızlı açılış süreleri, üstün kararlılık ve kolay bakım için temel işlevler yüksek performanslı modüler bir mimariye dönüştürüldü.<br><br>
+- **Açılış Ekranı (Splash Screen)**: Başlatma sırasında pencere titremelerini ortadan kaldırmak için yumuşak geçişli (crossfade) zarif bir açılış ekranı entegre edildi.<br><br>
+- **Çoklu Monitör ve DPI Düzeltmeleri**: Karışık DPI ve çoklu monitör kurulumlarında pencere konumlandırması, koordinat hassasiyeti ve ölçeklendirme geliştirildi.<br><br>
+
+---
+
+<p align="center">
+  <img src="src/assets/readme-assets/tr-rm.webp" alt="Yol Haritası" width="960" />
+</p>
 
 - [x] Tauri + Rust çekirdek mimarisinin yeniden yazılması
-- [x] OBS'i atlamak için görünmez katman
+- [x] Ekran paylaşımı, sunumlar ve görüntülü görüşmeler için görünmez katman
 - [x] Microsoft Store sertifikasyonu ve sürümü
-- [x] Cloudflare migration
-- [ ] v2.0.0: Performans iyileştirmeleri için Frontend JavaScript modülünün yeniden düzenlenmesi ve geliştirilmesi
-- [ ] v2.0.0: Ücretsiz/Pro (Free/Pro) sürüm ayrımı mantığının uygulanması
+- [x] Cloudflare geçişi
+- [x] v2.0.0: Ön uç JavaScript modüllerinin yeniden düzenlenmesi ve performans iyileştirmeleri
+- [x] v2.0.0: Ücretsiz/Pro (Free/Pro) sürüm ayrımı mantığının uygulanması
+- [ ] v2.1.0: Web açılış sayfası ve uzaktan bağlantı istemcisinde geliştirmeler
+- [ ] v2.2.0+: Belirlenecek
 
 ---
 
-## v1.9.0 Sürümündeki Yenilikler
+<p align="center">
+  <img src="src/assets/readme-assets/tr-gs.webp" alt="Başlayın" width="960" />
+</p>
 
-- WebRTC (PeerJS) kullanılarak güvenli ve özel bir tarayıcı odası üzerinden cihazlar arası canlı metin düzenlemeye olanak tanıyan yeni Gerçek Zamanlı Düzenleme özelliği eklendi.
-- QR kod oluşturucu, daha performanslı bir kütüphaneye (QRCode) yükseltildi.
-- Çeşitli altyapı optimizasyonları ve düzeltmeleri ile uygulama genelinde kararlılık, performans ve ölçeklendirme iyileştirildi.
-- Performans korunarak/iyileştirilerek RAM kullanımı azaltıldı.
-
----
-
-## Başlangıç
-
-1. En son sürümü [Microsoft Store](https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct) 'dan veya [GitHub](https://github.com/LumoRez07/flow/releases) Sürümleri'nden (Releases) indirin;
-2. .exe veya .msi yükleyicisini çalıştırın;
-3. Flow'u başlatın ve metin okumaya başlayın.
+1. En son sürümü [Microsoft Store](https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct) veya [GitHub Sürümleri (Releases)](https://github.com/LumoRez07/flow/releases) üzerinden indirin;
+2. `.exe` veya `.msi` yükleyicisini çalıştırın;
+3. Flow'u başlatın ve sunumunuza başlayın.
 
 ---
 
@@ -166,7 +204,7 @@ https://github.com/user-attachments/assets/653988f9-03f1-40ad-95b8-04339356cb07
 Gereksinimler:
 - Node.js
 - Rust
-- Tauri prerequisites for Windows
+- Windows için Tauri önkoşulları
 
 Yerel olarak çalıştırma:
 
@@ -175,13 +213,13 @@ npm install
 npm run tauri dev
 ```
 
-Oluşturma (Build):
+Derleme (Build):
 
 ```bash
 npm run tauri build
 ```
 
-Oluşturma çıktısı:
+Derleme çıktıları:
 
 ```text
 src-tauri/target/release
@@ -190,7 +228,7 @@ src-tauri/target/release/bundle
 
 ### İmzalı güncelleyici sürümü
 
-GitHub Sürümleri ve Flow'un uygulama içi güncelleyicisi için hazır bir Windows sürümü oluşturmak adına, yapımdan önce güncelleyici imzalama anahtarını ortama yükleyin:
+GitHub Releases ve Flow'un uygulama içi güncelleyicisi için hazır bir Windows sürümü oluşturmak adına, derlemeden önce güncelleyici imzalama anahtarını ortam değişkenlerine yükleyin:
 
 ```powershell
 $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -Raw "$HOME\.tauri\flow-updater.key"
@@ -198,26 +236,38 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<your-updater-key-password>"
 npm run tauri build
 ```
 
-src-tauri/target/release/bundle dizinindeki bu dosyaları GitHub sürümünde yayınlayın:
+`src-tauri/target/release/bundle` dizinindeki bu dosyaları GitHub sürümünde yayınlayın:
 
-- `msi/flow_1.9.0_x64_en-US.msi`
+- `msi/flow_2.0.0_x64_en-US.msi`
 - `latest.json`
 
-.sig dosyası referans için MSI ile birlikte oluşturulurken, latest.json uygulama tarafından tüketilen güncelleyici akışıdır.
+`.sig` dosyası referans için MSI ile birlikte oluşturulurken, `latest.json` uygulama tarafından tüketilen güncelleyici akışıdır.
 
+---
 
 ## Gizlilik
 
-- Çoğu veri cihazda yerel olarak saklanır.
-- Ses takibi, Vosk modelleri ile yerel olarak çalışacak şekilde tasarlanmıştır.
-- Groq istekleri yalnızca yapay zeka özellikleri kullanıldığında gönderilir.
+- Çoğu veri yerel olarak cihazda depolanır.
+- Ses takibi Vosk modelleriyle yerel olarak çalışır.
+- Groq istekleri yalnızca yapay zeka özellikleri aktif olarak kullanıldığında gönderilir.
 - Mevcut gizlilik politikası için [privacy-policy.md](privacy-policy.md) dosyasına bakın.
+
+---
+
+## Teşekkürler
+
+Flow Teleprompter'a en çok ihtiyaç duyduğu anda destek oldukları için [@emanschigames](https://www.instagram.com/emanschigames/?hl=en) ve [@nour690](https://github.com/nour690)'a özel teşekkürler. Küçük bir jest olsa bile çok şey ifade etti ve içtenlikle takdir edilmektedir.
+
+
+---
 
 ## Lisans
 
-Bu proje GPL-3.0-or-later lisansı altındadır. [LICENSE](LICENSE). dosyasına bakın.
+Bu proje GPL-3.0-or-later kapsamında lisanslanmıştır. Bkz. [LICENSE](LICENSE).
 
-## Yıldız Geçmişi
+---
+
+## Yıldız Geçmişi (Star History)
 
 <a href="https://www.star-history.com/?repos=LumoRez07%2FFlow&type=date&legend=top-left">
  <picture>

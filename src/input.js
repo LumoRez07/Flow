@@ -8,8 +8,10 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, buildGroqRequest, defaultState, estimateMinutes, generateWithGroq, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState, parseFormattedScript, parseWaitCardText, saveState, splitWords, translate } from "./shared.js";
-import { markHostRealtimeEditActivity } from "./realtime-editing.js";
+import { applyAppearanceToDocument, applyTextDirection, applyTranslationsToDocument, defaultState, estimateMinutes, initializeDesktopWindowOpacityFade, initializePersistentStorage, initializeSmoothScrollbox, invokeAfterDesktopFadeOut, loadState, parseFormattedScript, parseWaitCardText, saveState, splitWords, translate } from "./shared.js";
+import { buildGroqRequest, generateWithGroq } from "./services/groq.js";
+import { markHostRealtimeEditActivity } from "./services/network/realtime-editing.js";
+import { classifyImportFile, decodeTextBytes, extractDocxText, extractPdfText, getFileNameFromPath, mimeTypeFromFileName, readImportedText } from "./core/file-parser.js";
 
 await initializePersistentStorage();
 
@@ -61,6 +63,13 @@ const ui = {
   scriptCardBuilderBody: document.querySelector("#scriptCardBuilderBody"),
   toggleScriptCardBuilderButton: document.querySelector("#toggleScriptCardBuilderButton"),
   formatButtons: document.querySelectorAll("[data-wrap-before], [data-line-prefix]"),
+  insertSectionButton: document.querySelector("#insertSectionButton"),
+  sectionModal: document.querySelector("#sectionModal"),
+  sectionModalCloseButton: document.querySelector("#sectionModalCloseButton"),
+  sectionModalTitleInput: document.querySelector("#sectionModalTitleInput"),
+  sectionModalWaitInput: document.querySelector("#sectionModalWaitInput"),
+  sectionModalAddButton: document.querySelector("#sectionModalAddButton"),
+  sectionModalCancelButton: document.querySelector("#sectionModalCancelButton"),
   uploadFileButton: document.querySelector("#uploadFileButton"),
   uploadFileInput: document.querySelector("#uploadFileInput"),
   importStatus: document.querySelector("#importStatus"),
@@ -114,18 +123,12 @@ const ui = {
   openSettingsButton: document.querySelector("#openSettingsButton")
 };
 
-const PDF_TEXT_TYPES = new Set(["application/pdf"]);
-const DOCX_TEXT_TYPES = new Set(["application/vnd.openxmlformats-officedocument.wordprocessingml.document"]);
-const DIRECT_TEXT_EXTENSIONS = new Set(["txt", "text", "md", "markdown", "csv", "tsv", "json", "xml", "html", "htm"]);
-
-let pdfModulePromise = null;
-let mammothModulePromise = null;
 let nativeDropUnlisten = null;
 let groqImportedFile = null;
 const customInputSelectControllers = [];
 const RTL_TEXT_PATTERN = /[\u0591-\u07FF\uFB1D-\uFDFD\uFE70-\uFEFC]/;
 const INPUT_SECTION_CHOICE_METADATA = {
-  editor: { icon: "ph-note-pencil", accent: "default" },
+  editor: { icon: "ph-article", accent: "default" },
   assistant: { icon: "ph-sparkle", accent: "voice" }
 };
 
@@ -152,79 +155,6 @@ let scriptCardTemplates = [];
 let scriptCardPanelCollapsed = false;
 let scriptInputViewMode = "text";
 
-function detectTextEncoding(bytes) {
-  if (!bytes?.length) {
-    return "utf-8";
-  }
-
-  if (bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return "utf-8-bom";
-  }
-
-  if (bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xfe) {
-    return "utf-16le-bom";
-  }
-
-  if (bytes.length >= 2 && bytes[0] === 0xfe && bytes[1] === 0xff) {
-    return "utf-16be-bom";
-  }
-
-  const sampleSize = Math.min(bytes.length, 512);
-  let evenNulls = 0;
-  let oddNulls = 0;
-
-  for (let index = 0; index < sampleSize; index += 1) {
-    if (bytes[index] !== 0x00) {
-      continue;
-    }
-
-    if (index % 2 === 0) {
-      evenNulls += 1;
-    } else {
-      oddNulls += 1;
-    }
-  }
-
-  if (oddNulls >= 8 && oddNulls > evenNulls * 3) {
-    return "utf-16le";
-  }
-
-  if (evenNulls >= 8 && evenNulls > oddNulls * 3) {
-    return "utf-16be";
-  }
-
-  return "utf-8";
-}
-
-function decodeTextBytes(input) {
-  const bytes = input instanceof Uint8Array ? input : new Uint8Array(input || []);
-  const encoding = detectTextEncoding(bytes);
-
-  if (encoding === "utf-8-bom") {
-    return new TextDecoder("utf-8").decode(bytes.subarray(3));
-  }
-
-  if (encoding === "utf-16le-bom") {
-    return new TextDecoder("utf-16le").decode(bytes.subarray(2));
-  }
-
-  if (encoding === "utf-16be-bom") {
-    return new TextDecoder("utf-16be").decode(bytes.subarray(2));
-  }
-
-  const decoded = new TextDecoder(encoding).decode(bytes).replace(/^\uFEFF/, "");
-  const replacementCount = (decoded.match(/\uFFFD/g) || []).length;
-
-  if (encoding === "utf-8" && replacementCount > Math.max(2, Math.floor(decoded.length * 0.02))) {
-    try {
-      return new TextDecoder("windows-1252").decode(bytes).replace(/^\uFEFF/, "");
-    } catch {
-      return decoded;
-    }
-  }
-
-  return decoded;
-}
 
 function t(key, params = {}) {
   return translate(key, state.language, params);
@@ -799,6 +729,46 @@ function createScriptCardPreviewElement(template) {
   element.classList.add(template.placement === "between" ? "prompt-card-between" : "prompt-card-centered");
   element.classList.add(`prompt-card-tone-${template.tone || "neutral"}`);
   applyTextDirection(element, template.text);
+
+  const waitDescriptor = parseWaitCardText(template.text);
+  const seconds = Number(template.waitSeconds || waitDescriptor?.seconds || 0);
+
+  if (seconds > 0) {
+    element.classList.add("prompt-card-wait");
+    element.dataset.waitSeconds = String(seconds);
+
+    const copy = document.createElement("span");
+    copy.className = "prompt-card-wait-copy";
+    applyTextDirection(copy, template.text);
+
+    if (waitDescriptor?.prefix) {
+      const prefix = document.createElement("span");
+      prefix.className = "prompt-card-wait-prefix";
+      prefix.textContent = waitDescriptor.prefix;
+      copy.appendChild(prefix);
+    }
+
+    const numberViewport = document.createElement("span");
+    numberViewport.className = "prompt-card-wait-number-viewport";
+    numberViewport.dataset.value = String(seconds);
+
+    const numberValue = document.createElement("span");
+    numberValue.className = "prompt-card-wait-number-value";
+    numberValue.textContent = String(seconds);
+    numberViewport.appendChild(numberValue);
+    copy.appendChild(numberViewport);
+
+    if (waitDescriptor?.suffix) {
+      const suffix = document.createElement("span");
+      suffix.className = "prompt-card-wait-suffix";
+      suffix.textContent = waitDescriptor.suffix;
+      copy.appendChild(suffix);
+    }
+
+    element.appendChild(copy);
+    return element;
+  }
+
   element.textContent = template.text;
   return element;
 }
@@ -854,20 +824,21 @@ function createScriptInputDecorationGroup(style) {
 function createScriptInputCardElement(token) {
   const element = document.createElement(token.placement === "between" ? "span" : "div");
   const waitDescriptor = parseWaitCardText(token.text);
+  const seconds = Number(token.waitSeconds || waitDescriptor?.seconds || 0);
   element.className = "prompt-card";
   element.classList.add(token.placement === "between" ? "prompt-card-between" : "prompt-card-centered");
   element.classList.add(`prompt-card-tone-${token.tone || "neutral"}`);
   applyTextDirection(element, token.text);
 
-  if (waitDescriptor) {
+  if (seconds > 0) {
     element.classList.add("prompt-card-wait");
-    element.dataset.waitSeconds = String(waitDescriptor.seconds);
+    element.dataset.waitSeconds = String(seconds);
 
     const copy = document.createElement("span");
     copy.className = "prompt-card-wait-copy";
     applyTextDirection(copy, token.text);
 
-    if (waitDescriptor.prefix) {
+    if (waitDescriptor?.prefix) {
       const prefix = document.createElement("span");
       prefix.className = "prompt-card-wait-prefix";
       prefix.textContent = waitDescriptor.prefix;
@@ -876,15 +847,15 @@ function createScriptInputCardElement(token) {
 
     const numberViewport = document.createElement("span");
     numberViewport.className = "prompt-card-wait-number-viewport";
-    numberViewport.dataset.value = String(waitDescriptor.seconds);
+    numberViewport.dataset.value = String(seconds);
 
     const numberValue = document.createElement("span");
     numberValue.className = "prompt-card-wait-number-value";
-    numberValue.textContent = String(waitDescriptor.seconds);
+    numberValue.textContent = String(seconds);
     numberViewport.appendChild(numberValue);
     copy.appendChild(numberViewport);
 
-    if (waitDescriptor.suffix) {
+    if (waitDescriptor?.suffix) {
       const suffix = document.createElement("span");
       suffix.className = "prompt-card-wait-suffix";
       suffix.textContent = waitDescriptor.suffix;
@@ -972,7 +943,7 @@ function getScriptInputDecorationSignature(style = {}) {
 }
 
 function renderStyledScriptInput() {
-  if (!ui.scriptInputStyledPreview) {
+  if (!ui.scriptInputStyledPreview || scriptInputViewMode !== "styled") {
     return;
   }
 
@@ -1022,6 +993,40 @@ function renderStyledScriptInput() {
 
     if (token.type === "block-end") {
       closeBlock();
+      return;
+    }
+
+    if (token.type === "section") {
+      closeBlock();
+      const sectionWrapper = document.createElement("div");
+      sectionWrapper.className = "prompt-section-wrapper script-input-section-wrapper";
+      sectionWrapper.dataset.sectionTitle = token.title;
+
+      const heading = document.createElement("div");
+      heading.className = "prompt-section-heading";
+
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "prompt-section-title-text";
+      titleSpan.textContent = token.title;
+      heading.appendChild(titleSpan);
+
+      if (token.waitSeconds && token.waitSeconds > 0) {
+        const waitBadge = document.createElement("span");
+        waitBadge.className = "prompt-section-wait-badge";
+        const icon = document.createElement("i");
+        icon.className = "ph ph-hourglass-high prompt-card-wait-icon";
+        icon.setAttribute("aria-hidden", "true");
+        const valueSpan = document.createElement("span");
+        valueSpan.textContent = `${token.waitSeconds}s`;
+        waitBadge.append(icon, valueSpan);
+        heading.appendChild(waitBadge);
+      }
+
+      const underline = document.createElement("div");
+      underline.className = "prompt-section-underline";
+
+      sectionWrapper.append(heading, underline);
+      fragment.appendChild(sectionWrapper);
       return;
     }
 
@@ -1083,6 +1088,16 @@ function renderStyledScriptInput() {
       if (currentBlockContent) {
         syncScriptInputBlockDirection(currentBlockContent);
       }
+      return;
+    }
+
+    if (token.type === "newline") {
+      const prevToken = tokens[tokenIndex - 1];
+      if (prevToken && prevToken.type === "section") {
+        return;
+      }
+      closeDecorationGroup();
+      fragment.appendChild(document.createElement("br"));
       return;
     }
 
@@ -1202,6 +1217,7 @@ function getCurrentScriptCardTemplate() {
   return {
     ...template,
     placement: ui.scriptCardPlacementSelect?.value === "between" ? "between" : "centered",
+    waitSeconds: usesWaitSecondsField ? waitSeconds : 0,
     text: usesWaitSecondsField
       ? buildWaitSecondsCardText(waitSeconds)
       : sanitizeScriptCardText(ui.scriptCardTextInput?.value || template.text)
@@ -1234,7 +1250,11 @@ function applySelectedScriptCardTemplate(templateId) {
 }
 
 function buildScriptCardMarkup(template) {
-  return `[card ${template.placement} ${template.tone}]${template.text}[/card]`;
+  const placement = template.placement || "centered";
+  const tone = template.tone || "neutral";
+  const waitSeconds = template.waitSeconds || (shouldUseWaitSecondsField(template) ? normalizeWaitSecondsValue(ui.scriptCardWaitSecondsInput?.value) : 0);
+  const waitAttr = waitSeconds > 0 ? ` wait=${waitSeconds}` : "";
+  return `[card ${placement} ${tone}${waitAttr}]${template.text}[/card]`;
 }
 
 function insertScriptCardMarkup(template) {
@@ -1362,7 +1382,10 @@ function syncFromStorage() {
 function refreshMeta() {
   const count = splitWords(ui.scriptInput.value).length;
   const minutes = estimateMinutes(count, state.speed || 120);
-  ui.scriptMeta.textContent = t("input.meta", { count, minutes: minutes.toFixed(minutes < 1 ? 1 : 0) });
+  if (ui.scriptMeta) {
+    ui.scriptMeta.dir = "auto";
+    ui.scriptMeta.textContent = t("input.meta", { count, minutes: minutes.toFixed(minutes < 1 ? 1 : 0) });
+  }
 }
 
 function setImportStatus(key, params = {}) {
@@ -1401,6 +1424,26 @@ function setActiveInputSection(section = ui.inputSectionSelect?.value || "editor
   document.querySelector(".page-shell")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+let persistTimer = 0;
+
+function schedulePersist() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+  }
+  persistTimer = window.setTimeout(() => {
+    persistTimer = 0;
+    persist();
+  }, 650);
+}
+
+function flushPersist() {
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = 0;
+    persist();
+  }
+}
+
 function persist() {
   state.script = ui.scriptInput.value;
   state.groqKey = ui.groqKeyInput.value;
@@ -1416,166 +1459,6 @@ function persist() {
     groq: state.groq
   });
   refreshMeta();
-}
-
-function getFileExtension(fileName = "") {
-  const parts = String(fileName).toLowerCase().split(".");
-  return parts.length > 1 ? parts.pop() : "";
-}
-
-function getFileNameFromPath(filePath = "") {
-  const normalizedPath = String(filePath || "").replace(/\\+/g, "/");
-  return normalizedPath.split("/").pop() || "import.txt";
-}
-
-function mimeTypeFromFileName(fileName = "") {
-  const extension = getFileExtension(fileName);
-
-  if (extension === "pdf") {
-    return "application/pdf";
-  }
-
-  if (extension === "docx") {
-    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-  }
-
-  if (extension === "md" || extension === "markdown") {
-    return "text/markdown";
-  }
-
-  if (extension === "csv") {
-    return "text/csv";
-  }
-
-  if (extension === "tsv") {
-    return "text/tab-separated-values";
-  }
-
-  if (extension === "json") {
-    return "application/json";
-  }
-
-  if (extension === "xml") {
-    return "application/xml";
-  }
-
-  if (extension === "html" || extension === "htm") {
-    return "text/html";
-  }
-
-  return "text/plain";
-}
-
-function classifyImportFile(file) {
-  const extension = getFileExtension(file?.name);
-  const mimeType = String(file?.type || "").toLowerCase();
-
-  if (PDF_TEXT_TYPES.has(mimeType) || extension === "pdf") {
-    return "pdf";
-  }
-
-  if (DOCX_TEXT_TYPES.has(mimeType) || extension === "docx") {
-    return "docx";
-  }
-
-  if (mimeType.startsWith("text/") || DIRECT_TEXT_EXTENSIONS.has(extension)) {
-    return "text";
-  }
-
-  return "unsupported";
-}
-
-async function loadPdfModule() {
-  if (!pdfModulePromise) {
-    pdfModulePromise = import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs").then((module) => {
-      module.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
-      return module;
-    });
-  }
-
-  return pdfModulePromise;
-}
-
-async function loadMammothModule() {
-  if (!mammothModulePromise) {
-    mammothModulePromise = import("https://cdn.jsdelivr.net/npm/mammoth@1.9.1/+esm");
-  }
-
-  return mammothModulePromise;
-}
-
-async function extractPdfText(file) {
-  const pdfjs = await loadPdfModule();
-  const bytes = await file.arrayBuffer();
-  const pdf = await pdfjs.getDocument({ data: bytes }).promise;
-  const pages = [];
-
-  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-    const page = await pdf.getPage(pageNumber);
-    const content = await page.getTextContent();
-    const lines = [];
-    let currentLine = [];
-    let lastY = null;
-
-    content.items.forEach((item) => {
-      const text = item?.str || "";
-      const currentY = item?.transform?.[5] ?? null;
-
-      if (lastY !== null && currentY !== null && Math.abs(currentY - lastY) > 4) {
-        lines.push(currentLine.join(" ").trim());
-        currentLine = [];
-      }
-
-      if (text.trim()) {
-        currentLine.push(text.trim());
-      }
-
-      lastY = currentY;
-    });
-
-    if (currentLine.length > 0) {
-      lines.push(currentLine.join(" ").trim());
-    }
-
-    pages.push(lines.filter(Boolean).join("\n"));
-  }
-
-  return pages.filter(Boolean).join("\n\n");
-}
-
-async function extractDocxText(file) {
-  const mammoth = await loadMammothModule();
-  const bytes = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer: bytes });
-  return result.value || "";
-}
-
-async function extractImportedText(file) {
-  const fileKind = classifyImportFile(file);
-
-  if (fileKind === "unsupported") {
-    throw new Error("unsupported");
-  }
-
-  if (fileKind === "pdf") {
-    return extractPdfText(file);
-  }
-
-  if (fileKind === "docx") {
-    return extractDocxText(file);
-  }
-
-  return decodeTextBytes(await file.arrayBuffer());
-}
-
-async function readImportedText(file) {
-  const text = (await extractImportedText(file)).trim();
-
-  if (!text) {
-    throw new Error("empty");
-  }
-
-  return text;
 }
 
 async function importFile(file) {
@@ -1783,6 +1666,98 @@ function prefixSelectedLines(prefix, options = {}) {
   persist();
 }
 
+let pendingSectionInsertion = null;
+let sectionModalCloseTimer = 0;
+
+function openSectionModal() {
+  if (!ui.sectionModal || !ui.scriptInput) {
+    return;
+  }
+
+  if (sectionModalCloseTimer) {
+    clearTimeout(sectionModalCloseTimer);
+    sectionModalCloseTimer = 0;
+  }
+
+  const start = ui.scriptInput.selectionStart ?? 0;
+  const end = ui.scriptInput.selectionEnd ?? start;
+  const selectedText = ui.scriptInput.value.slice(start, end).trim();
+  const defaultTitle = selectedText.length > 0 && selectedText.length <= 40 ? selectedText : "";
+
+  pendingSectionInsertion = {
+    start,
+    end,
+    hasSelection: selectedText.length > 0 && selectedText.length <= 40
+  };
+
+  if (ui.sectionModalTitleInput) {
+    ui.sectionModalTitleInput.value = defaultTitle;
+  }
+  if (ui.sectionModalWaitInput) {
+    ui.sectionModalWaitInput.value = "0";
+  }
+
+  ui.sectionModal.classList.remove("is-closing");
+  ui.sectionModal.classList.remove("hidden");
+  ui.sectionModal.setAttribute("aria-hidden", "false");
+
+  window.requestAnimationFrame(() => {
+    ui.sectionModalTitleInput?.focus();
+    ui.sectionModalTitleInput?.select();
+  });
+}
+
+function closeSectionModal() {
+  if (!ui.sectionModal || ui.sectionModal.classList.contains("hidden")) {
+    return;
+  }
+
+  if (sectionModalCloseTimer) {
+    clearTimeout(sectionModalCloseTimer);
+  }
+
+  ui.sectionModal.classList.add("is-closing");
+  ui.sectionModal.setAttribute("aria-hidden", "true");
+  pendingSectionInsertion = null;
+
+  sectionModalCloseTimer = window.setTimeout(() => {
+    ui.sectionModal.classList.add("hidden");
+    ui.sectionModal.classList.remove("is-closing");
+    sectionModalCloseTimer = 0;
+  }, 190);
+
+  if (ui.scriptInput) {
+    ui.scriptInput.focus();
+  }
+}
+
+function confirmSectionModal() {
+  if (!ui.scriptInput) {
+    closeSectionModal();
+    return;
+  }
+
+  const titleRaw = ui.sectionModalTitleInput?.value?.trim() || "";
+  const title = (titleRaw || "Section").slice(0, 80);
+  const waitVal = Math.max(0, Math.min(120, Math.round(Number(ui.sectionModalWaitInput?.value) || 0)));
+
+  const start = pendingSectionInsertion?.start ?? (ui.scriptInput.selectionStart ?? 0);
+  const end = pendingSectionInsertion?.end ?? (ui.scriptInput.selectionEnd ?? start);
+  const replaceEnd = pendingSectionInsertion?.hasSelection ? end : start;
+
+  const beforeText = ui.scriptInput.value.slice(0, start);
+  const needsLeadingNewline = beforeText.length > 0 && !beforeText.endsWith("\n\n") ? (beforeText.endsWith("\n") ? "\n" : "\n\n") : "";
+
+  const sectionTag = waitVal > 0
+    ? `${needsLeadingNewline}[section: ${title}, ${waitVal}s]\n\n`
+    : `${needsLeadingNewline}[section: ${title}]\n\n`;
+
+  ui.scriptInput.focus();
+  ui.scriptInput.setRangeText(sectionTag, start, replaceEnd, "end");
+  persist();
+  closeSectionModal();
+}
+
 async function useGroq() {
   const key = ui.groqKeyInput.value.trim();
   const instruction = ui.groqPromptInput.value.trim();
@@ -1851,6 +1826,35 @@ function bootInputPage() {
     });
   });
 
+  ui.insertSectionButton?.addEventListener("click", openSectionModal);
+  ui.sectionModalCloseButton?.addEventListener("click", closeSectionModal);
+  ui.sectionModalCancelButton?.addEventListener("click", closeSectionModal);
+  ui.sectionModalAddButton?.addEventListener("click", confirmSectionModal);
+  ui.sectionModal?.addEventListener("click", (event) => {
+    if (event.target === ui.sectionModal) {
+      closeSectionModal();
+    }
+  });
+
+  [ui.sectionModalTitleInput, ui.sectionModalWaitInput].forEach((input) => {
+    input?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        confirmSectionModal();
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        closeSectionModal();
+      }
+    });
+  });
+
+  window.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && ui.sectionModal && !ui.sectionModal.classList.contains("hidden")) {
+      event.preventDefault();
+      closeSectionModal();
+    }
+  });
+
   ui.scriptCardTemplateSelect?.addEventListener("change", () => {
     applySelectedScriptCardTemplate(ui.scriptCardTemplateSelect.value);
   });
@@ -1896,7 +1900,8 @@ function bootInputPage() {
   });
   ui.saveScriptCardTemplateButton?.addEventListener("click", saveCurrentScriptCardTemplate);
 
-  ui.scriptInput.addEventListener("input", persist);
+  ui.scriptInput.addEventListener("input", schedulePersist);
+  ui.scriptInput.addEventListener("blur", flushPersist);
   ui.scriptInputStyledViewButton?.addEventListener("click", () => {
     setScriptInputViewMode("styled");
   });
@@ -2008,15 +2013,15 @@ function bootInputPage() {
       customInputSelectControllers.forEach((controller) => closeCustomInputSelect(controller));
     }
   });
-  window.addEventListener("focus", syncFromStorage);
-  window.addEventListener("storage", syncFromStorage);
-  window.addEventListener("flow-state-updated", () => {
+  const handleExternalSync = () => {
     if (isEditableElement(document.activeElement)) {
       return;
     }
-
     syncFromStorage();
-  });
+  };
+  window.addEventListener("focus", handleExternalSync);
+  window.addEventListener("storage", handleExternalSync);
+  window.addEventListener("flow-state-updated", handleExternalSync);
 
   initializeDesktopWindowOpacityFade();
   initializeSmoothScrollbox();

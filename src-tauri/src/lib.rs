@@ -132,7 +132,7 @@ pub(crate) struct VoiceModelSpec {
     bundled_archive_kind: Option<BundledVoiceArchiveKind>,
 }
 
-const VOICE_MODEL_SPECS: [VoiceModelSpec; 23] = [
+const VOICE_MODEL_SPECS: [VoiceModelSpec; 26] = [
     VoiceModelSpec {
         model_id: "vosk-model-small-en-us-0.15",
         language: "en-US",
@@ -479,6 +479,51 @@ const VOICE_MODEL_SPECS: [VoiceModelSpec; 23] = [
         recommended: false,
         bundled_archive_kind: None,
     },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-pt-0.3",
+        language: "pt-BR",
+        label: "Portuguese",
+        family: "Small",
+        archive_name: "vosk-model-small-pt-0.3.zip",
+        install_dir_name: "vosk-model-small-pt-0.3",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip",
+        download_size_mb: 31,
+        runtime_memory_mb: 300,
+        license: "Apache 2.0",
+        description: "Lightweight Portuguese model for desktop and mobile use.",
+        recommended: true,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-pt-fb-v0.1.1-20220516_2113",
+        language: "pt-BR",
+        label: "Portuguese",
+        family: "Large",
+        archive_name: "vosk-model-pt-fb-v0.1.1-20220516_2113.zip",
+        install_dir_name: "vosk-model-pt-fb-v0.1.1-20220516_2113",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-pt-fb-v0.1.1-20220516_2113.zip",
+        download_size_mb: 1638,
+        runtime_memory_mb: 12000,
+        license: "Apache 2.0",
+        description: "Large accurate Portuguese model trained on Common Voice and VoxForge.",
+        recommended: false,
+        bundled_archive_kind: None,
+    },
+    VoiceModelSpec {
+        model_id: "vosk-model-small-fi-0.22",
+        language: "fi-FI",
+        label: "Finnish",
+        family: "Small",
+        archive_name: "vosk-model-small-fi-0.22.zip",
+        install_dir_name: "vosk-model-small-fi-0.22",
+        download_url: "https://alphacephei.com/vosk/models/vosk-model-small-fi-0.22.zip",
+        download_size_mb: 42,
+        runtime_memory_mb: 300,
+        license: "Apache 2.0",
+        description: "Lightweight Finnish model for desktop and mobile use.",
+        recommended: true,
+        bundled_archive_kind: None,
+    },
 ];
 
 #[derive(Debug, Clone, Serialize)]
@@ -631,7 +676,7 @@ struct DesktopPreferences {
 impl Default for DesktopPreferences {
     fn default() -> Self {
         Self {
-            hide_from_capture: true,
+            hide_from_capture: false,
             use_system_tray: true,
             prevent_sleep: false,
             clickthrough_shortcut_enabled: false,
@@ -1339,8 +1384,16 @@ fn ensure_window(
     let capture_enabled = app
         .try_state::<DesktopState>()
         .map(|desktop| current_desktop_preferences(&desktop).hide_from_capture)
-        .unwrap_or(true);
+        .unwrap_or(false);
     apply_capture_protection(&window, capture_enabled);
+
+    let app_handle = app.clone();
+    let win_label = label.to_string();
+    window.on_window_event(move |event| {
+        if let tauri::WindowEvent::Focused(true) = event {
+            promote_active_window(&app_handle, &win_label);
+        }
+    });
 
     Ok(())
 }
@@ -1469,9 +1522,55 @@ fn exit_app(app: &tauri::AppHandle) {
     app.exit(0);
 }
 
-fn show_aux_window_impl(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
-    set_main_always_on_top(app, false);
+fn center_aux_window_on_active_monitor(window: &WebviewWindow, anchor: &WebviewWindow) {
+    if let Ok(Some(monitor)) = anchor.current_monitor() {
+        if let Ok(window_size) = window.outer_size() {
+            let monitor_pos = monitor.position();
+            let monitor_size = monitor.size();
+            let x = monitor_pos.x + ((monitor_size.width as i32 - window_size.width as i32) / 2).max(0);
+            let y = monitor_pos.y + ((monitor_size.height as i32 - window_size.height as i32) / 2).max(0);
+            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+            return;
+        }
+    }
+    let _ = window.center();
+}
 
+fn promote_active_window(app: &tauri::AppHandle, active_label: &str) {
+    if active_label == "main" {
+        let has_visible_aux = ["input", "settings", "about"]
+            .iter()
+            .any(|aux| {
+                app.get_webview_window(aux)
+                    .and_then(|w| w.is_visible().ok())
+                    .unwrap_or(false)
+            });
+        if !has_visible_aux {
+            set_main_always_on_top(app, true);
+        } else {
+            set_main_always_on_top(app, false);
+        }
+    } else {
+        // Demote main teleprompter
+        set_main_always_on_top(app, false);
+
+        // Demote all other aux windows
+        for other_aux in ["input", "settings", "about", "remote-inbox"] {
+            if other_aux != active_label {
+                if let Some(other_win) = app.get_webview_window(other_aux) {
+                    let _ = other_win.set_always_on_top(false);
+                }
+            }
+        }
+
+        // Promote the active aux window to always_on_top
+        if let Some(active_win) = app.get_webview_window(active_label) {
+            let _ = active_win.set_always_on_top(true);
+        }
+    }
+}
+
+fn show_aux_window_impl(app: &tauri::AppHandle, label: &str) -> Result<(), String> {
     if let Some(desktop) = app.try_state::<DesktopState>() {
         let _ = set_clickthrough_impl(app, &desktop, false);
     }
@@ -1480,10 +1579,16 @@ fn show_aux_window_impl(app: &tauri::AppHandle, label: &str) -> Result<(), Strin
         .get_webview_window(label)
         .ok_or_else(|| format!("Window '{label}' was not created"))?;
 
-    window
-        .set_always_on_top(true)
-        .map_err(|error| error.to_string())?;
+    if label != "remote-inbox" {
+        if let Some(main) = app.get_webview_window("main") {
+            center_aux_window_on_active_monitor(&window, &main);
+        } else {
+            let _ = window.center();
+        }
+    }
+
     window.show().map_err(|error| error.to_string())?;
+    promote_active_window(app, label);
     window.set_focus().map_err(|error| error.to_string())?;
 
     Ok(())
@@ -1494,8 +1599,29 @@ fn hide_aux_window_impl(app: &tauri::AppHandle, label: &str) -> Result<(), Strin
         .get_webview_window(label)
         .ok_or_else(|| format!("Window '{label}' was not created"))?;
 
+    let _ = window.set_always_on_top(false);
     window.hide().map_err(|error| error.to_string())?;
-    set_main_always_on_top(app, true);
+
+    let mut remaining_aux_window: Option<String> = None;
+    for other_label in ["input", "settings", "about"] {
+        if other_label != label {
+            if let Some(other_win) = app.get_webview_window(other_label) {
+                if let Ok(true) = other_win.is_visible() {
+                    remaining_aux_window = Some(other_label.to_string());
+                    break;
+                }
+            }
+        }
+    }
+
+    if let Some(other_label) = remaining_aux_window {
+        promote_active_window(app, &other_label);
+        if let Some(other_win) = app.get_webview_window(&other_label) {
+            let _ = other_win.set_focus();
+        }
+    } else {
+        set_main_always_on_top(app, true);
+    }
 
     Ok(())
 }
@@ -1506,8 +1632,9 @@ fn show_main_window(app: &tauri::AppHandle) {
     }
 
     if let Some(window) = app.get_webview_window("main") {
+        let _ = window.emit("flow-reveal-main-window", ());
         let _ = window.show();
-        let _ = window.set_always_on_top(true);
+        promote_active_window(app, "main");
         let _ = window.set_focus();
     }
 }
@@ -2668,7 +2795,7 @@ pub fn run() {
     set_log_level(LogLevel::Error);
 
     let prevent = tauri_plugin_prevent_default::Builder::new()
-        .with_flags(Flags::CONTEXT_MENU | Flags::PRINT | Flags::DOWNLOADS)
+        .with_flags(Flags::CONTEXT_MENU | Flags::PRINT | Flags::DOWNLOADS | Flags::DEV_TOOLS)
         .build();
     let relay = RemoteRelay::new();
     let desktop_state = DesktopState::default();
@@ -2715,11 +2842,19 @@ pub fn run() {
             voice_engine::stop_voice_tracking,
             voice_engine::start_voice_command_listener,
             voice_engine::stop_voice_command_listener,
-            voice_engine::get_voice_engine_debug_state,
             read_import_file
         ])
         .setup(move |app| {
             setup_aux_windows(app.handle())?;
+
+            if let Some(main) = app.handle().get_webview_window("main") {
+                let app_handle = app.handle().clone();
+                main.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Focused(true) = event {
+                        promote_active_window(&app_handle, "main");
+                    }
+                });
+            }
 
             if let Err(error) = app.handle().global_shortcut().on_shortcut(
                 "Ctrl+Shift+X",
@@ -2763,7 +2898,7 @@ pub fn run() {
                 }
             }
 
-            show_main_window(app.handle());
+            // show_main_window(app.handle()); // Removed so splash screen can control when it shows.
 
             Ok(())
         })

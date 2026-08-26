@@ -1,11 +1,11 @@
 {
   "name": "flow",
   "private": true,
-  "version": "1.9.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "build:qrcode-vendor": "esbuild node_modules/qrcode/lib/browser.js --bundle --format=iife --global-name=QRCode --outfile=src/assets/vendor/qrcode.min.js --minify",
-    "build:peerjs-vendor": "esbuild node_modules/peerjs/dist/peerjs.min.js --bundle --format=iife --global-name=PeerJS --outfile=src/assets/vendor/peerjs.min.js --minify",
+    "build:qrcode-vendor": "esbuild node_modules/qrcode/lib/browser.js --bundle --format=iife --global-name=QRCode --outfile=src/assets/vendor/qrcode.min.js --minify && esbuild node_modules/qrcode/lib/browser.js --bundle --format=esm --outfile=src/assets/vendor/qrcode.esm.js --minify",
+    "build:peerjs-vendor": "esbuild node_modules/peerjs/dist/peerjs.min.js --bundle --format=iife --global-name=PeerJS --outfile=src/assets/vendor/peerjs.min.js --minify && esbuild node_modules/peerjs/dist/bundler.mjs --bundle --format=esm --outfile=src/assets/vendor/peerjs.esm.js --minify",
     "postinstall": "npm run build:qrcode-vendor && npm run build:peerjs-vendor",
     "tauri": "tauri"
   },

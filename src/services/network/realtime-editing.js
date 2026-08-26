@@ -1,3 +1,13 @@
+/*
+ * Flow - A high-performance teleprompter for Windows.
+ * Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ */
+
 const REALTIME_EDITING_STORAGE_KEY = "flow.realtime.editing.v1";
 const REALTIME_EDITING_UPDATED_EVENT = "flow-realtime-editing-updated";
 const REALTIME_HOST_EDIT_ACTIVITY_KEY = "flow.realtime.editing.host-activity.v1";
@@ -57,10 +67,20 @@ export function loadRealtimeEditingConfig() {
   }
 }
 
-export function saveRealtimeEditingConfig(nextConfig = {}) {
+export function saveRealtimeEditingConfig(nextConfig = {}, { notify = true } = {}) {
+  const previous = loadRealtimeEditingConfig();
   const normalized = normalizeRealtimeEditingConfig(nextConfig);
   writeBrowserStorage(REALTIME_EDITING_STORAGE_KEY, normalized);
-  window.dispatchEvent(new CustomEvent(REALTIME_EDITING_UPDATED_EVENT, { detail: normalized }));
+
+  const coreChanged =
+    previous.enabled !== normalized.enabled ||
+    previous.roomId !== normalized.roomId ||
+    previous.passwordHash !== normalized.passwordHash ||
+    previous.roomUrl !== normalized.roomUrl;
+
+  if (notify && coreChanged) {
+    window.dispatchEvent(new CustomEvent(REALTIME_EDITING_UPDATED_EVENT, { detail: normalized }));
+  }
   return normalized;
 }
 
@@ -168,6 +188,36 @@ export function applyTextPatch(sourceText = "", patch = {}) {
   const deleteCount = Math.max(0, Number(patch?.deleteCount) || 0);
   const insertText = String(patch?.insertText || "");
   return normalizedSource.slice(0, start) + insertText + normalizedSource.slice(start + deleteCount);
+}
+
+export function transformTextPatch(patch = {}, appliedPatch = {}) {
+  let start = Math.max(0, Number(patch?.start) || 0);
+  let deleteCount = Math.max(0, Number(patch?.deleteCount) || 0);
+  const insertText = String(patch?.insertText || "");
+
+  const aStart = Math.max(0, Number(appliedPatch?.start) || 0);
+  const aDel = Math.max(0, Number(appliedPatch?.deleteCount) || 0);
+  const aIns = String(appliedPatch?.insertText || "");
+  const aDelta = aIns.length - aDel;
+  const aEnd = aStart + aDel;
+
+  if (start >= aEnd) {
+    start += aDelta;
+  } else if (start + deleteCount <= aStart) {
+    // Current edit is before applied edit; position unaffected
+  } else {
+    if (start < aStart) {
+      deleteCount += aDelta;
+    } else {
+      start = aStart + aIns.length;
+    }
+  }
+
+  return {
+    start: Math.max(0, start),
+    deleteCount: Math.max(0, deleteCount),
+    insertText
+  };
 }
 
 export function markHostRealtimeEditActivity() {

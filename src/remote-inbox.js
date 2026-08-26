@@ -8,7 +8,15 @@
  * (at your option) any later version.
  */
 
-import { applyAppearanceToDocument, applyTranslationsToDocument, initializeDesktopWindowOpacityFade, initializePersistentStorage, loadState, saveState, translate } from "./shared.js";
+import {
+  applyAppearanceToDocument,
+  applyTranslationsToDocument,
+  initializeDesktopWindowOpacityFade,
+  initializePersistentStorage,
+  loadState,
+  saveState,
+  translate
+} from "./shared.js";
 
 await initializePersistentStorage();
 
@@ -168,7 +176,7 @@ function renderRemoteInbox() {
 
     card.innerHTML = `
       <div class="remote-card-preview">
-        <div class="remote-card-badge">✉</div>
+        <div class="remote-card-badge"><i class="ph ph-envelope-simple" aria-hidden="true"></i></div>
         <div class="remote-card-body">
           <div class="remote-card-header">
             <strong class="remote-card-title"></strong>
@@ -177,7 +185,7 @@ function renderRemoteInbox() {
           <p class="remote-card-excerpt"></p>
           <span class="remote-card-hint">${t("remote.cardHint")}</span>
         </div>
-        <button class="remote-reject" type="button" aria-label="${t("remote.rejectAria")}">×</button>
+        <button class="remote-reject" type="button" aria-label="${t("remote.rejectAria")}"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
     `;
 

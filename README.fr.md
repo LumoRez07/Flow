@@ -11,144 +11,191 @@
 <div align="center">
 
 <p align="center">
-  <img src="src/assets/flow-logo.png" width="128" height="128" alt="Flow logo" />
+  <img src="src/assets/readme-assets/github-readme-header.webp" width="960" alt="Flow Teleprompter v2" />
 </p>
 
-<h1 align="center">Flow Teleprompter</h1>
-
-[English](/README.md) / [Español](/README.es.md) / [Türkçe](/README.tr.md) / [العربية](/README.ar.md) / [Deutsch](/README.de.md) / Français
-
-<a href="https://github.com/LumoRez07/flow/releases" target="_blank">
-  <img src="https://img.shields.io/github/downloads/LumoRez07/flow/total?style=flat-square&color=blue" alt="Downloads" height="20"/>
-</a>
-<a href="https://sourceforge.net/projects/flowteleprompter/files/latest/download">
-  <img alt="Download Flow Teleprompter" src="https://img.shields.io/sourceforge/dm/flowteleprompter.svg" />
-</a>
-
-Téléprompteur ultra-léger à accélération matérielle conçu avec Rust & Tauri.
-
-![Windows][Windows-image]
-![Tauri][Tauri-image]
-![Rust][Rust-image]
 <p align="center">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.9.0-2563eb?style=for-the-badge" />
-  <img alt="JavaScript" src="https://img.shields.io/badge/Frontend-Vanilla%20JS-f7df1e?style=for-the-badge&logo=javascript&logoColor=111827" />
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/en-circle.webp" width="32" height="32" alt="English" /><br />
+      <sub><b>English</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.es.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/es-circle.webp" width="32" height="32" alt="Español" /><br />
+      <sub><b>Español</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.tr.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/tr-circle.webp" width="32" height="32" alt="Türkçe" /><br />
+      <sub><b>Türkçe</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.ar.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/sa-circle.webp" width="32" height="32" alt="العربية" /><br />
+      <sub><b>العربية</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.de.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/de-circle.webp" width="32" height="32" alt="Deutsch" /><br />
+      <sub><b>Deutsch</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <img src="src/assets/readme-assets/fr-circle-active.webp" width="32" height="32" alt="Français (Sélectionné)" /><br />
+    <sub><b>Français</b></sub>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.pt.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/br-circle.webp" width="32" height="32" alt="Português" /><br />
+      <sub><b>Português</b></sub>
+    </a>
+  </span>
+  <span style="display:inline-block; margin: 0 10px; text-align: center;">
+    <a href="README.fi.md" style="text-decoration:none;">
+      <img src="src/assets/readme-assets/fi-circle.webp" width="32" height="32" alt="Suomi" /><br />
+      <sub><b>Suomi</b></sub>
+    </a>
+  </span>
 </p>
+
 <p align="center">
-N'hésitez pas à mettre une étoile à ce dépôt s'il vous aide! ⭐
+  <a href="https://github.com/LumoRez07/flow/releases" target="_blank">
+    <img src="https://img.shields.io/github/v/release/LumoRez07/flow?style=flat-square&color=2563eb&label=version" alt="Version 2.0.0" />
+  </a>
+  <a href="https://github.com/LumoRez07/flow/releases" target="_blank">
+    <img src="https://img.shields.io/github/downloads/LumoRez07/flow/total?style=flat-square&color=3b82f6" alt="Téléchargements GitHub" />
+  </a>
+  <a href="https://sourceforge.net/projects/flowteleprompter/files/latest/download">
+    <img src="https://img.shields.io/sourceforge/dm/flowteleprompter.svg?style=flat-square" alt="Téléchargements SourceForge" />
+  </a>
+  <img src="https://img.shields.io/badge/plateforme-Windows%2010%20%7C%2011-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/moteur-Rust%20%2B%20Tauri%20v2-FFC131?style=flat-square&logo=tauri&logoColor=black" alt="Tauri + Rust" />
+  <img src="https://img.shields.io/badge/licence-GPLv3-22c55e?style=flat-square" alt="Licence GPLv3" />
+</p>
+
+<p align="center">
+  <strong>Téléprompteur léger et haute performance pour Windows, développé avec Rust et Tauri.</strong>
+</p>
+
+<p align="center">
+  N'hésitez pas à ajouter une étoile à ce dépôt si ce projet vous est utile ! ⭐
 </p>
 
 <p align="center">
   <a href="https://www.ghacks.net/de/2026/05/28/flow-teleprompter-windows-voice-tracking/" target="_blank">
-    <img src="assets/featured%20on%20ghacks.svg" alt="Featured on Ghacks" width="480" />
+    <img src="assets/featured%20on%20ghacks.svg" alt="Présenté sur Ghacks" width="480" />
   </a>
 </p>
 
 ## Flow est disponible sur
 <div align="center">
   <a href="https://sourceforge.net/p/flowteleprompter/">
-    <img alt="Download Flow Teleprompter" src="https://sourceforge.net/sflogo.php?type=17&amp;group_id=4087698" width="200">
+    <img alt="Télécharger Flow Teleprompter" src="https://sourceforge.net/sflogo.php?type=17&amp;group_id=4087698" width="200">
   </a>
   <a href="https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct">
-    <img alt="Get it from Microsoft" src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
+    <img alt="Disponible sur le Microsoft Store" src="https://get.microsoft.com/images/en-us%20dark.svg" width="200"/>
   </a>
   <br>
 </div>
 
-
-
-[Windows-image]: https://img.shields.io/badge/-Windows-0078D6?logo=windows&style=flat-square
-[Tauri-image]: https://img.shields.io/badge/-Tauri-FFC131?logo=tauri&style=flat-square&logoColor=black
-[Rust-image]: https://img.shields.io/badge/-Rust-000000?logo=rust&style=flat-square
 </div>
 
+---
 
-> [!CAUTION]
-> Si vous rencontrez des problèmes de mise à l'échelle, veuillez télécharger la dernière version (1.9.0).
-> Si Flow ne commence pas à défiler en mode de suivi vocal, veuillez vérifier les paramètres d'autorisation du microphone pour l'application et assurez-vous que le bon périphérique d'entrée est sélectionné dans les paramètres.
+<p align="center">
+  <img src="src/assets/readme-assets/fr-f.webp" alt="Fonctionnalités" width="960" />
+</p>
 
+- Cinq modes de lecture : surlignage (highlight), défilement (scroll), ligne par ligne (line), flèche repère (arrow) et suivi vocal (voice tracking).
+- Stockage local des scripts et persistance des paramètres (approche local-first).
+- Réglage dédié de l'entrée audio avec sélection du périphérique, monitoring en direct, noise gate et contrôle du gain.
+- Contrôle vocal complet de l'application avec phrases d'activation localisées et reconnaissance vocale robuste.
+- Modèles vocaux Vosk avec anglais inclus et prise en charge téléchargeable pour le français, l'espagnol, l'allemand, l'arabe, le turc, le portugais et le finnois.
+- Cartes mémo (cue cards) avec pauses avec compte à rebours et reprise automatique.
+- Éditeur de texte intégré avec outils de mise en forme, compteur de mots et estimation du temps de lecture.
+- Messagerie à distance avec consultation de la boîte de réception, liens QR de connexion instantanée et mises à jour du statut de réponse pour l'expéditeur.
+- Édition de texte en temps réel permettant à plusieurs invités de rejoindre et modifier le script simultanément via un salon de navigation privé.
+- Génération et reformulation de texte optionnelles assistées par l'IA de Groq.
+- Fenêtre flottante toujours au premier plan (always-on-top) pour Windows avec options de clic transparent (click-through) et protection contre la capture d'écran (capture-protection).
+- Module de mise à jour officiel Tauri avec vérifications intégrées, contrôle de l'installation et flux de versions Windows signées.
 
-> [!IMPORTANT]
-> Note de distribution : il est prévu que l'édition Microsoft Store devienne une version Pro. Son prix devrait augmenter entre 5 et 10 USD (pas encore décidé) pour aider à compenser la location du serveur, et les services hébergés seront activés une fois que la version Pro aura atteint le seuil d'utilisateurs requis. La version GitHub restera la version open-source gratuite et continuera de recevoir les fonctionnalités et mises à jour majeures.
+---
 
+<p align="center">
+  <img src="src/assets/readme-assets/fr-sc.webp" alt="Démonstration des fonctionnalités" width="960" />
+</p>
 
-
-## Points forts
-
-- Cinq styles de lecture : surbrillance, défilement, ligne, flèche et suivi vocal.
-- Stockage des scripts en local et persistance des paramètres.
-- Réglage dédié de l'entrée sonore avec sélection de l'appareil, surveillance en direct, noise gate et contrôles de gain.
-- Contrôle vocal dans toute l'application avec des mots de réveil localisés et une gestion plus résiliente de la reconnaissance.
-- Modèles vocaux Vosk avec l'anglais inclus et prise en charge téléchargeable du turc, de l'arabe, de l'allemand, du français et de l'espagnol.
-- Éditeur de script intégré avec formatage, nombre de mots et aides au temps de lecture.
-- Flux de messagerie à distance avec examen de la boîte de réception, liens QR de connexion rapide et mises à jour de l'état des réponses côté expéditeur.
-- Édition de texte en temps réel permettant à un nombre illimité d'invités de rejoindre et de modifier le script en même temps.
-- Génération et réécriture optionnelles propulsées par Groq.
-- Superposition Windows toujours au premier plan avec options de clic au travers et de protection contre la capture.
-- Outil de mise à jour officiel de Tauri avec vérifications intégrées à l'application, contrôles d'installation et prise en charge des flux de versions Windows signés.
-
-## 🎥 Présentation des fonctionnalités
-
-### 1. Injection de messages
+### 1. Envoi de messages (Message Injection)
 https://github.com/user-attachments/assets/5e6a4fd1-5084-4e33-b56e-0142c2ad83ce
 
-
-
-### 2. Édition en temps réel
+### 2. Édition en temps réel (Realtime Editing)
 https://github.com/user-attachments/assets/653988f9-03f1-40ad-95b8-04339356cb07
 
 ---
 
-
-
-
-## 📸 Captures d'écran
+<p align="center">
+  <img src="src/assets/readme-assets/fr-ss.webp" alt="Captures d'écran" width="960" />
+</p>
 
 <div align="center">
-  <h3>Apparence principale du téléprompteur</h3>
-  <img src="./assets/main teleprompter.png" width="400" alt="Main Teleprompter"/>
-  <img src="./assets/main chaned size.png" width="400" alt="Resized Layout"/>
+  <h3>Interface principale du téléprompteur</h3>
+  <img src="./assets/main teleprompter.png" width="400" alt="Vue principale"/>
+  <img src="./assets/main chaned size.png" width="400" alt="Disposition redimensionnée"/>
   
   <br><br>
   
   <h3>Éditeur de texte et assistant IA intégré</h3>
-  <img src="./assets/text editor.png" width="400" alt="Text Editor Interface"/>
-  <img src="./assets/AI assistant.png" width="400" alt="AI Workspace Integration"/>
+  <img src="./assets/text editor.png" width="400" alt="Interface de l'éditeur de texte"/>
+  <img src="./assets/AI assistant.png" width="400" alt="Intégration de l'espace de travail IA"/>
 
   <br><br>
 
   <h3>Paramètres et vue compacte</h3>
-  <img src="./assets/settings.png" width="400" alt="Application Settings"/>
-  <img src="./assets/minimized.png" width="400" alt="Minimized Compact Overlay"/>
+  <img src="./assets/settings.png" width="400" alt="Paramètres de l'application"/>
+  <img src="./assets/minimized.png" width="400" alt="Superposition compacte"/>
 </div>
 
 ---
 
-## Feuille de route
+<p align="center">
+  <img src="src/assets/readme-assets/fr-win.webp" alt="Nouveautés" width="960" />
+</p>
 
-- [x] Réécriture de l'architecture de base Tauri + Rust
-- [x] Superposition invisible pour contourner OBS
-- [x] Certification et sortie sur le Microsoft Store
+- **Bibliothèque et gestionnaire de scripts** : Ajout d'un gestionnaire de scripts intégré pour sauvegarder, organiser, rechercher et basculer instantanément entre plusieurs scripts, avec importation rapide de fichiers.<br><br>
+- **Navigateur de sections et suivi d'avancement** : Ajout de balises de section pour découper les scripts longs en étapes claires, naviguer d'une section à l'autre en un clic et suivre la progression de lecture en direct.<br><br>
+- **Base de code modularisée** : Restructuration complète des fonctionnalités principales dans une architecture modulaire pour des temps de chargement réduits et une stabilité optimale.<br><br>
+- **Écran de démarrage (Splash Screen)** : Intégration d'un écran de chargement avec fondu enchaîné (crossfade) pour éliminer tout clignotement au lancement.<br><br>
+- **Corrections multi-écrans et DPI** : Amélioration du positionnement des fenêtres, de la précision des coordonnées et de la mise à l'échelle sur les configurations multi-moniteurs et multi-DPI.<br><br>
+
+---
+
+<p align="center">
+  <img src="src/assets/readme-assets/fr-rm.webp" alt="Feuille de route" width="960" />
+</p>
+
+- [x] Réécriture complète de l'architecture principale avec Tauri + Rust
+- [x] Fenêtre superposée invisible pour le partage d'écran, les présentations et les visioconférences
+- [x] Certification et publication sur le Microsoft Store
 - [x] Migration vers Cloudflare
-- [ ] v2.0.0 : Refonte et amélioration des modules JavaScript frontend pour des améliorations de performances
-- [ ] v2.0.0 : Implémentation de la logique de séparation des niveaux Gratuit/Pro
+- [x] v2.0.0 : Refonte des modules JavaScript frontend et optimisations des performances
+- [x] v2.0.0 : Mise en place de la logique de séparation entre versions Free et Pro
+- [ ] v2.1.0 : Améliorations de la page d'accueil web et du client relais distant
+- [ ] v2.2.0+ : À définir
 
 ---
 
-## Nouveautés de la v1.9.0
+<p align="center">
+  <img src="src/assets/readme-assets/fr-gs.webp" alt="Démarrage rapide" width="960" />
+</p>
 
-- Introduction d'une nouvelle fonctionnalité d'édition en temps réel utilisant WebRTC (PeerJS), permettant l'édition de scripts en direct sur plusieurs appareils via un salon de navigateur privé et sécurisé.
-- Mise à niveau du générateur de code QR vers une bibliothèque plus performante (QRCode).
-- Amélioration de la stabilité, des performances et de la mise à l'échelle dans toute l'application avec diverses optimisations et corrections sous le capot.
-- Diminution de l'utilisation de la RAM tout en maintenant/améliorant les performances.
-
----
-
-## Pour commencer
-
-1. Téléchargez la dernière version depuis le [Microsoft Store](https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct) ou les [GitHub Releases](https://github.com/LumoRez07/flow/releases);
-2. Exécutez le programme d'installation `.exe` ou `.msi`;
-3. Lancez Flow et commencez à prompter.
+1. Téléchargez la dernière version depuis le [Microsoft Store](https://apps.microsoft.com/detail/9p1fvfhwpmqr?mode=direct) ou les [GitHub Releases](https://github.com/LumoRez07/flow/releases) ;
+2. Exécutez le programme d'installation `.exe` ou `.msi` ;
+3. Lancez Flow et commencez votre présentation.
 
 ---
 
@@ -159,29 +206,29 @@ Prérequis :
 - Rust
 - Prérequis Tauri pour Windows
 
-Exécuter localement :
+Exécution en local :
 
 ```bash
 npm install
 npm run tauri dev
 ```
 
-Construire :
+Compilation (Build) :
 
 ```bash
 npm run tauri build
 ```
 
-Sortie de construction :
+Fichiers de sortie :
 
 ```text
 src-tauri/target/release
 src-tauri/target/release/bundle
 ```
 
-### Version de mise à jour signée
+### Version signée pour le module de mise à jour
 
-Pour produire une version Windows prête pour les versions GitHub et l'outil de mise à jour intégré de Flow, chargez la clé de signature de mise à jour dans les variables d'environnement avant de construire :
+Pour créer une version Windows prête pour GitHub Releases et le système de mise à jour intégré de Flow, chargez la clé de signature du module dans l'environnement avant la compilation :
 
 ```powershell
 $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -Raw "$HOME\.tauri\flow-updater.key"
@@ -189,25 +236,38 @@ $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = "<your-updater-key-password>"
 npm run tauri build
 ```
 
-Publiez ces fichiers à partir de `src-tauri/target/release/bundle` dans la version GitHub :
+Publiez ces fichiers depuis `src-tauri/target/release/bundle` sur la version GitHub :
 
-- `msi/flow_1.9.0_x64_en-US.msi`
+- `msi/flow_2.0.0_x64_en-US.msi`
 - `latest.json`
 
-Le fichier `.sig` est généré aux côtés du MSI pour référence, tandis que `latest.json` est le flux de mise à jour consommé par l'application.
+Le fichier `.sig` est généré aux côtés du MSI à titre de référence, tandis que `latest.json` constitue le flux de mise à jour exploité par l'application.
+
+---
 
 ## Confidentialité
 
-- La plupart des données sont stockées localement sur l'appareil.
-- Le suivi vocal est conçu pour fonctionner localement avec les modèles Vosk.
-- Les requêtes Groq ne sont envoyées que lorsque les fonctionnalités d'IA sont utilisées.
-- Voir [privacy-policy.md](privacy-policy.md) pour la politique de confidentialité actuelle.
+- La majorité des données est stockée localement sur votre appareil.
+- Le suivi vocal s'exécute localement avec les modèles Vosk.
+- Les requêtes Groq ne sont envoyées que lors de l'utilisation active des fonctionnalités IA.
+- Consultez [privacy-policy.md](privacy-policy.md) pour la politique de confidentialité en vigueur.
+
+---
+
+## Remerciements
+
+Un grand merci à [@emanschigames](https://www.instagram.com/emanschigames/?hl=en) et [@nour690](https://github.com/nour690) pour leur soutien à Flow Teleprompter au moment où le projet en avait le plus besoin. Même s'il s'agissait d'un geste modeste, il a eu une grande importance et est sincèrement apprécié.
+
+
+---
 
 ## Licence
 
-Ce projet est sous licence GPL-3.0-or-later. Voir [LICENSE](LICENSE).
+Ce projet est sous licence GPL-3.0-or-later. Voir le fichier [LICENSE](LICENSE).
 
-## Historique des étoiles
+---
+
+## Historique des étoiles (Star History)
 
 <a href="https://www.star-history.com/?repos=LumoRez07%2FFlow&type=date&legend=top-left">
  <picture>

@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the main window",
-  "windows": ["main", "input", "settings", "about"],
+  "windows": ["main", "input", "settings", "about", "splashscreen"],
   "permissions": [
     "core:default",
     "opener:default",

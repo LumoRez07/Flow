@@ -14,7 +14,8 @@
     <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title data-i18n="doc.teleprompterTitle">Flow Teleprompter</title>
-    <script type="module" src="/main.js" defer></script>
+    <script src="./assets/vendor/peerjs.min.js"></script>
+    <script type="module" src="./main.js" defer></script>
   </head>
 
   <body data-page="teleprompter">
@@ -33,17 +34,19 @@
           <span class="speed-pill-unit" data-i18n="common.wpm">wpm</span>
         </label>
         <button class="icon-button" id="speedUpButton" data-i18n-title="common.faster" data-i18n-aria-label="common.faster" title="Faster" aria-label="Faster"><i class="ph ph-plus" aria-hidden="true"></i></button>
-        <button class="icon-button wide-button" id="generateButton" data-i18n-title="common.generatePrompt" data-i18n-aria-label="common.generatePrompt" title="Generate prompt" aria-label="Generate prompt" data-i18n="common.ai">AI</button>
+        <button class="icon-button" id="generateButton" data-i18n-title="common.generatePrompt" data-i18n-aria-label="common.generatePrompt" title="Generate prompt" aria-label="Generate prompt"><i class="ph ph-sparkle" aria-hidden="true"></i></button>
         <button class="icon-button" id="playButton" data-i18n-title="common.play" data-i18n-aria-label="common.play" title="Play" aria-label="Play"><i class="ph ph-play" aria-hidden="true"></i></button>
-        <button class="icon-button" id="inputButton" data-i18n-title="common.openTextPage" data-i18n-aria-label="common.openTextPage" title="Open text page" aria-label="Open text page"><i class="ph ph-note-pencil" aria-hidden="true"></i></button>
-        <button class="icon-button" id="settingsButton" data-i18n-title="common.openSettings" data-i18n-aria-label="common.openSettings" title="Open settings" aria-label="Open settings"><i class="ph ph-gear-six" aria-hidden="true"></i></button>
+        <button class="icon-button" id="inputButton" data-i18n-title="common.openTextPage" data-i18n-aria-label="common.openTextPage" title="Open text page" aria-label="Open text page"><i class="ph ph-article" aria-hidden="true"></i></button>
+        <button class="icon-button" id="settingsButton" data-i18n-title="common.openSettings" data-i18n-aria-label="common.openSettings" title="Open settings" aria-label="Open settings"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i></button>
         <button class="icon-button" id="closeAppButton" data-i18n-title="common.closeApp" data-i18n-aria-label="common.closeApp" title="Close app" aria-label="Close app"><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
 
       <div class="floating-controls hidden" id="floatingControls">
-        <button class="floating-action floating-pause" id="floatingPauseButton" data-i18n-title="common.pause" data-i18n-aria-label="common.pause" title="Pause" aria-label="Pause"><i class="ph ph-pause-circle" aria-hidden="true"></i></button>
-        <span class="floating-playback-meta hidden" id="floatingPlaybackMeta" aria-live="polite">0 left · 0 min left</span>
-        <button class="floating-action floating-stop" id="floatingStopButton" data-i18n-title="common.stopKeep" data-i18n-aria-label="common.stopKeep" title="Stop and keep position" aria-label="Stop and keep position"><i class="ph ph-stop-circle" aria-hidden="true"></i></button>
+        <button class="floating-action floating-pause" id="floatingPauseButton" data-i18n-title="common.pause" data-i18n-aria-label="common.pause" title="Pause" aria-label="Pause"><i class="ph ph-pause" aria-hidden="true"></i></button>
+        <span class="floating-playback-meta hidden" id="floatingPlaybackMeta" aria-live="polite">
+          <span class="floating-playback-meta-text" id="floatingPlaybackMetaText">0 left · 0 min left</span>
+        </span>
+        <button class="floating-action floating-stop" id="floatingStopButton" data-i18n-title="common.stopKeep" data-i18n-aria-label="common.stopKeep" title="Stop and keep position" aria-label="Stop and keep position"><i class="ph ph-stop" aria-hidden="true"></i></button>
         <button class="floating-action hidden" id="floatingReplayButton" data-i18n-title="common.replayStart" data-i18n-aria-label="common.replayStart" title="Replay from start" aria-label="Replay from start"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
       </div>
 
@@ -57,7 +60,7 @@
 
         <div class="drag-overlay hidden" id="dragOverlay">
           <div class="drag-handle" data-tauri-drag-region>
-            <i class="ph ph-dots-six drag-icon" aria-hidden="true"></i>
+            <i class="ph ph-arrows-out-cardinal drag-icon" aria-hidden="true"></i>
           </div>
         </div>
       </div>
@@ -71,7 +74,10 @@
               <span class="voice-command-indicator-dot" aria-hidden="true"></span>
             </span>
           </div>
-          <div class="footer-actions" style="display: flex; gap: 8px; align-items: center;">
+          <div class="footer-actions">
+            <span class="voice-command-indicator collapsed-voice-indicator hidden" id="collapsedVoiceIndicator" aria-label="Voice listening active" title="Voice listening active">
+              <span class="voice-command-indicator-dot" aria-hidden="true"></span>
+            </span>
             <button class="icon-button pin-button-active hidden" id="pinButton" data-i18n-title="common.unpinWindow" data-i18n-aria-label="common.unpinWindow" title="Unpin window" aria-label="Unpin window"><i class="ph ph-push-pin" aria-hidden="true"></i></button>
             <button class="collapse-toggle" id="collapseButton" data-i18n-title="common.collapse" data-i18n-aria-label="common.collapse" title="Collapse teleprompter" aria-label="Collapse teleprompter">
               <i class="ph ph-caret-down" aria-hidden="true"></i>
@@ -80,6 +86,14 @@
         </div>
       </div>
     </main>
+
+    <aside class="teleprompter-right-dock hidden" id="teleprompterRightDock" aria-label="Teleprompter Milestones">
+      <div class="right-dock-slot hidden" id="scriptCompletionCardSlot"></div>
+    </aside>
+
+    <aside class="teleprompter-bottom-dock hidden" id="teleprompterBottomDock" aria-label="Teleprompter Script Manager">
+      <div class="bottom-dock-slot hidden" id="scriptManagerCardSlot"></div>
+    </aside>
 
     <div class="remote-inbox" id="remoteInbox" aria-live="polite" aria-label="Remote message inbox"></div>
   </body>

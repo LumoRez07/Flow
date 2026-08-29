@@ -43,3 +43,6 @@ winreg = "0.52"
 [target.'cfg(unix)'.dependencies]
 tauri-plugin-single-instance = "2"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = { version = "5", default-features = false, features = ["tokio", "blocking-api"] }
+

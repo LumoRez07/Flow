@@ -2147,7 +2147,7 @@ async function bootFlowApp() {
 
     applyStoredWindowSettings().catch(console.error);
 
-    if (!(await resolveMicrosoftStoreBuild())) {
+    if (!(await resolveMicrosoftStoreBuild()) && (await autoUpdater.resolveInAppUpdaterAvailability())) {
       startAutomaticUpdater();
     }
 

@@ -20,10 +20,10 @@
   <body data-page="settings">
     <main class="page-shell settings-shell">
       <section class="panel-card settings-panel">
-        <div class="page-header">
-          <div>
-            <p class="page-kicker" data-i18n="settings.kicker">Settings</p>
-            <h1 data-i18n="settings.title">Live controls</h1>
+        <div class="page-header" data-tauri-drag-region>
+          <div data-tauri-drag-region>
+            <p class="page-kicker" data-i18n="settings.kicker" data-tauri-drag-region>Settings</p>
+            <h1 data-i18n="settings.title" data-tauri-drag-region>Live controls</h1>
           </div>
           <div class="page-actions">
             <button class="mini-link" id="openTextButton" type="button"><span class="button-label-content"><i class="ph ph-note-pencil" aria-hidden="true"></i><span data-i18n="common.text">Text</span></span></button>
@@ -831,6 +831,7 @@
               </span>
               <input id="clickthroughShortcutInput" class="toggle-input" type="checkbox" />
             </label>
+            <p class="helper-text hidden" id="globalShortcutsUnavailableHint" data-i18n="settings.globalShortcutsUnavailable">Global shortcuts aren't available in this session. Bind a desktop shortcut to `flow --toggle-clickthrough` instead.</p>
 
             <div class="shortcut-list" aria-label="Keyboard shortcut overview">
               <div class="shortcut-row">
@@ -889,13 +890,14 @@
             <input id="performanceModeInput" class="toggle-input" type="checkbox" />
           </label>
 
-          <label class="toggle-field" for="hideFromCaptureInput">
+          <label class="toggle-field" for="hideFromCaptureInput" id="hideFromCaptureField">
             <span>
               <span class="field-label inline-label" data-i18n="settings.hideFromCapture">Invisible in screen capture</span>
               <span class="helper-text toggle-help" data-i18n="settings.hideFromCaptureHelp">Keeps Flow out of screenshots and screen recordings on supported Windows systems.</span>
             </span>
             <input id="hideFromCaptureInput" class="toggle-input" type="checkbox" />
           </label>
+          <p class="helper-text hidden" id="hideFromCaptureUnavailableHint" data-i18n="settings.hideFromCaptureUnavailable">Not available on Linux.</p>
 
           <label class="toggle-field" for="useSystemTrayInput">
             <span>
@@ -924,7 +926,7 @@
           <div class="settings-subgroup">
             <div class="settings-subgroup-header">
               <h3 class="settings-subgroup-title" data-i18n="settings.updaterChannelTitle">Installed build</h3>
-              <div class="page-actions">
+              <div class="page-actions" id="updaterCheckActions">
                 <button class="secondary-action compact-action" id="updaterCheckButton" type="button" data-i18n="settings.updaterCheckAction">Check and update</button>
               </div>
             </div>
@@ -952,10 +954,12 @@
               </div>
             </div>
 
-            <div class="remote-status-line">
+            <div class="remote-status-line" id="updaterStatusLine">
               <span class="status-pill" id="updaterStatusBadge" data-i18n="settings.updaterStatusIdle">Ready</span>
               <span class="helper-text remote-status-text" id="updaterStatusText" data-i18n="settings.updaterIdle">Check Flow's signed release feed for a newer build.</span>
             </div>
+
+            <p class="helper-text hidden" id="updaterPackageManagerHint" data-i18n="settings.updaterPackageManagerHint">This build was installed through your system's package manager. Use it to check for and install updates.</p>
 
             <div class="voice-model-progress hidden" id="updaterProgress" aria-live="polite">
               <div class="voice-model-progress-bar" aria-hidden="true">

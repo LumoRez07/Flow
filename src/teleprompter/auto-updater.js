@@ -9,6 +9,7 @@
  */
 
 import { AUTO_UPDATE_CHECK_INTERVAL_MS } from "./playback-constants.js";
+import { getPlatformCapabilities } from "../core/platform.js";
 
 export function createAutoUpdater({
   invoke = window.__TAURI__?.core?.invoke,
@@ -18,6 +19,10 @@ export function createAutoUpdater({
 } = {}) {
   let isMicrosoftStoreBuild = null;
   let microsoftStoreBuildPromise = null;
+  // Assume available until resolved, matching core/platform.js's fail-open
+  // default (see get_platform_capabilities in src-tauri/src/lib.rs).
+  let isInAppUpdaterAvailable = true;
+  let inAppUpdaterAvailabilityPromise = null;
   let autoUpdateCheckTimer = null;
   let isAutoUpdateChecking = false;
   let isAutoUpdateInstalling = false;
@@ -25,7 +30,29 @@ export function createAutoUpdater({
   let totalBytesDownloaded = 0;
 
   function getAutoUpdaterAvailable() {
-    return !isMicrosoftStoreBuild && Boolean(invoke && tauriCore?.Channel);
+    return !isMicrosoftStoreBuild && isInAppUpdaterAvailable && Boolean(invoke && tauriCore?.Channel);
+  }
+
+  async function resolveInAppUpdaterAvailability() {
+    if (inAppUpdaterAvailabilityPromise) {
+      return inAppUpdaterAvailabilityPromise;
+    }
+
+    inAppUpdaterAvailabilityPromise = getPlatformCapabilities()
+      .then((capabilities) => {
+        isInAppUpdaterAvailable = Boolean(capabilities.inAppUpdater);
+        return isInAppUpdaterAvailable;
+      })
+      .catch((error) => {
+        console.warn("Failed to resolve in-app updater availability, assuming available", error);
+        isInAppUpdaterAvailable = true;
+        return isInAppUpdaterAvailable;
+      })
+      .finally(() => {
+        inAppUpdaterAvailabilityPromise = null;
+      });
+
+    return inAppUpdaterAvailabilityPromise;
   }
 
   async function resolveMicrosoftStoreBuild() {
@@ -92,6 +119,8 @@ export function createAutoUpdater({
 
   async function runAutomaticUpdateCheck(options = {}) {
     const { announceNoUpdate = false, announceErrors = false } = options;
+
+    await resolveInAppUpdaterAvailability();
 
     if (!getAutoUpdaterAvailable() || isAutoUpdateChecking || isAutoUpdateInstalling) {
       return null;
@@ -160,6 +189,7 @@ export function createAutoUpdater({
   return {
     getAutoUpdaterAvailable,
     resolveMicrosoftStoreBuild,
+    resolveInAppUpdaterAvailability,
     runAutomaticUpdateCheck,
     startAutomaticUpdater,
     stopAutomaticUpdater

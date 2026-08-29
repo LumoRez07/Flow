@@ -56,6 +56,7 @@ import {
   VOICE_LANGUAGE_OPTIONS
 } from "./shared.js";
 import { getProModule } from "./core/pro-loader.js";
+import { getPlatformCapabilities } from "./core/platform.js";
 import {
   MIN_WIDTH,
   MIN_HEIGHT,
@@ -194,9 +195,12 @@ const ui = {
   themeSelect: document.querySelector("#themeSelect"),
   performanceModeInput: document.querySelector("#performanceModeInput"),
   hideFromCaptureInput: document.querySelector("#hideFromCaptureInput"),
+  hideFromCaptureField: document.querySelector("#hideFromCaptureField"),
+  hideFromCaptureUnavailableHint: document.querySelector("#hideFromCaptureUnavailableHint"),
   useSystemTrayInput: document.querySelector("#useSystemTrayInput"),
   preventSleepInput: document.querySelector("#preventSleepInput"),
   clickthroughShortcutInput: document.querySelector("#clickthroughShortcutInput"),
+  globalShortcutsUnavailableHint: document.querySelector("#globalShortcutsUnavailableHint"),
   textColorInput: document.querySelector("#textColorInput"),
   textOpacityInput: document.querySelector("#textOpacityInput"),
   textOpacityValue: document.querySelector("#textOpacityValue"),
@@ -233,6 +237,9 @@ const ui = {
   updaterProgressStats: document.querySelector("#updaterProgressStats"),
   updaterReleaseNotes: document.querySelector("#updaterReleaseNotes"),
   updaterCheckButton: document.querySelector("#updaterCheckButton"),
+  updaterCheckActions: document.querySelector("#updaterCheckActions"),
+  updaterStatusLine: document.querySelector("#updaterStatusLine"),
+  updaterPackageManagerHint: document.querySelector("#updaterPackageManagerHint"),
   cloudRemoteFields: document.querySelector("#cloudRemoteFields"),
   remoteSessionId: document.querySelector("#remoteSessionId"),
   remoteAccessPasswordInput: document.querySelector("#remoteAccessPasswordInput"),
@@ -864,6 +871,19 @@ function formatPublishedDate(value) {
   }
 }
 
+
+async function applyPlatformCapabilitiesToSettingsUi() {
+  const capabilities = await getPlatformCapabilities();
+
+  ui.hideFromCaptureField?.classList.toggle("hidden", !capabilities.captureProtection);
+  ui.hideFromCaptureUnavailableHint?.classList.toggle("hidden", capabilities.captureProtection);
+
+  ui.globalShortcutsUnavailableHint?.classList.toggle("hidden", capabilities.globalShortcuts);
+
+  ui.updaterCheckActions?.classList.toggle("hidden", !capabilities.inAppUpdater);
+  ui.updaterStatusLine?.classList.toggle("hidden", !capabilities.inAppUpdater);
+  ui.updaterPackageManagerHint?.classList.toggle("hidden", capabilities.inAppUpdater);
+}
 
 async function syncUpdatesSettingsVisibility() {
   const isMicrosoftStoreBuild = await resolveMicrosoftStoreBuild();
@@ -3204,6 +3224,7 @@ async function bootSettingsPage() {
   (async () => {
     await resolveMicrosoftStoreBuild().catch(() => false);
     await syncUpdatesSettingsVisibility().catch(() => {});
+    await applyPlatformCapabilitiesToSettingsUi().catch(() => {});
     await configureSliderRanges().catch(() => {});
     await readCurrentWindow().catch(() => {});
 

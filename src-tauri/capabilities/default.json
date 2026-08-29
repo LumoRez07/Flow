@@ -8,6 +8,7 @@
     "opener:default",
     "updater:default",
     "core:window:allow-close",
+    "core:window:allow-start-dragging",
     "core:window:allow-set-position",
     "core:window:allow-set-size",
     "core:window:allow-current-monitor",

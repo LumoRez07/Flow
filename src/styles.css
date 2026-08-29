@@ -13,7 +13,7 @@
 @import "./pages/splash.css";
 
 :root {
-  font-family: var(--flow-ui-font-family, "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, sans-serif);
+  font-family: var(--flow-ui-font-family, "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, Inter, "Noto Sans", "DejaVu Sans", system-ui, sans-serif);
   --flow-app-opacity: 1;
   --flow-app-opacity-percent: 100%;
   --teleprompter-toolbar-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -26,7 +26,7 @@
   --remote-rail-gap: 12px;
   --remote-card-bg: #0f172a;
   --teleprompter-font-size: 56px;
-  --teleprompter-font-family: var(--flow-ui-font-family, "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, sans-serif);
+  --teleprompter-font-family: var(--flow-ui-font-family, "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, Inter, "Noto Sans", "DejaVu Sans", system-ui, sans-serif);
   --teleprompter-text-rgb: 248 251 255;
   --teleprompter-active-text: #f8fbff;
   --teleprompter-text-opacity: 0.88;
@@ -442,7 +442,7 @@ body {
 
 body {
   color: var(--theme-text);
-  font-family: var(--flow-ui-font-family, "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, sans-serif);
+  font-family: var(--flow-ui-font-family, "Segoe UI Variable Text", "Segoe UI", "Arial Nova", Arial, Inter, "Noto Sans", "DejaVu Sans", system-ui, sans-serif);
   isolation: isolate;
 }
 
@@ -5735,7 +5735,7 @@ body[data-ui-direction="rtl"] .voice-commands-help-list {
   min-width: 0;
   height: 36px;
   padding: 0 8px;
-  font-family: var(--teleprompter-font-mono, "JetBrains Mono", Consolas, monospace);
+  font-family: var(--teleprompter-font-mono, "JetBrains Mono", Consolas, "Fira Code", "DejaVu Sans Mono", monospace);
   font-size: 0.84rem;
   font-weight: 600;
   letter-spacing: 0.04em;

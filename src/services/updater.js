@@ -8,12 +8,20 @@
  * (at your option) any later version.
  */
 
+import { getPlatformCapabilities } from "../core/platform.js";
+
 const tauriApp = window.__TAURI__?.app;
 const tauriCore = window.__TAURI__?.core;
 const invoke = tauriCore?.invoke;
 
 export let isMicrosoftStoreBuild = null;
 let microsoftStoreBuildPromise = null;
+
+// Assume available until resolved (matches core/platform.js's fail-open
+// default): only distro packages that aren't AppImage set this to false,
+// see get_platform_capabilities in src-tauri/src/lib.rs.
+export let isInAppUpdaterAvailable = true;
+let inAppUpdaterAvailabilityPromise = null;
 
 export let updaterState = {
   update: null,
@@ -48,11 +56,33 @@ export function setUpdaterState(nextState = {}) {
 }
 
 export function getUpdaterCheckAvailable() {
-  return !isMicrosoftStoreBuild && Boolean(invoke);
+  return !isMicrosoftStoreBuild && isInAppUpdaterAvailable && Boolean(invoke);
 }
 
 export function getUpdaterInstallAvailable() {
-  return !isMicrosoftStoreBuild && Boolean(invoke && tauriCore?.Channel);
+  return !isMicrosoftStoreBuild && isInAppUpdaterAvailable && Boolean(invoke && tauriCore?.Channel);
+}
+
+export async function resolveInAppUpdaterAvailability() {
+  if (inAppUpdaterAvailabilityPromise) {
+    return inAppUpdaterAvailabilityPromise;
+  }
+
+  inAppUpdaterAvailabilityPromise = getPlatformCapabilities()
+    .then((capabilities) => {
+      isInAppUpdaterAvailable = Boolean(capabilities.inAppUpdater);
+      return isInAppUpdaterAvailable;
+    })
+    .catch((error) => {
+      console.warn("Failed to resolve in-app updater availability, assuming available", error);
+      isInAppUpdaterAvailable = true;
+      return isInAppUpdaterAvailable;
+    })
+    .finally(() => {
+      inAppUpdaterAvailabilityPromise = null;
+    });
+
+  return inAppUpdaterAvailabilityPromise;
 }
 
 export async function resolveMicrosoftStoreBuild() {
@@ -141,6 +171,7 @@ function handleUpdaterDownloadEvent(event) {
 export async function checkForAppUpdates(options = {}) {
   const { silentNoUpdate = false, installIfAvailable = false } = options;
   const storeBuild = await resolveMicrosoftStoreBuild();
+  await resolveInAppUpdaterAvailability();
   await ensureCurrentAppVersion();
 
   if (storeBuild || !getUpdaterCheckAvailable() || !invoke) {

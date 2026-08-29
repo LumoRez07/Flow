@@ -12,7 +12,7 @@
 mod linux;
 
 #[cfg(target_os = "linux")]
-pub use linux::session_type;
+pub use linux::{session_type, set_sleep_prevention, show_startup_error_dialog};
 
 #[cfg(not(target_os = "linux"))]
 pub fn session_type() -> String {

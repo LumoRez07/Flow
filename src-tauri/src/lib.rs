@@ -1136,7 +1136,12 @@ fn set_sleep_prevention(enabled: bool) {
     let _ = unsafe { SetThreadExecutionState(flags) };
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+fn set_sleep_prevention(enabled: bool) {
+    platform::set_sleep_prevention(enabled);
+}
+
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn set_sleep_prevention(_enabled: bool) {}
 
 fn load_dev_tray_icon() -> tauri::Result<Image<'static>> {
@@ -1168,7 +1173,12 @@ fn show_startup_error_dialog(message: &str) {
     };
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
+fn show_startup_error_dialog(message: &str) {
+    platform::show_startup_error_dialog(message);
+}
+
+#[cfg(all(not(windows), not(target_os = "linux")))]
 fn show_startup_error_dialog(_message: &str) {}
 
 #[cfg(windows)]
@@ -1267,6 +1277,24 @@ fn ensure_webview2_runtime_available() -> bool {
     true
 }
 
+#[cfg(target_os = "linux")]
+fn format_startup_error_message(error: &tauri::Error) -> String {
+    format!(
+        concat!(
+            "Flow could not start the desktop runtime.\n\n",
+            "Common causes on Linux:\n",
+            "- The WebKitGTK runtime (webkit2gtk-4.1) is missing or too old.\n",
+            "- A GPU/driver DMA-BUF rendering issue is blocking the embedded webview \n",
+            "  (try relaunching with WEBKIT_DISABLE_DMABUF_RENDERER=1).\n",
+            "- The user profile or app data location (~/.local/share) is unavailable.\n\n",
+            "Install webkit2gtk-4.1 via your distribution's package manager, then try again.\n\n",
+            "Technical details:\n{}"
+        ),
+        error
+    )
+}
+
+#[cfg(not(target_os = "linux"))]
 fn format_startup_error_message(error: &tauri::Error) -> String {
     format!(
         concat!(
@@ -1950,6 +1978,72 @@ fn get_distribution_channel() -> String {
     option_env!("FLOW_DISTRIBUTION_CHANNEL")
         .unwrap_or("public")
         .to_string()
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PlatformCapabilities {
+    os: &'static str,
+    session: String,
+    capture_protection: bool,
+    global_shortcuts: bool,
+    always_on_top: bool,
+    window_positioning: bool,
+    in_app_updater: bool,
+    package_source: String,
+}
+
+#[cfg(target_os = "linux")]
+fn platform_session_type() -> String {
+    platform::session_type()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn platform_session_type() -> String {
+    "unknown".to_string()
+}
+
+#[cfg(target_os = "linux")]
+fn platform_package_source() -> String {
+    option_env!("FLOW_LINUX_PACKAGE")
+        .unwrap_or("unknown")
+        .to_string()
+}
+
+#[cfg(not(target_os = "linux"))]
+fn platform_package_source() -> String {
+    "unknown".to_string()
+}
+
+#[tauri::command]
+fn get_platform_capabilities() -> PlatformCapabilities {
+    let session = platform_session_type();
+    let package_source = platform_package_source();
+
+    // On Linux, always-on-top / absolute positioning / global shortcuts all
+    // rely on the same thing: an X11 server tao/global-hotkey can talk to.
+    // That's present under X11 and under XWayland, but not under native
+    // Wayland (see plan.md E2 and Task 3.6's verification).
+    let has_x11_window_management = cfg!(target_os = "linux").then(|| session == "x11").unwrap_or(true);
+
+    PlatformCapabilities {
+        os: if cfg!(target_os = "windows") {
+            "windows"
+        } else if cfg!(target_os = "linux") {
+            "linux"
+        } else if cfg!(target_os = "macos") {
+            "macos"
+        } else {
+            "unknown"
+        },
+        session,
+        capture_protection: cfg!(windows),
+        global_shortcuts: has_x11_window_management,
+        always_on_top: has_x11_window_management,
+        window_positioning: has_x11_window_management,
+        in_app_updater: cfg!(windows) || package_source == "appimage",
+        package_source,
+    }
 }
 
 #[tauri::command]
@@ -2875,6 +2969,7 @@ pub fn run() {
             save_persisted_app_state,
             save_persisted_voice_model_registry,
             get_distribution_channel,
+            get_platform_capabilities,
             fetch_updater_feed_metadata,
             list_voice_models,
             get_voice_model_status,

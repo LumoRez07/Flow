@@ -18,6 +18,8 @@ license=('GPL-3.0-or-later')
 depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'alsa-lib' 'vosk-api' 'hicolor-icon-theme'
          'gtk-update-icon-cache' 'desktop-file-utils')
 makedepends=('rust' 'cargo' 'nodejs' 'npm' 'pkgconf')
+provides=('flow-teleprompter-bin')
+conflicts=('flow-teleprompter-bin')
 options=('!lto')
 install="$pkgname.install"
 source=("$pkgname-$pkgver.tar.gz::https://github.com/LumoRez07/Flow/archive/refs/tags/v$pkgver.tar.gz")

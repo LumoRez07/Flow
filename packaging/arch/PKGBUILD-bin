@@ -1,0 +1,59 @@
+# Maintainer: Emanuel Halbwachs <emanuelhalbwachs@gmail.com>
+#
+# Flow - A high-performance teleprompter for Windows.
+# Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Binary counterpart to flow-teleprompter (packaging/arch/PKGBUILD): skips
+# compiling from source and instead installs a prebuilt release binary.
+# Desktop file / icons / metainfo / license are still pulled from the
+# lightweight source tag tarball rather than duplicated into the binary
+# release asset.
+#
+# NOTE: the second source entry's filename/URL must match whatever the
+# Linux release workflow (plan/01-SONNET-TASKS.md Phase 6.3, not yet
+# implemented) actually publishes as a release asset. Update it here once
+# that workflow exists and its real asset name is known.
+
+pkgname=flow-teleprompter-bin
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="A modern desktop teleprompter for smooth reading, quick editing, voice controls, and remote message injection (prebuilt binary)"
+arch=('x86_64')
+url="https://github.com/LumoRez07/Flow"
+license=('GPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'alsa-lib' 'vosk-api' 'hicolor-icon-theme'
+         'gtk-update-icon-cache' 'desktop-file-utils')
+provides=('flow-teleprompter')
+conflicts=('flow-teleprompter')
+options=('!strip')
+install="flow-teleprompter.install"
+source=("flow-src-$pkgver.tar.gz::https://github.com/LumoRez07/Flow/archive/refs/tags/v$pkgver.tar.gz"
+        "flow-linux-$CARCH-$pkgver.tar.gz::https://github.com/LumoRez07/Flow/releases/download/v$pkgver/flow-linux-$CARCH.tar.gz")
+# TODO: replace with real checksums once v$pkgver is tagged/released
+# upstream (this Linux port has not been released yet — see
+# plan/01-SONNET-TASKS.md Phase 7.3 "Upstream-PR").
+sha256sums=('SKIP'
+            'SKIP')
+
+package() {
+  install -Dm755 "flow-linux-$CARCH/flow" "$pkgdir/usr/lib/flow/flow"
+  install -Dm755 "Flow-$pkgver/packaging/linux/flow-launcher.sh" "$pkgdir/usr/bin/flow"
+
+  install -Dm644 "Flow-$pkgver/packaging/linux/app.flowteleprompter.Flow.desktop" \
+    "$pkgdir/usr/share/applications/app.flowteleprompter.Flow.desktop"
+  install -Dm644 "Flow-$pkgver/packaging/linux/app.flowteleprompter.Flow.metainfo.xml" \
+    "$pkgdir/usr/share/metainfo/app.flowteleprompter.Flow.metainfo.xml"
+
+  for size in 32x32 64x64 128x128 256x256 512x512; do
+    install -Dm644 "Flow-$pkgver/packaging/linux/icons/hicolor/$size/apps/app.flowteleprompter.Flow.png" \
+      "$pkgdir/usr/share/icons/hicolor/$size/apps/app.flowteleprompter.Flow.png"
+  done
+
+  install -Dm644 "Flow-$pkgver/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

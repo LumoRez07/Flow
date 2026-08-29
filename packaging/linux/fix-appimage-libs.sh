@@ -28,7 +28,17 @@
 # fall through to the host's own (correct, matching) copies instead.
 #
 # Usage: fix-appimage-libs.sh <path/to/flow_*.AppImage>
-# Rewrites the given AppImage in place.
+# Rewrites the given AppImage in place. Run from the repository root (needs
+# `npx tauri` on PATH via package.json) if a pre-existing <file>.sig should
+# be re-signed after repacking -- see below.
+#
+# Repacking changes the AppImage's bytes, which invalidates any updater
+# signature (<file>.sig) generated for the original file before this script
+# ran. If TAURI_SIGNING_PRIVATE_KEY is set and a stale .sig is found next to
+# the input file, this script re-signs the repacked file so the two stay
+# consistent. Found by hand while testing Phase 6.4's update flow: the
+# updater's signature verification failed until the .sig was regenerated to
+# match the post-fix file.
 
 set -euo pipefail
 
@@ -38,6 +48,7 @@ if [[ $# -ne 1 ]]; then
 fi
 
 APPIMAGE_PATH="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+INVOKED_FROM_DIR="$(pwd)"
 
 # Libraries that must come from the host system, never be bundled: Wayland/
 # X11/XCB client protocol libraries and their EGL glue. libxkbcommon is
@@ -95,3 +106,16 @@ fi
 mv "${REBUILT}" "${APPIMAGE_PATH}"
 chmod +x "${APPIMAGE_PATH}"
 echo "Fixed AppImage written to ${APPIMAGE_PATH}"
+
+SIG_PATH="${APPIMAGE_PATH}.sig"
+if [[ -f "${SIG_PATH}" ]]; then
+    if [[ -n "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+        echo "Re-signing repacked AppImage (existing .sig is now stale)..."
+        (cd "${INVOKED_FROM_DIR}" && npx tauri signer sign "${APPIMAGE_PATH}")
+    else
+        echo "WARNING: ${SIG_PATH} exists but TAURI_SIGNING_PRIVATE_KEY is not set;" >&2
+        echo "it is now stale and will fail update verification. Re-run with the" >&2
+        echo "signing key available, or delete it if this build isn't meant to be signed." >&2
+        exit 1
+    fi
+fi

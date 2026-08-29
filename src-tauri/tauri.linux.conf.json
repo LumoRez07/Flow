@@ -4,6 +4,16 @@
     "targets": ["appimage", "deb", "rpm"],
     "createUpdaterArtifacts": false,
     "linux": {
+      "appimage": {
+        "files": {
+          "/usr/share/icons/hicolor/32x32/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/32x32/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/64x64/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/64x64/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/128x128/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/128x128/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/256x256/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/256x256/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/512x512/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/512x512/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/metainfo/app.flowteleprompter.Flow.metainfo.xml": "../packaging/linux/app.flowteleprompter.Flow.metainfo.xml"
+        }
+      },
       "deb": {
         "depends": [
           "libwebkit2gtk-4.1-0",

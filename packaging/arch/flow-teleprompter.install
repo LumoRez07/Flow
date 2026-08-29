@@ -11,10 +11,17 @@
 # application package adds into the already-installed shared "hicolor"
 # theme. Without this, the icon cache stays stale and app launchers/menus
 # fall back to a generic icon until something else happens to rebuild it.
+# Confirmed by hand on a KDE Plasma system: after a plain `pacman -U`, the
+# app menu kept showing a generic icon until kbuildsycoca6 (KDE's own
+# service/desktop-file cache, separate from the GTK icon cache) was rebuilt
+# too. kbuildsycoca6 is guarded with `command -v` since it comes from KDE
+# Frameworks (kservice) and must not become a hard dependency for users on
+# GNOME/XFCE/etc.
 
 post_install() {
   gtk-update-icon-cache -q -t -f usr/share/icons/hicolor &>/dev/null || true
   update-desktop-database -q &>/dev/null || true
+  command -v kbuildsycoca6 &>/dev/null && kbuildsycoca6 --noincremental &>/dev/null || true
 }
 
 post_upgrade() {

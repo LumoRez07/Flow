@@ -43,6 +43,7 @@ use uuid::Uuid;
 use vosk::{set_log_level, LogLevel};
 use zip::ZipArchive;
 
+mod platform;
 mod voice_engine;
 
 #[cfg(windows)]
@@ -1374,7 +1375,16 @@ fn ensure_window(
 
     if label == "remote-inbox" {
         if let Some(main) = app.get_webview_window("main") {
-            builder = builder.owner(&main)?;
+            // `owner()` is Windows-only in Tauri; `parent()` is the cross-platform
+            // equivalent (GTK `set_transient_for` on Linux, child window on macOS).
+            #[cfg(windows)]
+            {
+                builder = builder.owner(&main)?;
+            }
+            #[cfg(not(windows))]
+            {
+                builder = builder.parent(&main)?;
+            }
         }
     }
 
@@ -1692,6 +1702,29 @@ fn toggle_clickthrough_impl(
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     set_clickthrough_impl(app, desktop, !current)
+}
+
+/// Lets a user on native Wayland (where global hotkeys can't be grabbed by
+/// the app itself, see `platform::session_type`) bind desktop-environment
+/// shortcuts to launching `flow --toggle-clickthrough` / `--show` / `--hide`.
+/// The single-instance plugin forwards the second invocation's argv here
+/// instead of starting a second app instance.
+#[cfg(unix)]
+fn handle_secondary_instance_cli_args(app: &tauri::AppHandle, argv: &[String]) {
+    let Some(desktop) = app.try_state::<DesktopState>() else {
+        return;
+    };
+
+    for arg in argv.iter().skip(1) {
+        match arg.as_str() {
+            "--toggle-clickthrough" => {
+                let _ = toggle_clickthrough_impl(app, &desktop);
+            }
+            "--show" => show_main_window(app),
+            "--hide" => hide_main_window_impl(app),
+            _ => {}
+        }
+    }
 }
 
 #[tauri::command]
@@ -2802,7 +2835,16 @@ pub fn run() {
     let voice_model_downloads = VoiceModelDownloads::default();
     let voice_engine_state = voice_engine::VoiceEngineState::default();
 
-    let result = tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(unix)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            handle_secondary_instance_cli_args(app, &argv);
+        }));
+    }
+
+    let result = builder
         .manage(relay.clone())
         .manage(desktop_state)
         .manage(voice_model_downloads)

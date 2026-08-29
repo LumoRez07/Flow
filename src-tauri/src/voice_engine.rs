@@ -275,12 +275,75 @@ pub(crate) fn list_input_devices() -> Result<Vec<VoiceInputDeviceInfo>, String> 
         .input_devices()
         .map_err(|error| format!("Failed to enumerate microphones: {error}"))?;
 
-    Ok(devices
+    #[allow(unused_mut)]
+    let mut devices: Vec<VoiceInputDeviceInfo> = devices
         .filter_map(|device| {
             let label = device.name().unwrap_or_default().trim().to_string();
             (!label.is_empty()).then_some(VoiceInputDeviceInfo { label })
         })
-        .collect())
+        .collect();
+
+    #[cfg(target_os = "linux")]
+    {
+        devices.retain(|device| is_selectable_linux_input_device(&device.label));
+        devices.sort_by(|a, b| linux_input_device_sort_key(&a.label).cmp(&linux_input_device_sort_key(&b.label)));
+    }
+
+    Ok(devices)
+}
+
+/// ALSA enumerates every PCM name a card's plugin chain defines, not just the
+/// ones that make sense for microphone capture. On a typical Linux desktop
+/// (verified against a live PipeWire-routed ALSA stack) this includes
+/// resampler/plugin building blocks (`speexrate`, `lavrate`, `jack`, `upmix`,
+/// ...) and output-routing topology variants (`front:`, `surroundNN:`,
+/// `iec958:`) that were never meant to be picked directly as an input device.
+/// This filters those out so the Settings UI shows a short, meaningful list.
+#[cfg(target_os = "linux")]
+const ALSA_NON_DEVICE_PLUGIN_NAMES: &[&str] = &[
+    "lavrate",
+    "samplerate",
+    "speexrate",
+    "speex",
+    "jack",
+    "upmix",
+    "vdownmix",
+];
+
+#[cfg(target_os = "linux")]
+fn is_selectable_linux_input_device(label: &str) -> bool {
+    if ALSA_NON_DEVICE_PLUGIN_NAMES.contains(&label) {
+        return false;
+    }
+
+    let is_output_topology_variant = label.starts_with("front:")
+        || label.starts_with("surround")
+        || label.starts_with("iec958:");
+
+    !is_output_topology_variant
+}
+
+/// Ranks the common cross-desktop virtual devices first (in the order a user
+/// is most likely to want them), then per-card `sysdefault:CARD=...` entries,
+/// then anything else (e.g. raw `hw:`/`plughw:` devices on setups without a
+/// sound server) last.
+#[cfg(target_os = "linux")]
+const ALSA_PREFERRED_DEVICE_ORDER: &[&str] = &["default", "pipewire", "pulse"];
+
+#[cfg(target_os = "linux")]
+fn linux_input_device_sort_key(label: &str) -> (u8, String) {
+    if let Some(position) = ALSA_PREFERRED_DEVICE_ORDER
+        .iter()
+        .position(|preferred| *preferred == label)
+    {
+        return (0, format!("{position}"));
+    }
+
+    if label.starts_with("sysdefault:") {
+        return (1, label.to_lowercase());
+    }
+
+    (2, label.to_lowercase())
 }
 
 impl VoiceEngine {
@@ -1230,3 +1293,4 @@ fn emit_stream_error(app: &AppHandle, error: String) {
 fn emit_native_voice_event(app: &AppHandle, payload: NativeVoiceEvent) {
     let _ = app.emit(NATIVE_VOICE_EVENT, payload);
 }
+

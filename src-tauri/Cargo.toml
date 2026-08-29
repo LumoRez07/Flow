@@ -32,11 +32,14 @@ tauri-plugin-prevent-default = "4"
 tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "time"] }
 uuid = { version = "1", features = ["serde", "v4"] }
 vosk = "0.3.1"
-windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Power", "Win32_UI_WindowsAndMessaging"] }
 futures-util = "0.3"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 
 [target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Power", "Win32_UI_WindowsAndMessaging"] }
 winreg = "0.52"
+
+[target.'cfg(unix)'.dependencies]
+tauri-plugin-single-instance = "2"
 

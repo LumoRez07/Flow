@@ -60,10 +60,14 @@ fn panic_message(payload: Box<dyn Any + Send>) -> String {
 }
 
 fn stage_vosk_runtime() -> Result<(), String> {
-    if env::var("CARGO_CFG_TARGET_OS").ok().as_deref() != Some("windows") {
-        return Ok(());
+    match env::var("CARGO_CFG_TARGET_OS").ok().as_deref() {
+        Some("windows") => stage_vosk_windows(),
+        Some("linux") => stage_vosk_linux(),
+        _ => Ok(()),
     }
+}
 
+fn stage_vosk_windows() -> Result<(), String> {
     let runtime_dir =
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").map_err(|error| error.to_string())?)
             .join("resources")
@@ -107,6 +111,102 @@ fn stage_vosk_runtime() -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn stage_vosk_linux() -> Result<(), String> {
+    let manifest_dir =
+        PathBuf::from(env::var("CARGO_MANIFEST_DIR").map_err(|error| error.to_string())?);
+    let vendored_dir = manifest_dir.join("resources").join("vosk").join("linux-x64");
+    let vendored_lib = vendored_dir.join("libvosk.so");
+
+    println!("cargo:rerun-if-env-changed=FLOW_VOSK_LIB_DIR");
+    println!("cargo:rerun-if-changed={}", vendored_dir.display());
+
+    // Resolution order: explicit override, then a vendored copy (AppImage/deb/rpm
+    // packaging), then whatever the system linker can already find (the Arch path,
+    // where `vosk-api` installs libvosk.so into /usr/lib).
+    if let Ok(override_dir) = env::var("FLOW_VOSK_LIB_DIR") {
+        let override_path = PathBuf::from(&override_dir);
+        let override_lib = override_path.join("libvosk.so");
+
+        if !override_lib.is_file() {
+            return Err(format!(
+                "FLOW_VOSK_LIB_DIR is set to '{}' but no libvosk.so was found there.\n\
+                 Install the Vosk API runtime (e.g. `sudo pacman -S vosk-api` on Arch \
+                 Linux) or point FLOW_VOSK_LIB_DIR at a directory containing libvosk.so.",
+                override_path.display()
+            ));
+        }
+
+        emit_vosk_link_directives(&override_path);
+        return Ok(());
+    }
+
+    if vendored_lib.is_file() {
+        emit_vosk_link_directives(&vendored_dir);
+
+        let profile_dir = resolve_profile_dir()?;
+        fs::create_dir_all(&profile_dir).map_err(|error| error.to_string())?;
+        let destination = profile_dir.join("libvosk.so");
+        copy_if_changed(&vendored_lib, &destination)?;
+
+        return Ok(());
+    }
+
+    if let Some(system_dir) = find_system_vosk_lib_dir() {
+        emit_vosk_link_directives(&system_dir);
+        return Ok(());
+    }
+
+    Err(
+        "Could not find libvosk.so for the Linux build.\n\
+         Install the Vosk API runtime, e.g. `sudo pacman -S vosk-api` on Arch Linux,\n\
+         or place a vendored copy at src-tauri/resources/vosk/linux-x64/libvosk.so\n\
+         (see packaging/linux/fetch-vosk.sh), or set FLOW_VOSK_LIB_DIR to a directory\n\
+         containing libvosk.so."
+            .to_string(),
+    )
+}
+
+fn emit_vosk_link_directives(dir: &Path) {
+    println!("cargo:rustc-link-search=native={}", dir.display());
+    println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN");
+    println!("cargo:rustc-link-arg=-Wl,-rpath,$ORIGIN/../lib/flow");
+}
+
+fn find_system_vosk_lib_dir() -> Option<PathBuf> {
+    let output = process::Command::new("ldconfig").arg("-p").output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    stdout.lines().find_map(|line| {
+        let line = line.trim();
+        if !line.starts_with("libvosk.so") {
+            return None;
+        }
+
+        let resolved_path = line.rsplit("=> ").next()?.trim();
+        PathBuf::from(resolved_path)
+            .parent()
+            .map(Path::to_path_buf)
+    })
+}
+
+fn copy_if_changed(source: &Path, destination: &Path) -> Result<(), String> {
+    if destination.is_file() {
+        let source_metadata = fs::metadata(source).map_err(|error| error.to_string())?;
+        let destination_metadata = fs::metadata(destination).map_err(|error| error.to_string())?;
+
+        if source_metadata.len() == destination_metadata.len() {
+            return Ok(());
+        }
+    }
+
+    fs::copy(source, destination)
+        .map(|_| ())
+        .map_err(|error| error.to_string())
 }
 
 fn stage_runtime_file(source: &Path, destination: &Path) -> Result<(), String> {

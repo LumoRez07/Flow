@@ -13,6 +13,7 @@ dist-ssr
 *.local
 src-tauri/target/
 src-tauri/gen/
+src-tauri/resources/vosk/linux-x64/*.so
 tools/
 tmp/
 src/pro

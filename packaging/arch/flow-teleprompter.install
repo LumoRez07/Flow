@@ -1,0 +1,26 @@
+# Flow - A high-performance teleprompter for Windows.
+# Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pacman's built-in gtk-update-icon-cache hook only fires when a whole new
+# top-level icon theme directory appears; it does not cover files an
+# application package adds into the already-installed shared "hicolor"
+# theme. Without this, the icon cache stays stale and app launchers/menus
+# fall back to a generic icon until something else happens to rebuild it.
+
+post_install() {
+  gtk-update-icon-cache -q -t -f usr/share/icons/hicolor &>/dev/null || true
+  update-desktop-database -q &>/dev/null || true
+}
+
+post_upgrade() {
+  post_install
+}
+
+post_remove() {
+  post_install
+}

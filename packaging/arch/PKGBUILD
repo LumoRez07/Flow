@@ -15,9 +15,11 @@ pkgdesc="A modern desktop teleprompter for smooth reading, quick editing, voice 
 arch=('x86_64')
 url="https://github.com/LumoRez07/Flow"
 license=('GPL-3.0-or-later')
-depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'alsa-lib' 'vosk-api' 'hicolor-icon-theme')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'alsa-lib' 'vosk-api' 'hicolor-icon-theme'
+         'gtk-update-icon-cache' 'desktop-file-utils')
 makedepends=('rust' 'cargo' 'nodejs' 'npm' 'pkgconf')
 options=('!lto')
+install="$pkgname.install"
 source=("$pkgname-$pkgver.tar.gz::https://github.com/LumoRez07/Flow/archive/refs/tags/v$pkgver.tar.gz")
 # TODO: replace with the real checksum once v$pkgver is tagged upstream and
 # the tarball above actually exists (this Linux port has not been released

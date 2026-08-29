@@ -1561,15 +1561,22 @@ fn exit_app(app: &tauri::AppHandle) {
 }
 
 fn center_aux_window_on_active_monitor(window: &WebviewWindow, anchor: &WebviewWindow) {
-    if let Ok(Some(monitor)) = anchor.current_monitor() {
-        if let Ok(window_size) = window.outer_size() {
-            let monitor_pos = monitor.position();
-            let monitor_size = monitor.size();
-            let x = monitor_pos.x + ((monitor_size.width as i32 - window_size.width as i32) / 2).max(0);
-            let y = monitor_pos.y + ((monitor_size.height as i32 - window_size.height as i32) / 2).max(0);
-            let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
-            return;
-        }
+    // Center over the anchor window's own bounds rather than querying monitor
+    // geometry. On X11/XWayland with multiple monitors of differing
+    // resolutions, `Window::current_monitor()` has been observed to report
+    // stale/incorrect geometry, which places the aux window off in an
+    // unrelated corner of the desktop instead of centering it. Anchoring to
+    // the main window's outer position/size avoids monitor enumeration
+    // entirely and is also more intuitive (dialog-style centering).
+    if let (Ok(anchor_pos), Ok(anchor_size), Ok(window_size)) = (
+        anchor.outer_position(),
+        anchor.outer_size(),
+        window.outer_size(),
+    ) {
+        let x = anchor_pos.x + (anchor_size.width as i32 - window_size.width as i32) / 2;
+        let y = anchor_pos.y + (anchor_size.height as i32 - window_size.height as i32) / 2;
+        let _ = window.set_position(tauri::Position::Physical(tauri::PhysicalPosition { x, y }));
+        return;
     }
     let _ = window.center();
 }

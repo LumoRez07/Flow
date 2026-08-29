@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Flow - A high-performance teleprompter for Windows.
+  Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+-->
+<component type="desktop-application">
+  <id>app.flowteleprompter.Flow</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Flow</name>
+  <summary>A modern desktop teleprompter for smooth reading and voice-controlled scripts</summary>
+  <launchable type="desktop-id">flow.desktop</launchable>
+  <url type="homepage">https://flowteleprompter.vercel.app/</url>
+  <url type="bugtracker">https://github.com/LumoRez07/Flow/issues</url>
+  <url type="vcs-browser">https://github.com/LumoRez07/Flow</url>
+  <developer id="io.github.lumorez07">
+    <name>LumoRez</name>
+  </developer>
+  <description>
+    <p>
+      Flow is a teleprompter app built with web technologies and Tauri. It's
+      designed to be simple, lightweight, and customizable.
+    </p>
+    <p>
+      Flow includes script editing, multiple playback modes, voice tracking,
+      AI-assisted drafting, remote message injection, and tray controls, made
+      for creators, educators, students, and everyone who wants to read off
+      their screen while looking at the camera.
+    </p>
+  </description>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Utility</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="2.0.0" date="2026-08-29">
+      <description>
+        <p>Native Linux build of Flow, alongside the existing Windows release.</p>
+      </description>
+    </release>
+  </releases>
+</component>

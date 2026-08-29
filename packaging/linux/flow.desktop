@@ -1,0 +1,19 @@
+# Flow - A high-performance teleprompter for Windows.
+# Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+[Desktop Entry]
+Type=Application
+Name=Flow
+GenericName=Teleprompter
+Comment=A modern desktop teleprompter for smooth reading, quick editing, voice controls, and remote message injection
+Exec=flow %U
+Icon=flow
+Terminal=false
+Categories=AudioVideo;Utility;
+StartupWMClass=flow
+StartupNotify=true

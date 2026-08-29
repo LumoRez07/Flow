@@ -63,8 +63,8 @@ package() {
     "$pkgdir/usr/share/metainfo/app.flowteleprompter.Flow.metainfo.xml"
 
   for size in 32x32 64x64 128x128 256x256 512x512; do
-    install -Dm644 "packaging/linux/icons/hicolor/$size/apps/flow.png" \
-      "$pkgdir/usr/share/icons/hicolor/$size/apps/flow.png"
+    install -Dm644 "packaging/linux/icons/hicolor/$size/apps/flow-teleprompter.png" \
+      "$pkgdir/usr/share/icons/hicolor/$size/apps/flow-teleprompter.png"
   done
 
   install -Dm644 "LICENSE" \

@@ -1,0 +1,70 @@
+# Maintainer: Emanuel Halbwachs <emanuelhalbwachs@gmail.com>
+#
+# Flow - A high-performance teleprompter for Windows.
+# Copyright (C) 2026 Waled Alturkmani (LumoRez07)
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+pkgname=flow-teleprompter
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="A modern desktop teleprompter for smooth reading, quick editing, voice controls, and remote message injection"
+arch=('x86_64')
+url="https://github.com/LumoRez07/Flow"
+license=('GPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'alsa-lib' 'vosk-api' 'hicolor-icon-theme')
+makedepends=('rust' 'cargo' 'nodejs' 'npm' 'pkgconf')
+options=('!lto')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/LumoRez07/Flow/archive/refs/tags/v$pkgver.tar.gz")
+# TODO: replace with the real checksum once v$pkgver is tagged upstream and
+# the tarball above actually exists (this Linux port has not been released
+# yet — see plan/01-SONNET-TASKS.md Phase 7.3 "Upstream-PR").
+sha256sums=('SKIP')
+
+build() {
+  cd "Flow-$pkgver"
+
+  export FLOW_LINUX_PACKAGE=pacman
+  export CARGO_HOME="$srcdir/cargo-home"
+
+  # tauri-build automatically merges tauri.linux.conf.json into every Linux
+  # build (not just `tauri build`), and its `bundle.resources` entry requires
+  # resources/vosk/linux-x64/libvosk.so to exist on disk at build time even
+  # though this package depends on the system vosk-api package at runtime.
+  # Stage the system lib into the vendored path instead of vendoring/
+  # downloading a redundant copy — the `vosk-api` depends entry already
+  # guarantees it exists.
+  local system_libvosk
+  system_libvosk="$(ldconfig -p | awk '/libvosk\.so/ { print $NF; exit }')"
+  if [[ -z "$system_libvosk" ]]; then
+    echo "libvosk.so not found via ldconfig; is vosk-api installed?" >&2
+    return 1
+  fi
+  install -Dm644 "$system_libvosk" "src-tauri/resources/vosk/linux-x64/libvosk.so"
+
+  npm ci --no-audit --no-fund
+  cargo build --release --manifest-path=src-tauri/Cargo.toml
+}
+
+package() {
+  cd "Flow-$pkgver"
+
+  install -Dm755 "src-tauri/target/release/flow" "$pkgdir/usr/lib/flow/flow"
+  install -Dm755 "packaging/linux/flow-launcher.sh" "$pkgdir/usr/bin/flow"
+
+  install -Dm644 "packaging/linux/flow.desktop" \
+    "$pkgdir/usr/share/applications/flow.desktop"
+  install -Dm644 "packaging/linux/app.flowteleprompter.Flow.metainfo.xml" \
+    "$pkgdir/usr/share/metainfo/app.flowteleprompter.Flow.metainfo.xml"
+
+  for size in 32x32 64x64 128x128 256x256 512x512; do
+    install -Dm644 "packaging/linux/icons/hicolor/$size/apps/flow.png" \
+      "$pkgdir/usr/share/icons/hicolor/$size/apps/flow.png"
+  done
+
+  install -Dm644 "LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

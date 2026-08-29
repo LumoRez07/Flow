@@ -57,14 +57,14 @@ package() {
   install -Dm755 "src-tauri/target/release/flow" "$pkgdir/usr/lib/flow/flow"
   install -Dm755 "packaging/linux/flow-launcher.sh" "$pkgdir/usr/bin/flow"
 
-  install -Dm644 "packaging/linux/flow.desktop" \
-    "$pkgdir/usr/share/applications/flow.desktop"
+  install -Dm644 "packaging/linux/app.flowteleprompter.Flow.desktop" \
+    "$pkgdir/usr/share/applications/app.flowteleprompter.Flow.desktop"
   install -Dm644 "packaging/linux/app.flowteleprompter.Flow.metainfo.xml" \
     "$pkgdir/usr/share/metainfo/app.flowteleprompter.Flow.metainfo.xml"
 
   for size in 32x32 64x64 128x128 256x256 512x512; do
-    install -Dm644 "packaging/linux/icons/hicolor/$size/apps/flow-teleprompter.png" \
-      "$pkgdir/usr/share/icons/hicolor/$size/apps/flow-teleprompter.png"
+    install -Dm644 "packaging/linux/icons/hicolor/$size/apps/app.flowteleprompter.Flow.png" \
+      "$pkgdir/usr/share/icons/hicolor/$size/apps/app.flowteleprompter.Flow.png"
   done
 
   install -Dm644 "LICENSE" \

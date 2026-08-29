@@ -14,7 +14,7 @@
   <project_license>GPL-3.0-or-later</project_license>
   <name>Flow</name>
   <summary>A modern desktop teleprompter for smooth reading and voice-controlled scripts</summary>
-  <launchable type="desktop-id">flow.desktop</launchable>
+  <launchable type="desktop-id">app.flowteleprompter.Flow.desktop</launchable>
   <url type="homepage">https://flowteleprompter.vercel.app/</url>
   <url type="bugtracker">https://github.com/LumoRez07/Flow/issues</url>
   <url type="vcs-browser">https://github.com/LumoRez07/Flow</url>

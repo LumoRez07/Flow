@@ -10,7 +10,17 @@
           "libgtk-3-0",
           "libayatana-appindicator3-1",
           "libasound2t64"
-        ]
+        ],
+        "desktopTemplate": "../packaging/linux/app.flowteleprompter.Flow.desktop",
+        "files": {
+          "/usr/lib/flow/libvosk.so": "resources/vosk/linux-x64/libvosk.so",
+          "/usr/share/icons/hicolor/32x32/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/32x32/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/64x64/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/64x64/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/128x128/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/128x128/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/256x256/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/256x256/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/512x512/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/512x512/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/metainfo/app.flowteleprompter.Flow.metainfo.xml": "../packaging/linux/app.flowteleprompter.Flow.metainfo.xml"
+        }
       },
       "rpm": {
         "depends": [
@@ -18,7 +28,17 @@
           "gtk3",
           "libayatana-appindicator-gtk3",
           "alsa-lib"
-        ]
+        ],
+        "desktopTemplate": "../packaging/linux/app.flowteleprompter.Flow.desktop",
+        "files": {
+          "/usr/lib/flow/libvosk.so": "resources/vosk/linux-x64/libvosk.so",
+          "/usr/share/icons/hicolor/32x32/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/32x32/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/64x64/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/64x64/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/128x128/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/128x128/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/256x256/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/256x256/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/icons/hicolor/512x512/apps/app.flowteleprompter.Flow.png": "../packaging/linux/icons/hicolor/512x512/apps/app.flowteleprompter.Flow.png",
+          "/usr/share/metainfo/app.flowteleprompter.Flow.metainfo.xml": "../packaging/linux/app.flowteleprompter.Flow.metainfo.xml"
+        }
       }
     },
     "resources": {

@@ -38,6 +38,7 @@
     <img src="https://img.shields.io/sourceforge/dm/flowteleprompter.svg?style=flat-square" alt="SourceForge İndirmeleri" />
   </a>
   <img src="https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/platform-Linux%20(community)-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux (community port)" />
   <img src="https://img.shields.io/badge/altyap%C4%B1-Rust%20%2B%20Tauri%20v2-FFC131?style=flat-square&logo=tauri&logoColor=black" alt="Tauri + Rust" />
   <img src="https://img.shields.io/badge/lisans-GPLv3-22c55e?style=flat-square" alt="GPLv3 Lisansı" />
 </p>
@@ -206,6 +207,21 @@ npm run tauri build
 - `latest.json`
 
 `.sig` dosyası referans için MSI ile birlikte oluşturulurken, `latest.json` uygulama tarafından tüketilen güncelleyici akışıdır.
+
+---
+
+## Linux (community port)
+
+Flow also builds natively on Linux, as an AppImage, `.deb`, `.rpm`, or an Arch `PKGBUILD`. This is a community-maintained port; Windows remains the primary, officially supported platform. See [BUILDING-LINUX.md](BUILDING-LINUX.md) for prerequisites and build instructions — there is no official pre-built binary release yet, so building from source (or grabbing an artifact from the [Linux CI workflow](.github/workflows/build-linux.yml)) is currently required.
+
+Honest limitations compared to Windows:
+
+| Feature | Linux |
+| --- | --- |
+| Screen-capture protection | Not available — the underlying API is Windows-only, with no X11/Wayland equivalent. |
+| Wayland | Runs via XWayland by default (always-on-top, absolute positioning, and global hotkeys need it); native Wayland is opt-in but breaks those three. |
+| Remote Control | Works, but needs a one-time manual firewall exception for TCP port 43127 (most Linux desktops default-deny inbound connections, unlike Windows' first-launch prompt). |
+| In-app auto-update | Works for the AppImage; `.deb`/`.rpm`/`PKGBUILD` installs update through your distro's package manager instead. |
 
 ---
 

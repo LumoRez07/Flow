@@ -38,6 +38,7 @@
     <img src="https://img.shields.io/sourceforge/dm/flowteleprompter.svg?style=flat-square" alt="SourceForge Downloads" />
   </a>
   <img src="https://img.shields.io/badge/Plattform-Windows%2010%20%7C%2011-0078D6?style=flat-square&logo=windows&logoColor=white" alt="Windows" />
+  <img src="https://img.shields.io/badge/Plattform-Linux%20(Community)-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux (Community-Portierung)" />
   <img src="https://img.shields.io/badge/Backend-Rust%20%2B%20Tauri%20v2-FFC131?style=flat-square&logo=tauri&logoColor=black" alt="Tauri + Rust" />
   <img src="https://img.shields.io/badge/Lizenz-GPLv3-22c55e?style=flat-square" alt="GPLv3-Lizenz" />
 </p>
@@ -206,6 +207,21 @@ Veröffentliche diese Dateien aus `src-tauri/target/release/bundle` im GitHub-Re
 - `latest.json`
 
 Die `.sig`-Datei wird zusammen mit der MSI zur Referenz generiert, während `latest.json` der vom Programm genutzte Updater-Feed ist.
+
+---
+
+## Linux (Community-Portierung)
+
+Flow lässt sich auch nativ unter Linux bauen — als AppImage, `.deb`, `.rpm` oder über ein Arch-`PKGBUILD`. Diese Portierung wird von der Community gepflegt; Windows bleibt die primäre, offiziell unterstützte Plattform. Voraussetzungen und Build-Anleitung stehen in [BUILDING-LINUX.md](BUILDING-LINUX.md) — ein offizielles, fertig gebautes Release gibt es noch nicht, daher ist aktuell ein Build aus dem Quellcode nötig (oder ein Artefakt aus dem [Linux-CI-Workflow](.github/workflows/build-linux.yml)).
+
+Ehrliche Übersicht der Einschränkungen gegenüber Windows:
+
+| Funktion | Linux |
+| --- | --- |
+| Schutz vor Bildschirmaufnahme | Nicht verfügbar — die zugrunde liegende API ist Windows-exklusiv, ein Äquivalent für X11/Wayland gibt es nicht. |
+| Wayland | Läuft standardmäßig über XWayland (Always-on-Top, absolute Fensterpositionierung und globale Hotkeys benötigen es); natives Wayland ist optional aktivierbar, bricht dabei aber genau diese drei Funktionen. |
+| Fernsteuerung (Remote Control) | Funktioniert, benötigt aber einmalig eine manuelle Firewall-Freigabe für TCP-Port 43127 (die meisten Linux-Desktops blockieren eingehende Verbindungen standardmäßig, anders als der Erstlaunch-Dialog unter Windows). |
+| Automatisches In-App-Update | Funktioniert bei der AppImage; `.deb`/`.rpm`/`PKGBUILD`-Installationen werden stattdessen über den Paketmanager der Distribution aktualisiert. |
 
 ---
 
